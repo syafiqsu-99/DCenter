@@ -1,0 +1,7 @@
+<Solution>
+  <Project Path="dcenter.client/dcenter.client.esproj">
+    <Build />
+    <Deploy />
+  </Project>
+  <Project Path="DCenter.Server/DCenter.Server.csproj" />
+</Solution>
