@@ -1,47 +1,37 @@
 <script setup>
-import HelloWorld from './components/HelloWorld.vue'
-import TheWelcome from './components/TheWelcome.vue'
+import { ref } from 'vue';
+
+const drawer = ref(true);
+const links = [
+  { title: 'Weld Reports', to: '/', icon: 'mdi-file-document-edit-outline' },
+  { title: 'Welders', to: '/welders', icon: 'mdi-account-hard-hat' },
+  { title: 'Dropdown Lists', to: '/lookups', icon: 'mdi-format-list-bulleted' },
+];
 </script>
 
 <template>
-  <header>
-    <img alt="Vue logo" class="logo" src="./assets/logo.svg" width="125" height="125" />
+  <v-app>
+    <v-app-bar color="primary" flat>
+      <v-app-bar-nav-icon @click="drawer = !drawer" />
+      <v-app-bar-title>Weld Report System</v-app-bar-title>
+    </v-app-bar>
 
-    <div class="wrapper">
-      <HelloWorld msg="You did it!" />
-    </div>
-  </header>
+    <v-navigation-drawer v-model="drawer">
+      <v-list nav>
+        <v-list-item
+          v-for="l in links"
+          :key="l.to"
+          :to="l.to"
+          :prepend-icon="l.icon"
+          :title="l.title"
+        />
+      </v-list>
+    </v-navigation-drawer>
 
-  <main>
-    <TheWelcome />
-  </main>
+    <v-main>
+      <v-container fluid>
+        <router-view />
+      </v-container>
+    </v-main>
+  </v-app>
 </template>
-
-<style scoped>
-header {
-  line-height: 1.5;
-}
-
-.logo {
-  display: block;
-  margin: 0 auto 2rem;
-}
-
-@media (min-width: 1024px) {
-  header {
-    display: flex;
-    place-items: center;
-    padding-right: calc(var(--section-gap) / 2);
-  }
-
-  .logo {
-    margin: 0 2rem 0 0;
-  }
-
-  header .wrapper {
-    display: flex;
-    place-items: flex-start;
-    flex-wrap: wrap;
-  }
-}
-</style>
