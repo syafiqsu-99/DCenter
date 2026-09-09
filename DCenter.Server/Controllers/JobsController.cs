@@ -8,6 +8,11 @@ namespace DCenter.Server.Controllers;
 [Route("api/[controller]")]
 public class JobsController(JobSearchService jobs) : ControllerBase
 {
+    // GET /api/jobs/top -> top 1000 rows for the browse table (unfiltered).
+    [HttpGet("top")]
+    public async Task<ActionResult<List<JobRow>>> Top(CancellationToken ct)
+        => Ok(await jobs.TopAsync(ct));
+
     // GET /api/jobs/search?jobNumber=47762415
     // Returns the matching rows. distinctJobCount lets the client decide whether to
     // show the confirm button (exactly one distinct job number).

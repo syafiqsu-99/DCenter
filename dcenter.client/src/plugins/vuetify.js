@@ -4,8 +4,6 @@ import { createVuetify } from 'vuetify';
 import * as components from 'vuetify/components';
 import * as directives from 'vuetify/directives';
 
-// Register vuetify components and directives explicitly so components like
-// v-app-bar, v-app-bar-title, v-app-bar-nav-icon are available.
 export default createVuetify({
   components,
   directives,

@@ -16,9 +16,8 @@ public class WeldersController(WeldReportContext db) : ControllerBase
             .Select(w => new WelderDto(w.Id, w.WelderName, w.WelderNo, w.IsActive))
             .ToListAsync(ct));
 
-    // Both-direction autocomplete: matches either name or number.
     [HttpGet("search")]
-    public async Task<ActionResult<List<WelderDto>>> Search([FromQuery] string q, CancellationToken ct)
+    public async Task<ActionResult<List<WelderDto>>> Search([FromQuery] string? q, CancellationToken ct)
     {
         q = (q ?? string.Empty).Trim();
         var query = db.Welders.Where(w => w.IsActive);

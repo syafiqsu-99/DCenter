@@ -1,20 +1,3 @@
-<script setup>
-import { storeToRefs } from 'pinia';
-import { useReportStore } from '@/store/reportStore';
-
-const store = useReportStore();
-const { rows, resolvedJob, rowCount, canConfirm, loading } = storeToRefs(store);
-
-const headers = [
-  { title: 'Job Number', key: 'jobNumber' },
-  { title: 'Assembly Item', key: 'assemblyItem' },
-  { title: 'Item Desc', key: 'itemDesc' },
-  { title: 'Qty', key: 'qty' },
-  { title: 'Child Part', key: 'childPart' },
-  { title: 'Component Desc', key: 'componentDesc' },
-];
-</script>
-
 <template>
   <v-card flat border>
     <v-card-title class="d-flex align-center">
@@ -37,3 +20,20 @@ const headers = [
     <v-data-table :headers="headers" :items="rows" density="comfortable" />
   </v-card>
 </template>
+
+<script setup>
+  import { storeToRefs } from 'pinia';
+  import { useReportStore } from '@/store/reportStore';
+
+  const store = useReportStore();
+  const { rows, resolvedJob, rowCount, canConfirm, loading } = storeToRefs(store);
+
+  const headers = [
+      { title: 'Job Number', key: 'jobNumber' },
+      { title: 'Assembly Item', key: 'assemblyItem' },
+      { title: 'Item Desc', key: 'itemDesc' },
+      { title: 'Qty', key: 'qty' },
+      { title: 'Child Part', key: 'childPart' },
+      { title: 'Component Desc', key: 'componentDesc' },
+  ];
+</script>

@@ -5,7 +5,6 @@ using QuestPDF.Infrastructure;
 
 namespace DCenter.Server.Services;
 
-// Renders the on-screen PDF (Image 1: "WELD SHOP JOB REPORT").
 public class PdfReportService
 {
     private static readonly string LogoPath =

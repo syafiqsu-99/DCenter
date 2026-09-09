@@ -1,6 +1,5 @@
 namespace DCenter.Server.Models;
 
-// One row per child part of a job, from the source work-order DB.
 public class JobRow
 {
     public string JobNumber { get; set; } = string.Empty;

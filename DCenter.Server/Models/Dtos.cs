@@ -64,3 +64,13 @@ public class JointMaterialDto
     public string? Manuf { get; set; }
     public string? HeatLot { get; set; }
 }
+
+// Row in the saved-reports list under the job table.
+public record ReportSummary(
+    int Id,
+    string JobNumber,
+    string? PartNo,
+    string? Description,
+    int JointCount,
+    string Status,
+    DateTime UpdatedAt);

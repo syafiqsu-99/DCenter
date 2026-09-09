@@ -10,7 +10,6 @@ export const useLookupStore = defineStore('lookup', {
   }),
 
   getters: {
-    // Category -> array of active values, for the JointForm comboboxes.
     options: (s) => {
       const map = Object.fromEntries(CATEGORIES.map((c) => [c, []]));
       for (const l of s.all) {

@@ -1,6 +1,5 @@
 namespace DCenter.Server.Models;
 
-// Keyless representation of the source Work_Order_Detail table (read-only)
 public class WorkOrderDetail
 {
     public string WoNumber { get; set; } = string.Empty;

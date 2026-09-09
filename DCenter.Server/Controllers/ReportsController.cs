@@ -11,6 +11,11 @@ public class ReportsController(
     PdfReportService pdf,
     ExcelReportService excel) : ControllerBase
 {
+    // List all saved reports for the table under the job browser.
+    [HttpGet]
+    public async Task<ActionResult<List<ReportSummary>>> List(CancellationToken ct)
+        => Ok(await reports.ListAsync(ct));
+
     // Load existing draft for a job number (null-ish -> 204 so client can start fresh).
     [HttpGet("{jobNumber}")]
     public async Task<ActionResult<ReportDto>> Get(string jobNumber, CancellationToken ct)
@@ -18,6 +23,11 @@ public class ReportsController(
         var dto = await reports.LoadAsync(jobNumber, ct);
         return dto is null ? NoContent() : Ok(dto);
     }
+
+    // Toggle completed status. POST body: true to complete, false to reopen.
+    [HttpPost("{jobNumber}/complete")]
+    public async Task<IActionResult> Complete(string jobNumber, [FromBody] bool complete, CancellationToken ct)
+        => await reports.MarkCompleteAsync(jobNumber, complete, ct) ? NoContent() : NotFound();
 
     [HttpPost]
     public async Task<ActionResult<ReportDto>> Save(ReportDto dto, CancellationToken ct)

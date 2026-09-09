@@ -29,6 +29,7 @@ public class Report
 
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
+    public DateTime? CompletedAt { get; set; }
 
     public List<Joint> Joints { get; set; } = [];
 }
@@ -65,7 +66,7 @@ public class JointMaterial
     public int JointId { get; set; }
     public Joint Joint { get; set; } = null!;
 
-    public int ColumnNumber { get; set; } // 1..3
+    public int ColumnNumber { get; set; }
     public string? Process { get; set; }
     public string? Size { get; set; }
     public string? Type { get; set; }

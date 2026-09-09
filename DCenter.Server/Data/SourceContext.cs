@@ -3,20 +3,15 @@ using Microsoft.EntityFrameworkCore;
 
 namespace DCenter.Server.Data;
 
-// Read-only. Maps only the projection returned by the job-lookup query.
-// No migrations are ever generated for this context (external DB we do not own).
 public class SourceContext(DbContextOptions<SourceContext> options) : DbContext(options)
 {
-    // Projection used by callers
     public DbSet<JobRow> JobRows => Set<JobRow>();
 
-    // Source tables mapped for LINQ queries (keyless/read-only)
     public DbSet<WorkOrderDetail> WorkOrderDetails => Set<WorkOrderDetail>();
     public DbSet<BillOfMaterialOther> BillOfMaterialOthers => Set<BillOfMaterialOther>();
 
     protected override void OnModelCreating(ModelBuilder b)
     {
-        // Projection is keyless and not mapped to a DB view
         b.Entity<JobRow>().HasNoKey().ToView(null);
 
         b.Entity<WorkOrderDetail>(e =>
