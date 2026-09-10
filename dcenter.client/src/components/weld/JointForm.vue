@@ -6,12 +6,14 @@
       <tbody>
         <!-- Section headers -->
         <tr>
-          <td :style="labelCell + 'width:16%;'">Joining of</td>
-          <td :style="cell + 'width:18%;'"></td>
-          <td :style="labelCell + 'width:16%;'">with</td>
-          <td :style="cell + 'width:18%;'"></td>
-          <td :style="labelCell + 'width:16%;'">Electrode Data:</td>
-          <td :style="cell + 'width:16%;text-align:center;font-weight:bold;'"></td>
+          <td :style="labelCell + 'width:13%;text-align:right;'">Joining of</td>
+          <td :style="labelCell + 'width:20%;'"></td>
+          <td :style="labelCell + 'width:13%;text-align:right;'">with</td>
+          <td :style="labelCell + 'width:20%;'"></td>
+          <td :style="labelCell + 'width:13%;text-align:right;'">Electrode Data:</td>
+          <td :style="labelCell + 'width:7%;text-align:center;font-weight:bold;'"></td>
+          <td :style="labelCell + 'width:7%;text-align:center;font-weight:bold;'"></td>
+          <td :style="labelCell + 'width:7%;text-align:center;font-weight:bold;'"></td>
         </tr>
 
         <!-- Part Desc -->
@@ -30,11 +32,23 @@
               <option v-for="p in rightParts" :key="'rdr'+p.no" :value="p.desc">{{ p.desc }}</option>
             </select>
           </td>
-          <td :style="labelCell">Process</td>
+          <td :style="labelCell">Process :</td>
           <td :style="cell">
             <select v-model="joint.materials[0].process" :style="input">
               <option value=""></option>
               <option v-for="v in withCurrent('Process', joint.materials[0].process)" :key="v" :value="v">{{ v }}</option>
+            </select>
+          </td>
+          <td :style="cell">
+            <select v-model="joint.materials[1].process" :style="input">
+              <option value=""></option>
+              <option v-for="v in withCurrent('Process', joint.materials[1].process)" :key="v" :value="v">{{ v }}</option>
+            </select>
+          </td>
+          <td :style="cell">
+            <select v-model="joint.materials[2].process" :style="input">
+              <option value=""></option>
+              <option v-for="v in withCurrent('Process', joint.materials[2].process)" :key="v" :value="v">{{ v }}</option>
             </select>
           </td>
         </tr>
@@ -55,11 +69,23 @@
               <option v-for="p in rightParts" :key="'rnr'+p.no" :value="p.no">{{ p.no }}</option>
             </select>
           </td>
-          <td :style="labelCell">Size</td>
+          <td :style="labelCell">Size :</td>
           <td :style="cell">
             <select v-model="joint.materials[0].size" :style="input">
               <option value=""></option>
               <option v-for="v in withCurrent('Size', joint.materials[0].size)" :key="v" :value="v">{{ v }}</option>
+            </select>
+          </td>
+          <td :style="cell">
+            <select v-model="joint.materials[1].size" :style="input">
+              <option value=""></option>
+              <option v-for="v in withCurrent('Size', joint.materials[1].size)" :key="v" :value="v">{{ v }}</option>
+            </select>
+          </td>
+          <td :style="cell">
+            <select v-model="joint.materials[2].size" :style="input">
+              <option value=""></option>
+              <option v-for="v in withCurrent('Size', joint.materials[2].size)" :key="v" :value="v">{{ v }}</option>
             </select>
           </td>
         </tr>
@@ -70,11 +96,23 @@
           <td :style="cell"><input v-model="joint.heatNumberLeft" :style="input" /></td>
           <td :style="labelCell">Heat Number :</td>
           <td :style="cell"><input v-model="joint.heatNumberRight" :style="input" /></td>
-          <td :style="labelCell">Type</td>
+          <td :style="labelCell">Type :</td>
           <td :style="cell">
             <select v-model="joint.materials[0].type" :style="input">
               <option value=""></option>
               <option v-for="v in withCurrent('Type', joint.materials[0].type)" :key="v" :value="v">{{ v }}</option>
+            </select>
+          </td>
+          <td :style="cell">
+            <select v-model="joint.materials[1].type" :style="input">
+              <option value=""></option>
+              <option v-for="v in withCurrent('Type', joint.materials[1].type)" :key="v" :value="v">{{ v }}</option>
+            </select>
+          </td>
+          <td :style="cell">
+            <select v-model="joint.materials[2].type" :style="input">
+              <option value=""></option>
+              <option v-for="v in withCurrent('Type', joint.materials[2].type)" :key="v" :value="v">{{ v }}</option>
             </select>
           </td>
         </tr>
@@ -85,11 +123,23 @@
           <td :style="cell"><input v-model="joint.wpsNo" :style="input" /></td>
           <td :style="labelCell">Rev:</td>
           <td :style="cell"><input v-model="joint.rev" :style="input" /></td>
-          <td :style="labelCell">Manuf</td>
+          <td :style="labelCell">Manuf :</td>
           <td :style="cell">
             <select v-model="joint.materials[0].manuf" :style="input">
               <option value=""></option>
               <option v-for="v in withCurrent('Manuf', joint.materials[0].manuf)" :key="v" :value="v">{{ v }}</option>
+            </select>
+          </td>
+          <td :style="cell">
+            <select v-model="joint.materials[1].manuf" :style="input">
+              <option value=""></option>
+              <option v-for="v in withCurrent('Manuf', joint.materials[1].manuf)" :key="v" :value="v">{{ v }}</option>
+            </select>
+          </td>
+          <td :style="cell">
+            <select v-model="joint.materials[2].manuf" :style="input">
+              <option value=""></option>
+              <option v-for="v in withCurrent('Manuf', joint.materials[2].manuf)" :key="v" :value="v">{{ v }}</option>
             </select>
           </td>
         </tr>
@@ -100,12 +150,14 @@
           <td :style="cell">
             <input v-model="joint.welderName" list="welderNameList" :style="input" />
           </td>
-          <td :style="labelCell">Welder No</td>
+          <td :style="labelCell">Welder No :</td>
           <td :style="cell">
             <input v-model="joint.welderNo" list="welderNoList" :style="input" />
           </td>
-          <td :style="labelCell">Heat/Lot</td>
+          <td :style="labelCell">Heat/Lot :</td>
           <td :style="cell"><input v-model="joint.materials[0].heatLot" :style="input" /></td>
+          <td :style="cell"><input v-model="joint.materials[1].heatLot" :style="input" /></td>
+          <td :style="cell"><input v-model="joint.materials[2].heatLot" :style="input" /></td>
         </tr>
       </tbody>
     </table>
@@ -178,7 +230,7 @@
   watch(() => props.joint.welderNo, pickByNo);
 
   const cell = 'border:1px solid #000;padding:2px 4px;font-size:12px;vertical-align:middle;';
-  const labelCell = cell + 'font-weight:bold;white-space:nowrap;';
+  const labelCell = 'font-size:12px;vertical-align:middle;font-weight:bold;white-space:nowrap;';
   const input =
         'width:100%;border:none;outline:none;font-size:12px;font-weight:bold;background:transparent;';
 </script>

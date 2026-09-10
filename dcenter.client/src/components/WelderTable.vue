@@ -1,61 +1,3 @@
-<script setup>
-import { onMounted, ref } from 'vue';
-import api from '@/utils/api';
-
-const items = ref([]);
-const loading = ref(false);
-const dialog = ref(false);
-const editing = ref(null);
-
-const headers = [
-  { title: 'Welder Name', key: 'welderName' },
-  { title: 'Welder No.', key: 'welderNo' },
-  { title: 'Active', key: 'isActive' },
-  { title: '', key: 'actions', sortable: false, align: 'end' },
-];
-
-function blank() {
-  return { id: 0, welderName: '', welderNo: '', isActive: true };
-}
-
-async function load() {
-  loading.value = true;
-  try {
-    const { data } = await api.get('/welders');
-    items.value = data;
-  } finally {
-    loading.value = false;
-  }
-}
-
-function openNew() {
-  editing.value = blank();
-  dialog.value = true;
-}
-
-function openEdit(row) {
-  editing.value = { ...row };
-  dialog.value = true;
-}
-
-async function save() {
-  if (editing.value.id) {
-    await api.put(`/welders/${editing.value.id}`, editing.value);
-  } else {
-    await api.post('/welders', editing.value);
-  }
-  dialog.value = false;
-  await load();
-}
-
-async function remove(row) {
-  await api.delete(`/welders/${row.id}`);
-  await load();
-}
-
-onMounted(load);
-</script>
-
 <template>
   <v-card flat border>
     <v-card-title class="d-flex align-center">
@@ -93,3 +35,61 @@ onMounted(load);
     </v-dialog>
   </v-card>
 </template>
+
+<script setup>
+  import { onMounted, ref } from 'vue';
+  import api from '@/utils/api';
+
+  const items = ref([]);
+  const loading = ref(false);
+  const dialog = ref(false);
+  const editing = ref(null);
+
+  const headers = [
+      { title: 'Welder Name', key: 'welderName' },
+      { title: 'Welder No.', key: 'welderNo' },
+      { title: 'Active', key: 'isActive' },
+      { title: '', key: 'actions', sortable: false, align: 'end' },
+  ];
+
+  function blank() {
+      return { id: 0, welderName: '', welderNo: '', isActive: true };
+  }
+
+  async function load() {
+      loading.value = true;
+      try {
+        const { data } = await api.get('/welders');
+        items.value = data;
+      } finally {
+        loading.value = false;
+      }
+  }
+
+  function openNew() {
+      editing.value = blank();
+      dialog.value = true;
+  }
+
+  function openEdit(row) {
+      editing.value = { ...row };
+      dialog.value = true;
+  }
+
+  async function save() {
+      if (editing.value.id) {
+        await api.put(`/welders/${editing.value.id}`, editing.value);
+      } else {
+        await api.post('/welders', editing.value);
+      }
+      dialog.value = false;
+      await load();
+  }
+
+  async function remove(row) {
+      await api.delete(`/welders/${row.id}`);
+      await load();
+  }
+
+  onMounted(load);
+</script>

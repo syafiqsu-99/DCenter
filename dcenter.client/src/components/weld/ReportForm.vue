@@ -52,7 +52,7 @@
                   <td :style="labelCell + 'text-align:center;'">3</td>
                 </tr>
                 <tr>
-                  <td :style="labelCell + 'text-align:right;'">Material Spec:</td>
+                  <td :style="labelCell + 'text-align:right;'">Material:</td>
                   <td :style="cell"><input v-model="report.materialSpec1" :style="input" /></td>
                   <td :style="cell"><input v-model="report.materialSpec2" :style="input" /></td>
                   <td :style="cell"><input v-model="report.materialSpec3" :style="input" /></td>
@@ -94,7 +94,7 @@
   useLookupStore().load(true);
 
   const cell = 'border:1px solid #000;padding:2px 4px;font-size:12px;vertical-align:middle;';
-  const labelCell = cell + 'font-weight:bold;background:#fff;white-space:nowrap;';
+  const labelCell = 'font-weight:bold;background:#fff;white-space:nowrap;';
   const input =
         'width:100%;border:none;outline:none;font-size:12px;font-weight:bold;background:transparent;';
 </script>
