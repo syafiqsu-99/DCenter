@@ -1,8 +1,17 @@
 {
   "compilerOptions": {
+    "baseUrl": ".",
     "paths": {
-      "@/*": ["./src/*"]
-    }
+      "@/*": ["src/*"]
+    },
+    "allowJs": true,
+    "checkJs": false,
+    "jsx": "preserve"
   },
+  "include": [
+    "src/**/*",
+    "src/**/*.vue",
+    "index.html"
+  ],
   "exclude": ["node_modules", "dist"]
 }
