@@ -7,6 +7,7 @@ public class WeldReportContext(DbContextOptions<WeldReportContext> options) : Db
 {
     public DbSet<Welder> Welders => Set<Welder>();
     public DbSet<LookupItem> Lookups => Set<LookupItem>();
+    public DbSet<WpsItem> WpsItems => Set<WpsItem>();
     public DbSet<Report> Reports => Set<Report>();
     public DbSet<Joint> Joints => Set<Joint>();
     public DbSet<JointMaterial> JointMaterials => Set<JointMaterial>();
@@ -28,6 +29,15 @@ public class WeldReportContext(DbContextOptions<WeldReportContext> options) : Db
             e.Property(x => x.Category).HasMaxLength(50).IsRequired();
             e.Property(x => x.Value).HasMaxLength(200).IsRequired();
             e.HasIndex(x => new { x.Category, x.Value }).IsUnique();
+        });
+
+        b.Entity<WpsItem>(e =>
+        {
+            e.ToTable("wps_items");
+            e.Property(x => x.WpsNo).HasMaxLength(200).IsRequired();
+            e.Property(x => x.Rev).HasMaxLength(50);
+            e.Property(x => x.Description).HasMaxLength(400);
+            e.HasIndex(x => x.WpsNo).IsUnique();
         });
 
         b.Entity<Report>(e =>

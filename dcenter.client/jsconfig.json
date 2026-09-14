@@ -1,17 +1,25 @@
 {
+  "extends": "@vue/tsconfig/config/schemes/tsconfig.node.json",
   "compilerOptions": {
-    "baseUrl": ".",
-    "paths": {
-      "@/*": ["src/*"]
-    },
+    "target": "ESNext",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "strict": false,
     "allowJs": true,
     "checkJs": false,
-    "jsx": "preserve"
+    "noImplicitAny": false,
+    "jsx": "preserve",
+    "jsxImportSource": "vue",
+    "paths": {
+      "@/*": [ "./src/*" ]
+    },
+    "plugins": [
+      {
+        "name": "@vue/typescript-plugin",
+        "location": "node_modules/@vue/language-server",
+        "languages": [ "vue" ]
+      }
+    ]
   },
-  "include": [
-    "src/**/*",
-    "src/**/*.vue",
-    "index.html"
-  ],
-  "exclude": ["node_modules", "dist"]
+  "include": [ "src/**/*.js", "src/**/*.ts", "src/**/*.vue" ]
 }

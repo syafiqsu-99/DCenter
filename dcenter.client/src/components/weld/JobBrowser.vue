@@ -72,39 +72,39 @@
 </template>
 
 <script setup>
-  import { onMounted } from 'vue';
-  import { storeToRefs } from 'pinia';
-  import { useReportStore } from '@/store/reportStore';
+    import { onMounted } from 'vue';
+    import { storeToRefs } from 'pinia';
+    import { useReportStore } from '@/store/reportStore';
 
-  const store = useReportStore();
-  const { searchInput, filteredRows, canSelect, distinctJobs, loadingRows, loading,
-          savedReports, loadingSaved } = storeToRefs(store);
+    const store = useReportStore();
+    const { searchInput, filteredRows, canSelect, distinctJobs, loadingRows, loading,
+            savedReports, loadingSaved } = storeToRefs(store);
 
-  const headers = [
-        { title: 'Job Number',     key: 'jobNumber',     width: '5%' },
-        { title: 'Assembly Item',  key: 'assemblyItem',  width: '20%' },
-        { title: 'Item Desc',      key: 'itemDesc',      width: '30%' },
-        { title: 'Qty',            key: 'qty',           width: '5%' },
-        { title: 'Child Part',     key: 'childPart',     width: '10%' },
-        { title: 'Component Desc', key: 'componentDesc', width: '30%' },
-  ];
+    const headers = [
+          { title: 'Job Number',     key: 'jobNumber',     width: '5%' },
+          { title: 'Assembly Item',  key: 'assemblyItem',  width: '20%' },
+          { title: 'Item Desc',      key: 'itemDesc',      width: '30%' },
+          { title: 'Qty',            key: 'qty',           width: '5%' },
+          { title: 'Child Part',     key: 'childPart',     width: '10%' },
+          { title: 'Component Desc', key: 'componentDesc', width: '30%' },
+    ];
 
-  const savedHeaders = [
-        { title: 'Job Number',  key: 'jobNumber' },
-        { title: 'Part No.',    key: 'partNo' },
-        { title: 'Description', key: 'description' },
-        { title: 'Joints',      key: 'jointCount', align: 'center' },
-        { title: 'Status',      key: 'status' },
-        { title: 'Updated',     key: 'updatedAt' },
-        { title: '',            key: 'actions', sortable: false, align: 'end' },
-  ];
+    const savedHeaders = [
+          { title: 'Job Number',  key: 'jobNumber' },
+          { title: 'Part No.',    key: 'partNo' },
+          { title: 'Description', key: 'description' },
+          { title: 'Joints',      key: 'jointCount', align: 'center' },
+          { title: 'Status',      key: 'status' },
+          { title: 'Updated',     key: 'updatedAt' },
+          { title: '',            key: 'actions', sortable: false, align: 'end' },
+    ];
 
-  function fmt(iso) {
-        return iso ? new Date(iso).toLocaleString() : '';
-  }
+    function fmt(iso) {
+          return iso ? new Date(iso).toLocaleString() : '';
+    }
 
-  onMounted(() => {
-        if (!store.allRows.length) store.loadRows();
-        store.loadSavedReports();
-  });
+    onMounted(() => {
+          if (!store.allRows.length) store.loadRows().catch(() => {});
+          store.loadSavedReports().catch(() => {});
+    });
 </script>

@@ -23,7 +23,6 @@ function jointFromRow(index, row) {
   };
 }
 
-// Guarantee each joint carries all 3 material slots (saved drafts omit empty columns).
 function normalizeJoints(report) {
   for (const j of report.joints ?? []) {
     const byCol = new Map((j.materials ?? []).map((m) => [m.columnNumber, m]));
@@ -117,9 +116,10 @@ export const useReportStore = defineStore('report', {
       try {
         const { data } = await api.get('/jobs/top');
         this.allRows = data.map((r, i) => ({ ...r, _index: i }));
-      } catch {
+      } catch (e) {
         this.error = 'Could not load the job list.';
         this.allRows = [];
+        throw e;
       } finally {
         this.loadingRows = false;
       }
@@ -130,9 +130,10 @@ export const useReportStore = defineStore('report', {
       try {
         const { data } = await api.get('/reports');
         this.savedReports = data;
-      } catch {
+      } catch (e) {
         this.error = 'Could not load saved reports.';
         this.savedReports = [];
+        throw e;
       } finally {
         this.loadingSaved = false;
       }

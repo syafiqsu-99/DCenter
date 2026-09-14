@@ -1,9 +1,10 @@
 import { createRouter, createWebHistory } from 'vue-router';
+import Dashboard from '@/views/ReportView.vue'
+import Setting from '@/views/SettingsView.vue'
 
 const routes = [
-  { path: '/', name: 'reports', component: () => import('@/views/ReportView.vue') },
-  { path: '/welders', name: 'welders', component: () => import('@/views/WeldersView.vue') },
-  { path: '/lookups', name: 'lookups', component: () => import('@/views/LookupsView.vue') },
+  { path: '/', name: 'report', component: Dashboard },
+  { path: '/settings', name: 'settings', component: Setting },
 ];
 
 export default createRouter({

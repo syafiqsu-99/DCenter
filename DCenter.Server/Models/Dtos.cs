@@ -74,3 +74,6 @@ public record ReportSummary(
     int JointCount,
     string Status,
     DateTime UpdatedAt);
+// ---- WPS CRUD ----
+public record WpsDto(int Id, string WpsNo, string? Rev, string? Description, bool IsActive);
+public record WpsUpsert(string WpsNo, string? Rev, string? Description, bool IsActive);

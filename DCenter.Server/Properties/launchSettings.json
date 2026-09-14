@@ -18,10 +18,7 @@
       "applicationUrl": "https://localhost:7260;http://localhost:5031",
       "environmentVariables": {
         "ASPNETCORE_ENVIRONMENT": "Development",
-        "ASPNETCORE_HOSTINGSTARTUPASSEMBLIES": "Microsoft.AspNetCore.SpaProxy",
-        "ConnectionStrings__DefaultConnection": "Server=(localdb)\\mssqllocaldb;Database=DCenter;Trusted_Connection=True;MultipleActiveResultSets=true",
-        "ConnectionStrings__SourceConnection": "Data Source=MYNILASPMFGDB01;Database=OracleBetsyDB;User ID=FCV_NILAI_AUT;Password=Welcome123;MultipleActiveResultSets=False;Encrypt=True;TrustServerCertificate=True"
-      }
+        "ASPNETCORE_HOSTINGSTARTUPASSEMBLIES": "Microsoft.AspNetCore.SpaProxy"      }
     }
   }
 }

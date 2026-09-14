@@ -6,7 +6,7 @@
       <v-btn color="primary" prepend-icon="mdi-plus" @click="openNew">Add welder</v-btn>
     </v-card-title>
 
-    <v-data-table :headers="headers" :items="items" :loading="loading" density="comfortable">
+    <v-data-table-virtual :headers="headers" :items="items" :loading="loading" density="comfortable">
       <template #item.isActive="{ item }">
         <v-icon :color="item.isActive ? 'success' : 'grey'">
           {{ item.isActive ? 'mdi-check-circle' : 'mdi-circle-outline' }}
@@ -16,7 +16,7 @@
         <v-btn icon="mdi-pencil" variant="text" size="small" @click="openEdit(item)" />
         <v-btn icon="mdi-delete" variant="text" size="small" color="error" @click="remove(item)" />
       </template>
-    </v-data-table>
+    </v-data-table-virtual>
 
     <v-dialog v-model="dialog" max-width="420">
       <v-card>
