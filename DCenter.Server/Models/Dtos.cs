@@ -34,6 +34,8 @@ public class ReportDto
     public string? PNumber3 { get; set; }
     public string? EngineerSupervisor { get; set; }
     public string? QaInspector { get; set; }
+    public DateTime? CompletedAt { get; set; }
+    public string? RowVersion { get; set; }
     public List<JointDto> Joints { get; set; } = [];
 }
 
@@ -74,6 +76,9 @@ public record ReportSummary(
     int JointCount,
     string Status,
     DateTime UpdatedAt);
+
+// Complete/Reopen audit entry for a report.
+public record ReportStatusEventDto(string Action, DateTime OccurredAt);
 // ---- WPS CRUD ----
 public record WpsDto(int Id, string WpsNo, string? Rev, string? Description, bool IsActive);
 public record WpsUpsert(string WpsNo, string? Rev, string? Description, bool IsActive);

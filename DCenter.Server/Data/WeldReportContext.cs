@@ -11,6 +11,7 @@ public class WeldReportContext(DbContextOptions<WeldReportContext> options) : Db
     public DbSet<Report> Reports => Set<Report>();
     public DbSet<Joint> Joints => Set<Joint>();
     public DbSet<JointMaterial> JointMaterials => Set<JointMaterial>();
+    public DbSet<ReportStatusEvent> ReportStatusEvents => Set<ReportStatusEvent>();
 
     protected override void OnModelCreating(ModelBuilder b)
     {
@@ -45,10 +46,22 @@ public class WeldReportContext(DbContextOptions<WeldReportContext> options) : Db
             e.ToTable("reports");
             e.Property(x => x.JobNumber).HasMaxLength(100).IsRequired();
             e.HasIndex(x => x.JobNumber).IsUnique();
+            e.Property(x => x.RowVersion).IsRowVersion();
             e.HasMany(x => x.Joints)
              .WithOne(x => x.Report)
              .HasForeignKey(x => x.ReportId)
              .OnDelete(DeleteBehavior.Cascade);
+            e.HasMany(x => x.StatusEvents)
+             .WithOne(x => x.Report)
+             .HasForeignKey(x => x.ReportId)
+             .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        b.Entity<ReportStatusEvent>(e =>
+        {
+            e.ToTable("report_status_events");
+            e.Property(x => x.Action).HasMaxLength(50).IsRequired();
+            e.HasIndex(x => x.ReportId);
         });
 
         b.Entity<Joint>(e =>

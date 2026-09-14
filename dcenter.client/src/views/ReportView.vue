@@ -4,14 +4,8 @@
   <JobBrowser v-if="!confirmed" />
 
   <template v-else>
-    <v-btn variant="text"
-           prepend-icon="mdi-arrow-left"
-           class="mb-2"
-           @click="store.backToList()">
-      Back to list
-    </v-btn>
-    <ReportForm />
     <ReportActions />
+    <ReportForm />
   </template>
 </template>
 

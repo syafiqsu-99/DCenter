@@ -1,19 +1,14 @@
 namespace DCenter.Server.Entities;
 
-// One report per job number (editable draft). JobNumber is unique.
 public class Report
 {
     public int Id { get; set; }
     public string JobNumber { get; set; } = string.Empty;
-
-    // Header block (all free-text per requirements).
     public bool ReportRequired { get; set; } = true;
     public DateTime? DateWelded { get; set; }
     public string? WorkOrder { get; set; }
     public string? PartNo { get; set; }
     public string? Description { get; set; }
-
-    // Material spec columns 1..3 (hard max 3).
     public string? MaterialSpec1 { get; set; }
     public string? MaterialSpec2 { get; set; }
     public string? MaterialSpec3 { get; set; }
@@ -30,8 +25,10 @@ public class Report
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
     public DateTime? CompletedAt { get; set; }
+    public byte[] RowVersion { get; set; } = [];
 
     public List<Joint> Joints { get; set; } = [];
+    public List<ReportStatusEvent> StatusEvents { get; set; } = [];
 }
 
 public class Joint
@@ -41,12 +38,9 @@ public class Joint
     public Report Report { get; set; } = null!;
 
     public int JointNumber { get; set; }
-
-    // "Joining of" side
     public string? PartDescLeft { get; set; }
     public string? PartNoLeft { get; set; }
     public string? HeatNumberLeft { get; set; }
-    // "with" side
     public string? PartDescRight { get; set; }
     public string? PartNoRight { get; set; }
     public string? HeatNumberRight { get; set; }
@@ -72,4 +66,15 @@ public class JointMaterial
     public string? Type { get; set; }
     public string? Manuf { get; set; }
     public string? HeatLot { get; set; }
+}
+
+// Audit trail entry for Complete / Reopen transitions.
+public class ReportStatusEvent
+{
+    public int Id { get; set; }
+    public int ReportId { get; set; }
+    public Report Report { get; set; } = null!;
+
+    public string Action { get; set; } = string.Empty; // "Completed" or "Reopened"
+    public DateTime OccurredAt { get; set; } = DateTime.UtcNow;
 }

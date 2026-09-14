@@ -38,6 +38,8 @@ function newReport(jobNumber, rows) {
     id: 0,
     jobNumber,
     reportRequired: true,
+    completedAt: null,
+    rowVersion: null,
     dateWelded: today,
     workOrder: jobNumber,
     partNo: first.assemblyItem ?? '',
@@ -49,9 +51,13 @@ function newReport(jobNumber, rows) {
   };
 }
 
+const SEARCH_DEBOUNCE_MS = 200;
+let searchTimer = null;
+
 export const useReportStore = defineStore('report', {
   state: () => ({
     searchInput: '',
+    searchQuery: '',
     allRows: [],
     loadingRows: false,
     confirmed: false,
@@ -59,14 +65,20 @@ export const useReportStore = defineStore('report', {
     report: null,
     loading: false,
     saving: false,
+    deleting: false,
+    conflict: false,
     error: '',
     savedReports: [],
     loadingSaved: false,
+    history: [],
+    loadingHistory: false,
   }),
 
   getters: {
+    isComplete: (s) => !!s.report?.completedAt,
+    hasDateWelded: (s) => !!s.report?.dateWelded,
     filteredRows: (s) => {
-      const q = (s.searchInput ?? '').trim().toLowerCase();
+      const q = (s.searchQuery ?? '').trim().toLowerCase();
       if (!q) return s.allRows;
       return s.allRows.filter((r) => (r.jobNumber ?? '').toLowerCase().includes(q));
     },
@@ -78,6 +90,9 @@ export const useReportStore = defineStore('report', {
     },
     selectedRows() {
       return this.allRows.filter((r) => r.jobNumber === this.resolvedJob);
+    },
+    savedByJobNumber() {
+      return new Map(this.savedReports.map((r) => [r.jobNumber, r]));
     },
     partDescOptions() {
       return [
@@ -110,6 +125,14 @@ export const useReportStore = defineStore('report', {
   },
 
   actions: {
+    setSearchInput(value) {
+      this.searchInput = value;
+      clearTimeout(searchTimer);
+      searchTimer = setTimeout(() => {
+        this.searchQuery = value;
+      }, SEARCH_DEBOUNCE_MS);
+    },
+
     async loadRows() {
       this.loadingRows = true;
       this.error = '';
@@ -177,16 +200,27 @@ export const useReportStore = defineStore('report', {
       }
     },
 
+    async reloadReport() {
+      if (!this.report?.jobNumber) return false;
+      return this.openReport(this.report.jobNumber);
+    },
+
     async save() {
+      if (!this.report?.dateWelded) {
+        this.error = 'Date welded is required before saving.';
+        return false;
+      }
       this.saving = true;
       this.error = '';
+      this.conflict = false;
       try {
         const { data } = await api.post('/reports', this.report);
         this.report = normalizeJoints(data);
         await this.loadSavedReports();
         return true;
-      } catch {
-        this.error = 'Save failed.';
+      } catch (e) {
+        this.conflict = e.response?.status === 409;
+        this.error = e.response?.data ?? 'Save failed.';
         return false;
       } finally {
         this.saving = false;
@@ -194,14 +228,46 @@ export const useReportStore = defineStore('report', {
     },
 
     async setComplete(complete) {
-      if (!this.report?.jobNumber) return;
+      if (!this.report?.jobNumber) return false;
+      this.error = '';
       try {
-        await api.post(`/reports/${encodeURIComponent(this.report.jobNumber)}/complete`, complete, {
-          headers: { 'Content-Type': 'application/json' },
-        });
+        await api.post(`/reports/${encodeURIComponent(this.report.jobNumber)}/complete`, complete);
+        this.report.completedAt = complete ? new Date().toISOString() : null;
         await this.loadSavedReports();
+        return true;
+      } catch (e) {
+        this.error = e.response?.data ?? 'Could not update status.';
+        return false;
+      }
+    },
+
+    async loadHistory() {
+      if (!this.report?.jobNumber) return;
+      this.loadingHistory = true;
+      try {
+        const { data } = await api.get(`/reports/${encodeURIComponent(this.report.jobNumber)}/history`);
+        this.history = data;
       } catch {
-        this.error = 'Could not update status.';
+        this.history = [];
+      } finally {
+        this.loadingHistory = false;
+      }
+    },
+
+    async deleteDraft() {
+      if (!this.report?.jobNumber) return false;
+      this.deleting = true;
+      this.error = '';
+      try {
+        await api.delete(`/reports/${encodeURIComponent(this.report.jobNumber)}`);
+        await this.loadSavedReports();
+        this.backToList();
+        return true;
+      } catch (e) {
+        this.error = e.response?.data ?? 'Could not delete the draft.';
+        return false;
+      } finally {
+        this.deleting = false;
       }
     },
 
@@ -209,6 +275,20 @@ export const useReportStore = defineStore('report', {
       this.confirmed = false;
       this.report = null;
       this.resolvedJob = '';
+      this.history = [];
+      this.conflict = false;
+    },
+
+    async deleteSaved(jobNumber) {
+      this.error = '';
+      try {
+        await api.delete(`/reports/${encodeURIComponent(jobNumber)}`);
+        await this.loadSavedReports();
+        return true;
+      } catch (e) {
+        this.error = e.response?.data ?? 'Could not delete the draft.';
+        return false;
+      }
     },
   },
 });

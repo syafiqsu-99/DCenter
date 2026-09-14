@@ -27,10 +27,16 @@
     <v-app-bar color="primary" flat>
       <v-img :src="logo" max-width="34" class="ms-3 me-2" />
       <v-app-bar-title>Weld Report System</v-app-bar-title>
-      <v-tabs v-model="tab" align-tabs="end" slider-color="white">
-        <v-tab value="report" to="/" prepend-icon="mdi-file-document-edit-outline">Report</v-tab>
-        <v-tab value="settings" to="/settings" prepend-icon="mdi-cog-outline">Settings</v-tab>
-      </v-tabs>
+
+      <v-spacer />
+
+      <v-btn v-for="item in navItems" :key="item.to"
+             :to="item.to"
+             :variant="route.path === item.to ? 'tonal' : 'text'"
+             :prepend-icon="item.icon"
+             class="me-2">
+        {{ item.label }}
+      </v-btn>
     </v-app-bar>
 
     <v-main>
@@ -38,16 +44,29 @@
         <router-view />
       </v-container>
     </v-main>
+
+    <v-footer color="primary" app class="text-caption justify-space-between px-4">
+      <span>Weld Report System</span>
+      <span>&copy; {{ year }} Emerson — DCenter</span>
+    </v-footer>
   </v-app>
 </template>
 
 <script setup>
-    import { ref } from 'vue';
+    import { computed, ref } from 'vue';
+    import { useRoute } from 'vue-router';
     import { useReportStore } from '@/store/reportStore';
     import { useLookupStore } from '@/store/lookupStore';
     import logo from '@/assets/DCenter.png';
 
-    const tab = ref('report');
+    const route = useRoute();
+    const navItems = [
+      { to: '/', label: 'Report', icon: 'mdi-file-document-edit-outline' },
+      { to: '/settings', label: 'Settings', icon: 'mdi-cog-outline' },
+    ];
+
+    const year = computed(() => new Date().getFullYear());
+
     const booting = ref(true);
     const bootError = ref(false);
     const attempt = ref(0);

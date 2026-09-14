@@ -32,14 +32,51 @@ public class ReportService(WeldReportContext db)
                 r.UpdatedAt))
             .ToListAsync(ct);
 
-    public async Task<bool> MarkCompleteAsync(string jobNumber, bool complete, CancellationToken ct)
+    public enum CompleteResult { Ok, NotFound, DateWeldedRequired }
+
+    public async Task<CompleteResult> MarkCompleteAsync(string jobNumber, bool complete, CancellationToken ct)
     {
         var r = await db.Reports.FirstOrDefaultAsync(x => x.JobNumber == jobNumber, ct);
-        if (r is null) return false;
+        if (r is null) return CompleteResult.NotFound;
+        if (complete && r.DateWelded is null) return CompleteResult.DateWeldedRequired;
         r.CompletedAt = complete ? DateTime.UtcNow : null;
         r.UpdatedAt = DateTime.UtcNow;
+        db.ReportStatusEvents.Add(new ReportStatusEvent
+        {
+            ReportId = r.Id,
+            Action = complete ? "Completed" : "Reopened",
+        });
         await db.SaveChangesAsync(ct);
-        return true;
+        return CompleteResult.Ok;
+    }
+
+    // Newest first, for the history panel on the report actions bar.
+    public async Task<List<ReportStatusEventDto>?> GetHistoryAsync(string jobNumber, CancellationToken ct)
+    {
+        var reportId = await db.Reports
+            .Where(x => x.JobNumber == jobNumber)
+            .Select(x => (int?)x.Id)
+            .FirstOrDefaultAsync(ct);
+        if (reportId is null) return null;
+
+        return await db.ReportStatusEvents
+            .Where(e => e.ReportId == reportId)
+            .OrderByDescending(e => e.OccurredAt)
+            .Select(e => new ReportStatusEventDto(e.Action, e.OccurredAt))
+            .ToListAsync(ct);
+    }
+
+    public enum DeleteResult { Ok, NotFound, Completed }
+
+    // Drafts only: a completed report must be reopened before it can be deleted.
+    public async Task<DeleteResult> DeleteAsync(string jobNumber, CancellationToken ct)
+    {
+        var r = await db.Reports.FirstOrDefaultAsync(x => x.JobNumber == jobNumber, ct);
+        if (r is null) return DeleteResult.NotFound;
+        if (r.CompletedAt is not null) return DeleteResult.Completed;
+        db.Reports.Remove(r);
+        await db.SaveChangesAsync(ct);
+        return DeleteResult.Ok;
     }
 
     // Upsert the whole draft graph keyed on job number.
@@ -49,6 +86,8 @@ public class ReportService(WeldReportContext db)
             .Include(x => x.Joints).ThenInclude(j => j.Materials)
             .FirstOrDefaultAsync(x => x.JobNumber == dto.JobNumber, ct);
 
+        var isInsert = r is null;
+
         if (r is null)
         {
             r = new Report { JobNumber = dto.JobNumber, CreatedAt = DateTime.UtcNow };
@@ -56,6 +95,10 @@ public class ReportService(WeldReportContext db)
         }
         else
         {
+            if (!string.IsNullOrEmpty(dto.RowVersion))
+            {
+                db.Entry(r).Property(x => x.RowVersion).OriginalValue = Convert.FromBase64String(dto.RowVersion);
+            }
             db.JointMaterials.RemoveRange(r.Joints.SelectMany(j => j.Materials));
             db.Joints.RemoveRange(r.Joints);
             r.Joints.Clear();
@@ -94,7 +137,21 @@ public class ReportService(WeldReportContext db)
             r.Joints.Add(joint);
         }
 
-        await db.SaveChangesAsync(ct);
+        try
+        {
+            await db.SaveChangesAsync(ct);
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            throw new ReportConflictException(
+                "This report was changed by someone else since you loaded it. Reload the report and re-apply your changes.");
+        }
+        catch (DbUpdateException) when (isInsert)
+        {
+            throw new ReportConflictException(
+                $"A report for job {dto.JobNumber} was just created by someone else. Reload the list and open it.");
+        }
+
         return ToDto(r);
     }
 
@@ -132,6 +189,8 @@ public class ReportService(WeldReportContext db)
         PNumber3 = r.PNumber3,
         EngineerSupervisor = r.EngineerSupervisor,
         QaInspector = r.QaInspector,
+        CompletedAt = r.CompletedAt,
+        RowVersion = r.RowVersion is { Length: > 0 } ? Convert.ToBase64String(r.RowVersion) : null,
         Joints = r.Joints.OrderBy(j => j.JointNumber).Select(j => new JointDto
         {
             Id = j.Id,

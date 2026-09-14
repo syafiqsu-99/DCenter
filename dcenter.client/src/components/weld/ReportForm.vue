@@ -17,8 +17,11 @@
                   </td>
                 </tr>
                 <tr>
-                  <td :style="lbl">Date Welded :</td>
-                  <td :style="cell"><v-text-field v-model="report.dateWelded" type="date" v-bind="f" /></td>
+                  <td :style="lbl">Date Welded <span style="color:#c62828;">*</span> :</td>
+                  <td :style="dateCell">
+                    <v-text-field v-model="report.dateWelded" type="date" v-bind="f"
+                                  :color="dateWeldedMissing ? 'error' : undefined" />
+                  </td>
                 </tr>
                 <tr>
                   <td :style="lbl">Work Order:</td>
@@ -78,6 +81,7 @@
 </template>
 
 <script setup>
+    import { computed } from 'vue';
     import { storeToRefs } from 'pinia';
     import { useReportStore } from '@/store/reportStore';
     import { useLookupStore } from '@/store/lookupStore';
@@ -102,4 +106,9 @@
     const lbl = 'border:1px solid #000;padding:0 4px;font-size:12px;font-weight:bold;white-space:nowrap;vertical-align:middle;width:35%;';
     const lblR = lbl + 'text-align:right;';
     const hdrC = 'border:1px solid #000;padding:0 4px;font-size:12px;font-weight:bold;text-align:center;';
+
+    // Required field — save/complete are blocked without it, so flag the cell visually too.
+    const dateWeldedMissing = computed(() => !report.value.dateWelded);
+    const dateCell = computed(() =>
+      dateWeldedMissing.value ? cell + 'background:#fdecea;' : cell);
 </script>

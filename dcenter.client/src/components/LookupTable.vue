@@ -1,5 +1,5 @@
 <template>
-  <v-card flat border>
+  <v-card flat>
     <v-card-title class="d-flex align-center">
       Dropdown Lists
       <v-spacer />
