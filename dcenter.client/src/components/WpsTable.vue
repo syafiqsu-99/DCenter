@@ -45,93 +45,103 @@
   </v-card>
 </template>
 
-<script setup>
-    import { onMounted, ref, useTemplateRef } from 'vue';
-    import api from '@/utils/api';
+<script setup lang="ts">
+import { onMounted, ref, useTemplateRef } from 'vue';
+import api from '@/utils/api';
 
-    const items = ref([]);
-    const loading = ref(false);
-    const importing = ref(false);
-    const importMsg = ref('');
-    const dialog = ref(false);
-    const editing = ref(null);
-    const fileInput = useTemplateRef('fileInput');
+interface WpsItem {
+  id: number;
+  wpsNo: string;
+  rev: string;
+  description: string;
+  isActive: boolean;
+}
 
-    const headers = [
-      { title: 'WPS No.', key: 'wpsNo' },
-      { title: 'Rev', key: 'rev' },
-      { title: 'Description', key: 'description' },
-      { title: 'Active', key: 'isActive' },
-      { title: '', key: 'actions', sortable: false, align: 'end' },
-    ];
+const items = ref<WpsItem[]>([]);
+const loading = ref(false);
+const importing = ref(false);
+const importMsg = ref('');
+const dialog = ref(false);
+const editing = ref<WpsItem | null>(null);
+const fileInput = useTemplateRef('fileInput');
 
-    function blank() {
-      return { id: 0, wpsNo: '', rev: '', description: '', isActive: true };
-    }
+const headers = [
+  { title: 'WPS No.', key: 'wpsNo' },
+  { title: 'Rev', key: 'rev' },
+  { title: 'Description', key: 'description' },
+  { title: 'Active', key: 'isActive' },
+  { title: '', key: 'actions', sortable: false, align: 'end' },
+];
 
-    async function load() {
-      loading.value = true;
-      try {
-        const { data } = await api.get('/wps');
-        items.value = data;
-      } finally {
-        loading.value = false;
-      }
-    }
+function blank(): WpsItem {
+  return { id: 0, wpsNo: '', rev: '', description: '', isActive: true };
+}
 
-    function openNew() {
-      editing.value = blank();
-      dialog.value = true;
-    }
+async function load() {
+  loading.value = true;
+  try {
+    const { data } = await api.get('/wps');
+    items.value = data;
+  } finally {
+    loading.value = false;
+  }
+}
 
-    function openEdit(row) {
-      editing.value = { ...row };
-      dialog.value = true;
-    }
+function openNew() {
+  editing.value = blank();
+  dialog.value = true;
+}
 
-    async function save() {
-      const payload = {
-        wpsNo: editing.value.wpsNo,
-        rev: editing.value.rev,
-        description: editing.value.description,
-        isActive: editing.value.isActive,
-      };
-      if (editing.value.id) {
-        await api.put(`/wps/${editing.value.id}`, payload);
-      } else {
-        await api.post('/wps', payload);
-      }
-      dialog.value = false;
-      await load();
-    }
+function openEdit(row: WpsItem) {
+  editing.value = { ...row };
+  dialog.value = true;
+}
 
-    async function remove(row) {
-      await api.delete(`/wps/${row.id}`);
-      await load();
-    }
+async function save() {
+  if (!editing.value) return;
+  const payload = {
+    wpsNo: editing.value.wpsNo,
+    rev: editing.value.rev,
+    description: editing.value.description,
+    isActive: editing.value.isActive,
+  };
+  if (editing.value.id) {
+    await api.put(`/wps/${editing.value.id}`, payload);
+  } else {
+    await api.post('/wps', payload);
+  }
+  dialog.value = false;
+  await load();
+}
 
-    function exportCsv() {
-      window.open(`${api.defaults.baseURL}/wps/export`, '_blank');
-    }
+async function remove(row: WpsItem) {
+  await api.delete(`/wps/${row.id}`);
+  await load();
+}
 
-    async function importCsv(e) {
-      const file = e.target.files?.[0];
-      if (!file) return;
-      importing.value = true;
-      importMsg.value = '';
-      try {
-        const form = new FormData();
-        form.append('file', file);
-        const { data } = await api.post('/wps/import', form);
-        importMsg.value = `Import complete — ${data.added} added, ${data.updated} updated, ${data.skipped} skipped.`;
-        await load();
-      } catch {
-        importMsg.value = 'Import failed. Check the CSV format (WpsNo,Rev,Description,IsActive).';
-      } finally {
-        importing.value = false;
-        e.target.value = '';
-      }
-    }
+function exportCsv() {
+  window.open(`${api.defaults.baseURL}/wps/export`, '_blank');
+}
 
-    onMounted(load);
+async function importCsv(e: Event) {
+  const target = e.target as HTMLInputElement;
+  const file = target.files?.[0];
+  if (!file) return;
+  importing.value = true;
+  importMsg.value = '';
+  try {
+    const form = new FormData();
+    form.append('file', file);
+    const { data } = await api.post('/wps/import', form);
+    importMsg.value = `Import complete — ${data.added} added, ${data.updated} updated, ${data.skipped} skipped.`;
+    await load();
+  } catch {
+    importMsg.value = 'Import failed. Check the CSV format (WpsNo,Rev,Description,IsActive).';
+  } finally {
+    importing.value = false;
+    if (target) target.value = '';
+  }
+}
+
+onMounted(load);
 </script>
