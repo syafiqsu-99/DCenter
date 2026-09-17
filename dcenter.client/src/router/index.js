@@ -1,10 +1,8 @@
 import { createRouter, createWebHistory } from 'vue-router';
-import Dashboard from '@/views/ReportView.vue'
-import Setting from '@/views/SettingsView.vue'
 
 const routes = [
-  { path: '/', name: 'report', component: Dashboard },
-  { path: '/settings', name: 'settings', component: Setting },
+  { path: '/', name: 'report', component: () => import('@/views/ReportView.vue') },
+  { path: '/settings', name: 'settings', component: () => import('@/views/SettingsView.vue') },
 ];
 
 export default createRouter({

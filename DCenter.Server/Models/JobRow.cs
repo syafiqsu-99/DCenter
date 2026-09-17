@@ -8,4 +8,6 @@ public class JobRow
     public decimal? Qty { get; set; }
     public string? ChildPart { get; set; }
     public string? ComponentDesc { get; set; }
+    public string? MRN { get; set; }
+    public string? MRNDesc{ get; set; }
 }

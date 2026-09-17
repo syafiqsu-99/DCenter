@@ -18,7 +18,6 @@ public class ReportService(WeldReportContext db)
         return r is null ? null : ToDto(r);
     }
 
-    // All saved reports for the list under the job table, newest first.
     public async Task<List<ReportSummary>> ListAsync(CancellationToken ct)
         => await db.Reports
             .OrderByDescending(r => r.UpdatedAt)
@@ -39,8 +38,8 @@ public class ReportService(WeldReportContext db)
         var r = await db.Reports.FirstOrDefaultAsync(x => x.JobNumber == jobNumber, ct);
         if (r is null) return CompleteResult.NotFound;
         if (complete && r.DateWelded is null) return CompleteResult.DateWeldedRequired;
-        r.CompletedAt = complete ? DateTime.UtcNow : null;
-        r.UpdatedAt = DateTime.UtcNow;
+        r.CompletedAt = complete ? DateTime.Now : null;
+        r.UpdatedAt = DateTime.Now;
         db.ReportStatusEvents.Add(new ReportStatusEvent
         {
             ReportId = r.Id,
@@ -50,7 +49,6 @@ public class ReportService(WeldReportContext db)
         return CompleteResult.Ok;
     }
 
-    // Newest first, for the history panel on the report actions bar.
     public async Task<List<ReportStatusEventDto>?> GetHistoryAsync(string jobNumber, CancellationToken ct)
     {
         var reportId = await db.Reports
@@ -68,7 +66,6 @@ public class ReportService(WeldReportContext db)
 
     public enum DeleteResult { Ok, NotFound, Completed }
 
-    // Drafts only: a completed report must be reopened before it can be deleted.
     public async Task<DeleteResult> DeleteAsync(string jobNumber, CancellationToken ct)
     {
         var r = await db.Reports.FirstOrDefaultAsync(x => x.JobNumber == jobNumber, ct);
@@ -79,7 +76,6 @@ public class ReportService(WeldReportContext db)
         return DeleteResult.Ok;
     }
 
-    // Upsert the whole draft graph keyed on job number.
     public async Task<ReportDto> SaveAsync(ReportDto dto, CancellationToken ct)
     {
         var r = await db.Reports
@@ -90,7 +86,7 @@ public class ReportService(WeldReportContext db)
 
         if (r is null)
         {
-            r = new Report { JobNumber = dto.JobNumber, CreatedAt = DateTime.UtcNow };
+            r = new Report { JobNumber = dto.JobNumber, CreatedAt = DateTime.Now };
             db.Reports.Add(r);
         }
         else
@@ -105,7 +101,7 @@ public class ReportService(WeldReportContext db)
         }
 
         ApplyHeader(r, dto);
-        r.UpdatedAt = DateTime.UtcNow;
+        r.UpdatedAt = DateTime.Now;
 
         foreach (var jd in dto.Joints.OrderBy(j => j.JointNumber).Take(9))
         {

@@ -12,7 +12,6 @@ public class LookupsController(WeldReportContext db) : ControllerBase
 {
     public static readonly string[] Categories = ["Process", "Size", "Type", "Manuf"];
 
-    // GET /api/lookups?category=Process  (category optional)
     [HttpGet]
     public async Task<ActionResult<List<LookupDto>>> Get([FromQuery] string? category, CancellationToken ct)
     {
@@ -32,8 +31,10 @@ public class LookupsController(WeldReportContext db) : ControllerBase
             return BadRequest($"Category must be one of: {string.Join(", ", Categories)}");
         var l = new LookupItem
         {
-            Category = dto.Category, Value = dto.Value,
-            SortOrder = dto.SortOrder, IsActive = dto.IsActive
+            Category = dto.Category,
+            Value = dto.Value,
+            SortOrder = dto.SortOrder,
+            IsActive = dto.IsActive
         };
         db.Lookups.Add(l);
         await db.SaveChangesAsync(ct);
@@ -49,6 +50,15 @@ public class LookupsController(WeldReportContext db) : ControllerBase
         l.Value = dto.Value;
         l.SortOrder = dto.SortOrder;
         l.IsActive = dto.IsActive;
+        await db.SaveChangesAsync(ct);
+        return NoContent();
+    }
+
+    [HttpPut("reorder")]
+    public async Task<IActionResult> Reorder(List<int> ids, CancellationToken ct)
+    {
+        var items = await db.Lookups.Where(l => ids.Contains(l.Id)).ToListAsync(ct);
+        foreach (var l in items) l.SortOrder = ids.IndexOf(l.Id);
         await db.SaveChangesAsync(ct);
         return NoContent();
     }

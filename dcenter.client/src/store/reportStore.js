@@ -1,8 +1,8 @@
-import { defineStore } from 'pinia';
-import api from '@/utils/api';
+import { defineStore } from 'pinia'
+import api from '@/utils/api'
 
 function blankMaterial(col) {
-  return { id: 0, columnNumber: col, process: '', size: '', type: '', manuf: '', heatLot: '' };
+  return { id: 0, columnNumber: col, process: '', size: '', type: '', manuf: '', heatLot: '' }
 }
 
 function jointFromRow(index, row) {
@@ -20,20 +20,20 @@ function jointFromRow(index, row) {
     welderName: '',
     welderNo: '',
     materials: [blankMaterial(1), blankMaterial(2), blankMaterial(3)],
-  };
+  }
 }
 
 function normalizeJoints(report) {
   for (const j of report.joints ?? []) {
-    const byCol = new Map((j.materials ?? []).map((m) => [m.columnNumber, m]));
-    j.materials = [1, 2, 3].map((c) => byCol.get(c) ?? blankMaterial(c));
+    const byCol = new Map((j.materials ?? []).map((m) => [m.columnNumber, m]))
+    j.materials = [1, 2, 3].map((c) => byCol.get(c) ?? blankMaterial(c))
   }
-  return report;
+  return report
 }
 
 function newReport(jobNumber, rows) {
-  const first = rows[0] ?? {};
-  const today = new Date().toISOString().slice(0, 10);
+  const first = rows[0] ?? {}
+  const today = new Date().toISOString().slice(0, 10)
   return {
     id: 0,
     jobNumber,
@@ -48,18 +48,23 @@ function newReport(jobNumber, rows) {
     grade1: '', grade2: '', grade3: '',
     pNumber1: '', pNumber2: '', pNumber3: '',
     joints: rows.slice(0, 9).map((row, i) => jointFromRow(i, row)),
-  };
+  }
 }
 
-const SEARCH_DEBOUNCE_MS = 200;
-let searchTimer = null;
+const SEARCH_DEBOUNCE_MS = 350
+const MIN_QUERY_LENGTH = 2
+const PAGE_SIZE = 50
+let searchTimer = null
+let searchToken = 0
 
 export const useReportStore = defineStore('report', {
   state: () => ({
     searchInput: '',
     searchQuery: '',
-    allRows: [],
+    searchResults: [],
+    hasMoreResults: false,
     loadingRows: false,
+    loadingMoreRows: false,
     confirmed: false,
     resolvedJob: '',
     report: null,
@@ -72,223 +77,275 @@ export const useReportStore = defineStore('report', {
     loadingSaved: false,
     history: [],
     loadingHistory: false,
+    wpsFilter: null,
+    loadingWpsFilter: false,
   }),
 
   getters: {
     isComplete: (s) => !!s.report?.completedAt,
     hasDateWelded: (s) => !!s.report?.dateWelded,
-    filteredRows: (s) => {
-      const q = (s.searchQuery ?? '').trim().toLowerCase();
-      if (!q) return s.allRows;
-      return s.allRows.filter((r) => (r.jobNumber ?? '').toLowerCase().includes(q));
-    },
+    jointCount: (s) => s.report?.joints.length ?? 0,
+    allowedWps: (s) => s.wpsFilter?.wps ?? [],
+    wpsFilterNote: (s) => s.wpsFilter?.note ?? null,
+    filteredRows: (s) => s.searchResults,
     distinctJobs() {
-      return [...new Set(this.filteredRows.map((r) => r.jobNumber))];
+      return [...new Set(this.filteredRows.map((r) => r.jobNumber))]
     },
     canSelect() {
-      return this.distinctJobs.length === 1;
+      return this.distinctJobs.length === 1
     },
     selectedRows() {
-      return this.allRows.filter((r) => r.jobNumber === this.resolvedJob);
+      return this.searchResults.filter((r) => r.jobNumber === this.resolvedJob)
     },
     savedByJobNumber() {
-      return new Map(this.savedReports.map((r) => [r.jobNumber, r]));
+      return new Map(this.savedReports.map((r) => [r.jobNumber, r]))
     },
     partDescOptions() {
       return [
         ...new Set(this.selectedRows.flatMap((r) => [r.itemDesc, r.componentDesc]).filter(Boolean)),
-      ];
+      ]
     },
     partNoOptions() {
       return [
         ...new Set(this.selectedRows.flatMap((r) => [r.assemblyItem, r.childPart]).filter(Boolean)),
-      ];
+      ]
     },
     leftParts() {
-      const seen = new Map();
+      const seen = new Map()
       for (const r of this.selectedRows) {
         if (r.assemblyItem && !seen.has(r.assemblyItem)) {
-          seen.set(r.assemblyItem, { no: r.assemblyItem, desc: r.itemDesc ?? '' });
+          seen.set(r.assemblyItem, { no: r.assemblyItem, desc: r.itemDesc ?? '' })
         }
       }
-      return [...seen.values()];
+      return [...seen.values()]
     },
     rightParts() {
-      const seen = new Map();
+      const seen = new Map()
       for (const r of this.selectedRows) {
         if (r.childPart && !seen.has(r.childPart)) {
-          seen.set(r.childPart, { no: r.childPart, desc: r.componentDesc ?? '' });
+          seen.set(r.childPart, { no: r.childPart, desc: r.componentDesc ?? '' })
         }
       }
-      return [...seen.values()];
+      return [...seen.values()]
     },
   },
 
   actions: {
     setSearchInput(value) {
-      this.searchInput = value;
-      clearTimeout(searchTimer);
-      searchTimer = setTimeout(() => {
-        this.searchQuery = value;
-      }, SEARCH_DEBOUNCE_MS);
+      this.searchInput = value ?? ''
+      clearTimeout(searchTimer)
+      searchTimer = setTimeout(() => this.runSearch(this.searchInput), SEARCH_DEBOUNCE_MS)
     },
 
-    async loadRows() {
-      this.loadingRows = true;
-      this.error = '';
+    async runSearch(term) {
+      const q = (term ?? '').trim()
+      const token = ++searchToken
+      this.searchQuery = q.length >= MIN_QUERY_LENGTH ? q : ''
+      this.loadingRows = true
+      this.error = ''
       try {
-        const { data } = await api.get('/jobs/top');
-        this.allRows = data.map((r, i) => ({ ...r, _index: i }));
+        const { data } = await api.get('/jobs/search', {
+          params: { q: this.searchQuery, skip: 0, take: PAGE_SIZE },
+        })
+        if (token !== searchToken) return
+        this.searchResults = data.items.map((r, i) => ({ ...r, _index: i }))
+        this.hasMoreResults = data.hasMore
       } catch (e) {
-        this.error = 'Could not load the job list.';
-        this.allRows = [];
-        throw e;
+        if (token !== searchToken) return
+        this.error = e.response?.data ?? 'Could not load jobs.'
+        this.searchResults = []
+        this.hasMoreResults = false
       } finally {
-        this.loadingRows = false;
+        if (token === searchToken) this.loadingRows = false
+      }
+    },
+
+    async loadMoreJobs() {
+      if (this.loadingRows || this.loadingMoreRows || !this.hasMoreResults) return
+      const token = searchToken
+      this.loadingMoreRows = true
+      try {
+        const { data } = await api.get('/jobs/search', {
+          params: { q: this.searchQuery, skip: this.searchResults.length, take: PAGE_SIZE },
+        })
+        if (token !== searchToken) return
+        const start = this.searchResults.length
+        this.searchResults.push(...data.items.map((r, i) => ({ ...r, _index: start + i })))
+        this.hasMoreResults = data.hasMore
+      } catch {
+        // Keep what's loaded
+      } finally {
+        if (token === searchToken) this.loadingMoreRows = false
       }
     },
 
     async loadSavedReports() {
-      this.loadingSaved = true;
+      this.loadingSaved = true
+      this.error = ''
       try {
-        const { data } = await api.get('/reports');
-        this.savedReports = data;
+        const { data } = await api.get('/reports')
+        this.savedReports = data
       } catch (e) {
-        this.error = 'Could not load saved reports.';
-        this.savedReports = [];
-        throw e;
+        this.error = 'Could not load saved reports.'
+        this.savedReports = []
+        throw e
       } finally {
-        this.loadingSaved = false;
+        this.loadingSaved = false
       }
     },
 
     async selectJob() {
-      if (!this.canSelect) return;
-      this.resolvedJob = this.distinctJobs[0];
-      this.loading = true;
-      this.error = '';
+      if (!this.canSelect) return
+      this.resolvedJob = this.distinctJobs[0]
+      this.loading = true
+      this.error = ''
       try {
-        const res = await api.get(`/reports/${encodeURIComponent(this.resolvedJob)}`);
+        const res = await api.get(`/reports/${encodeURIComponent(this.resolvedJob)}`)
         this.report =
           res.status === 204 || !res.data
             ? newReport(this.resolvedJob, this.selectedRows)
-            : normalizeJoints(res.data);
-        this.confirmed = true;
+            : normalizeJoints(res.data)
+        this.confirmed = true
+        this.loadWpsFilter(this.resolvedJob)
       } catch {
-        this.error = 'Could not load the report draft.';
+        this.error = 'Could not load the report draft.'
       } finally {
-        this.loading = false;
+        this.loading = false
       }
     },
 
     async openReport(jobNumber) {
-      this.resolvedJob = jobNumber;
-      this.loading = true;
-      this.error = '';
+      this.resolvedJob = jobNumber
+      this.loading = true
+      this.error = ''
       try {
-        const res = await api.get(`/reports/${encodeURIComponent(jobNumber)}`);
+        const res = await api.get(`/reports/${encodeURIComponent(jobNumber)}`)
         if (res.status === 204 || !res.data) {
-          this.error = 'That report no longer exists.';
-          return;
+          this.error = 'That report no longer exists.'
+          return
         }
-        this.report = normalizeJoints(res.data);
-        this.confirmed = true;
+        this.report = normalizeJoints(res.data)
+        this.confirmed = true
+        this.loadWpsFilter(jobNumber)
       } catch {
-        this.error = 'Could not open the report.';
+        this.error = 'Could not open the report.'
       } finally {
-        this.loading = false;
+        this.loading = false
       }
     },
 
     async reloadReport() {
-      if (!this.report?.jobNumber) return false;
-      return this.openReport(this.report.jobNumber);
+      if (!this.report?.jobNumber) return false
+      return this.openReport(this.report.jobNumber)
     },
 
     async save() {
       if (!this.report?.dateWelded) {
-        this.error = 'Date welded is required before saving.';
-        return false;
+        this.error = 'Date welded is required before saving.'
+        return false
       }
-      this.saving = true;
-      this.error = '';
-      this.conflict = false;
+      this.saving = true
+      this.error = ''
+      this.conflict = false
       try {
-        const { data } = await api.post('/reports', this.report);
-        this.report = normalizeJoints(data);
-        await this.loadSavedReports();
-        return true;
+        const { data } = await api.post('/reports', this.report)
+        this.report = normalizeJoints(data)
+        await this.loadSavedReports()
+        return true
       } catch (e) {
-        this.conflict = e.response?.status === 409;
-        this.error = e.response?.data ?? 'Save failed.';
-        return false;
+        this.conflict = e.response?.status === 409
+        this.error = e.response?.data ?? 'Save failed.'
+        return false
       } finally {
-        this.saving = false;
+        this.saving = false
       }
     },
 
     async setComplete(complete) {
-      if (!this.report?.jobNumber) return false;
-      this.error = '';
+      if (!this.report?.jobNumber) return false
+      this.error = ''
       try {
-        await api.post(`/reports/${encodeURIComponent(this.report.jobNumber)}/complete`, complete);
-        this.report.completedAt = complete ? new Date().toISOString() : null;
-        await this.loadSavedReports();
-        return true;
+        await api.post(`/reports/${encodeURIComponent(this.report.jobNumber)}/complete`, complete)
+        this.report.completedAt = complete ? new Date().toISOString() : null
+        await this.loadSavedReports()
+        return true
       } catch (e) {
-        this.error = e.response?.data ?? 'Could not update status.';
-        return false;
+        this.error = e.response?.data ?? 'Could not update status.'
+        return false
       }
+    },
+
+    async loadWpsFilter(jobNumber) {
+      this.loadingWpsFilter = true
+      try {
+        const { data } = await api.get(`/weldreference/wps-for-job/${encodeURIComponent(jobNumber)}`)
+        this.wpsFilter = data
+        if (this.report?.id === 0 && data.wps.length) {
+          this.setJointCount(data.wps.length)
+        }
+      } catch {
+        this.wpsFilter = null
+      } finally {
+        this.loadingWpsFilter = false
+      }
+    },
+
+    setJointCount(n) {
+      const count = Math.min(9, Math.max(1, Math.round(n) || 1))
+      const joints = this.report.joints
+      if (joints.length > count) joints.length = count
+      else while (joints.length < count) joints.push(jointFromRow(joints.length, this.selectedRows[joints.length]))
     },
 
     async loadHistory() {
-      if (!this.report?.jobNumber) return;
-      this.loadingHistory = true;
+      if (!this.report?.jobNumber) return
+      this.loadingHistory = true
       try {
-        const { data } = await api.get(`/reports/${encodeURIComponent(this.report.jobNumber)}/history`);
-        this.history = data;
+        const { data } = await api.get(`/reports/${encodeURIComponent(this.report.jobNumber)}/history`)
+        this.history = data
       } catch {
-        this.history = [];
+        this.history = []
       } finally {
-        this.loadingHistory = false;
+        this.loadingHistory = false
       }
     },
-
+    
     async deleteDraft() {
-      if (!this.report?.jobNumber) return false;
-      this.deleting = true;
-      this.error = '';
+      if (!this.report?.jobNumber) return false
+      this.deleting = true
+      this.error = ''
       try {
-        await api.delete(`/reports/${encodeURIComponent(this.report.jobNumber)}`);
-        await this.loadSavedReports();
-        this.backToList();
-        return true;
+        await api.delete(`/reports/${encodeURIComponent(this.report.jobNumber)}`)
+        await this.loadSavedReports()
+        this.backToList()
+        return true
       } catch (e) {
-        this.error = e.response?.data ?? 'Could not delete the draft.';
-        return false;
+        this.error = e.response?.data ?? 'Could not delete the draft.'
+        return false
       } finally {
-        this.deleting = false;
+        this.deleting = false
       }
     },
 
     backToList() {
-      this.confirmed = false;
-      this.report = null;
-      this.resolvedJob = '';
-      this.history = [];
-      this.conflict = false;
+      this.confirmed = false
+      this.report = null
+      this.resolvedJob = ''
+      this.history = []
+      this.conflict = false
+      this.wpsFilter = null
     },
 
     async deleteSaved(jobNumber) {
-      this.error = '';
+      this.error = ''
       try {
-        await api.delete(`/reports/${encodeURIComponent(jobNumber)}`);
-        await this.loadSavedReports();
-        return true;
+        await api.delete(`/reports/${encodeURIComponent(jobNumber)}`)
+        await this.loadSavedReports()
+        return true
       } catch (e) {
-        this.error = e.response?.data ?? 'Could not delete the draft.';
-        return false;
+        this.error = e.response?.data ?? 'Could not delete the draft.'
+        return false
       }
     },
   },
-});
+})

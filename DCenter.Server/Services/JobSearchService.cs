@@ -4,53 +4,58 @@ using Microsoft.EntityFrameworkCore;
 
 namespace DCenter.Server.Services;
 
-public class JobSearchService
+public class JobSearchService(SourceContext db)
 {
-    private readonly SourceContext _db;
+    public const int MaxPageSize = 100;
+    public const int DefaultPageSize = 50;
 
-    public JobSearchService(SourceContext db) => _db = db;
+    private IQueryable<JobRow> BaseQuery(IQueryable<WorkOrderDetail> workOrders) =>
+        from wod in workOrders
 
-    public async Task<List<JobRow>> SearchAsync(string jobNumber, CancellationToken ct)
+        join bom in db.BillOfMaterialOthers
+            on wod.AssemblyItem equals bom.Item into bomGroup
+        from bom in bomGroup.DefaultIfEmpty()
+
+        join mrn in db.MRNCategory
+            on bom != null ? bom.Item : null equals mrn.Item into mrnGroup
+        from mrn in mrnGroup.DefaultIfEmpty()
+
+        orderby wod.WoNumber
+
+        select new JobRow
+        {
+            JobNumber = wod.WoNumber,
+            AssemblyItem = wod.AssemblyItem,
+            ItemDesc = wod.ItemDesc,
+            Qty = wod.StartQuantity,
+            ChildPart = bom != null ? bom.Component : null,
+            ComponentDesc = bom != null ? bom.ComponentDesc : null,
+            MRN = mrn != null ? mrn.MRN : null,
+            MRNDesc = mrn != null ? mrn.MRNDesc : null
+        };
+    public async Task<(List<JobRow> Items, bool HasMore)> SearchAsync(
+        string? jobNumberPrefix, int skip, int take, CancellationToken ct)
     {
-        var query = from wod in _db.WorkOrderDetails
-                    where wod.WoNumber == jobNumber
-                    join bom in _db.BillOfMaterialOthers
-                        on wod.AssemblyItem equals bom.Item into bomGroup
-                    from bom in bomGroup.DefaultIfEmpty()
-                    orderby wod.WoNumber
-                    select new JobRow
-                    {
-                        JobNumber = wod.WoNumber,
-                        AssemblyItem = wod.AssemblyItem,
-                        ItemDesc = wod.ItemDesc,
-                        Qty = wod.StartQuantity,
-                        ChildPart = bom != null ? bom.Component : null,
-                        ComponentDesc = bom != null ? bom.ComponentDesc : null
-                    };
+        var term = (jobNumberPrefix ?? string.Empty).Trim();
+        take = Math.Clamp(take, 1, MaxPageSize);
+        skip = Math.Max(0, skip);
 
-        return await query.AsNoTracking().ToListAsync(ct);
-    }
+        var source = term.Length >= 2
+            ? db.WorkOrderDetails.Where(w => w.WoNumber.StartsWith(term))
+            : db.WorkOrderDetails;
 
-    public async Task<List<JobRow>> TopAsync(CancellationToken ct)
-    {
-        var query = from wod in _db.WorkOrderDetails
-                    join bom in _db.BillOfMaterialOthers
-                        on wod.AssemblyItem equals bom.Item into bomGroup
-                    from bom in bomGroup.DefaultIfEmpty()
-                    orderby wod.WoNumber
-                    select new JobRow
-                    {
-                        JobNumber = wod.WoNumber,
-                        AssemblyItem = wod.AssemblyItem,
-                        ItemDesc = wod.ItemDesc,
-                        Qty = wod.StartQuantity,
-                        ChildPart = bom != null ? bom.Component : null,
-                        ComponentDesc = bom != null ? bom.ComponentDesc : null
-                    };
+        var rows = await BaseQuery(source)
+            .AsNoTracking()
+            .Skip(skip)
+            .Take(take + 1)
+            .ToListAsync(ct);
 
-        return await query.AsNoTracking().ToListAsync(ct);
+        var hasMore = rows.Count > take;
+        if (hasMore) rows.RemoveAt(rows.Count - 1);
+        return (rows, hasMore);
     }
 
     public async Task<List<JobRow>> PartsForJobAsync(string jobNumber, CancellationToken ct)
-        => await SearchAsync(jobNumber, ct);
+        => await BaseQuery(db.WorkOrderDetails.Where(w => w.WoNumber == jobNumber))
+            .AsNoTracking().ToListAsync(ct);
 }

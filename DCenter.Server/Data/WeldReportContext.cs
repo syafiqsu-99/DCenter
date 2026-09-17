@@ -12,12 +12,14 @@ public class WeldReportContext(DbContextOptions<WeldReportContext> options) : Db
     public DbSet<Joint> Joints => Set<Joint>();
     public DbSet<JointMaterial> JointMaterials => Set<JointMaterial>();
     public DbSet<ReportStatusEvent> ReportStatusEvents => Set<ReportStatusEvent>();
+    public DbSet<MrnSpec> MrnSpecs => Set<MrnSpec>();
+    public DbSet<BpvcMaterial> BpvcMaterials => Set<BpvcMaterial>();
 
     protected override void OnModelCreating(ModelBuilder b)
     {
         b.Entity<Welder>(e =>
         {
-            e.ToTable("welders");
+            e.ToTable("DCenter_Welders");
             e.Property(x => x.WelderName).HasMaxLength(200).IsRequired();
             e.Property(x => x.WelderNo).HasMaxLength(50).IsRequired();
             e.HasIndex(x => x.WelderNo);
@@ -26,7 +28,7 @@ public class WeldReportContext(DbContextOptions<WeldReportContext> options) : Db
 
         b.Entity<LookupItem>(e =>
         {
-            e.ToTable("lookups");
+            e.ToTable("DCenter_Lookups");
             e.Property(x => x.Category).HasMaxLength(50).IsRequired();
             e.Property(x => x.Value).HasMaxLength(200).IsRequired();
             e.HasIndex(x => new { x.Category, x.Value }).IsUnique();
@@ -34,16 +36,19 @@ public class WeldReportContext(DbContextOptions<WeldReportContext> options) : Db
 
         b.Entity<WpsItem>(e =>
         {
-            e.ToTable("wps_items");
+            e.ToTable("DCenter_WpsItems");
             e.Property(x => x.WpsNo).HasMaxLength(200).IsRequired();
-            e.Property(x => x.Rev).HasMaxLength(50);
-            e.Property(x => x.Description).HasMaxLength(400);
-            e.HasIndex(x => x.WpsNo).IsUnique();
+            e.Property(x => x.BaseMetal).HasMaxLength(200);
+            e.Property(x => x.Process).HasMaxLength(100);
+            e.Property(x => x.PNo).HasMaxLength(50).IsRequired();
+            e.HasIndex(x => x.WpsNo);
+            e.HasIndex(x => x.PNo);
+            e.HasIndex(x => new { x.WpsNo, x.PNo }).IsUnique();
         });
 
         b.Entity<Report>(e =>
         {
-            e.ToTable("reports");
+            e.ToTable("DCenter_Reports");
             e.Property(x => x.JobNumber).HasMaxLength(100).IsRequired();
             e.HasIndex(x => x.JobNumber).IsUnique();
             e.Property(x => x.RowVersion).IsRowVersion();
@@ -59,20 +64,47 @@ public class WeldReportContext(DbContextOptions<WeldReportContext> options) : Db
 
         b.Entity<ReportStatusEvent>(e =>
         {
-            e.ToTable("report_status_events");
+            e.ToTable("DCenter_ReportStatusEvents");
             e.Property(x => x.Action).HasMaxLength(50).IsRequired();
             e.HasIndex(x => x.ReportId);
         });
 
         b.Entity<Joint>(e =>
         {
-            e.ToTable("joints");
+            e.ToTable("DCenter_Joints");
             e.HasMany(x => x.Materials)
              .WithOne(x => x.Joint)
              .HasForeignKey(x => x.JointId)
              .OnDelete(DeleteBehavior.Cascade);
         });
 
-        b.Entity<JointMaterial>(e => e.ToTable("joint_materials"));
+        b.Entity<JointMaterial>(e => e.ToTable("DCenter_JointMaterials"));
+
+        b.Entity<MrnSpec>(e =>
+        {
+            e.ToTable("DCenter_MrnSpecs");
+            e.Property(x => x.Mrn).HasMaxLength(100).IsRequired();
+            e.Property(x => x.Form).HasMaxLength(200);
+            e.Property(x => x.FullSpecification).HasMaxLength(400);
+            e.Property(x => x.SpecNo).HasMaxLength(100).IsRequired();
+            e.HasIndex(x => x.Mrn).IsUnique();
+        });
+
+        b.Entity<BpvcMaterial>(e =>
+        {
+            e.ToTable("DCenter_BpvcIx");
+            e.Property(x => x.SpecNo).HasMaxLength(100).IsRequired();
+            e.Property(x => x.Designation).HasMaxLength(200);
+            e.Property(x => x.UnsNo).HasMaxLength(100);
+            e.Property(x => x.MinTensile).HasMaxLength(100);
+            e.Property(x => x.PNo).HasMaxLength(50).IsRequired();
+            e.Property(x => x.GroupNo).HasMaxLength(50);
+            e.Property(x => x.IsoGroup).HasMaxLength(100);
+            e.Property(x => x.BrazingPNo).HasMaxLength(50);
+            e.Property(x => x.NominalComposition).HasMaxLength(400);
+            e.Property(x => x.TypicalProductForm).HasMaxLength(200);
+            e.Property(x => x.NominalThicknessLimits).HasMaxLength(200);
+            e.HasIndex(x => new { x.SpecNo, x.PNo }).IsUnique();
+        });
     }
 }

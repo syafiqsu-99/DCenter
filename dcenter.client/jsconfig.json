@@ -1,5 +1,4 @@
 {
-  "extends": "@vue/tsconfig/config/schemes/tsconfig.node.json",
   "compilerOptions": {
     "target": "ESNext",
     "module": "ESNext",
@@ -12,14 +11,7 @@
     "jsxImportSource": "vue",
     "paths": {
       "@/*": [ "./src/*" ]
-    },
-    "plugins": [
-      {
-        "name": "@vue/typescript-plugin",
-        "location": "node_modules/@vue/language-server",
-        "languages": [ "vue" ]
-      }
-    ]
+    }
   },
-  "include": [ "src/**/*.js", "src/**/*.ts", "src/**/*.vue" ]
+  "include": [ "src/**/*.js", "src/**/*.vue" ]
 }

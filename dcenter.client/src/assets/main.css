@@ -4,3 +4,63 @@ a {
   text-decoration: none;
   color: inherit;
 }
+
+.v-table thead th,
+.v-data-table thead th {
+  font-weight: 700 !important;
+}
+
+:root {
+  --page-gap: 16px;
+  --viewport-chrome: calc(var(--v-layout-top, 64px) + var(--v-layout-bottom, 56px) + (var(--page-gap) * 2));
+}
+
+.min-h-0 {
+  min-height: 0;
+}
+
+.min-w-0 {
+  min-width: 0;
+}
+
+.page-card {
+  height: calc(100vh - var(--viewport-chrome));
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.settings-panel-card {
+  height: 100%;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+  .page-card > .v-card-text,
+  .page-card > .v-card-item,
+  .settings-panel-card > .v-card-text,
+  .settings-panel-card > .v-card-item {
+    flex: 0 0 auto;
+  }
+
+.card-table-area {
+  flex: 1 1 auto;
+  min-height: 0;
+  position: relative;
+}
+
+  .card-table-area > * {
+    position: absolute;
+    inset: 0;
+  }
+
+  .card-table-area .v-table__wrapper {
+    overflow: auto;
+  }
+
+    .card-table-area .v-table__wrapper > table {
+      height: auto;
+      table-layout: fixed;
+    }

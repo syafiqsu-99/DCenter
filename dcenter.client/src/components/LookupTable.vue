@@ -1,42 +1,89 @@
 <template>
-  <v-card flat>
-    <v-card-title class="d-flex align-center">
+  <v-card flat class="settings-panel-card">
+    <v-card-title class="d-flex align-center flex-wrap ga-2">
       Dropdown Lists
       <v-spacer />
+      <v-text-field v-model="search" prepend-inner-icon="mdi-magnify" label="Search"
+                    variant="outlined" density="compact" hide-details clearable
+                    style="max-width:220px;" />
       <v-btn color="primary" prepend-icon="mdi-plus" @click="openNew">Add value</v-btn>
     </v-card-title>
 
-    <v-card-text>
+    <v-card-text class="pb-0">
       <v-btn-toggle v-model="category" mandatory divided color="primary" class="mb-2">
         <v-btn v-for="c in categories" :key="c" :value="c">{{ c }}</v-btn>
       </v-btn-toggle>
+      <div class="text-caption text-medium-emphasis">
+        Drag rows by the handle to reorder.
+        <span v-if="search">Clear the search box first — reordering needs the full list.</span>
+      </div>
     </v-card-text>
 
-    <v-data-table :headers="headers" :items="items" :loading="loading" density="comfortable">
-      <template #item.isActive="{ item }">
-        <v-icon :color="item.isActive ? 'success' : 'grey'">
-          {{ item.isActive ? 'mdi-check-circle' : 'mdi-circle-outline' }}
-        </v-icon>
-      </template>
-      <template #item.actions="{ item }">
-        <v-btn icon="mdi-pencil" variant="text" size="small" @click="openEdit(item)" />
-        <v-btn icon="mdi-delete" variant="text" size="small" color="error" @click="remove(item)" />
-      </template>
-    </v-data-table>
+    <div class="card-table-area">
+      <v-data-table-virtual :headers="headers" :items="filteredItems" :loading="loading"
+                            height="100%" density="comfortable" fixed-header
+                            no-data-text="No values match your search.">
+        <template #loading>
+          <v-skeleton-loader type="table-row@6" />
+        </template>
 
-    <v-dialog v-model="dialog" max-width="420">
-      <v-card>
-        <v-card-title>{{ editing.id ? 'Edit value' : 'Add value' }} — {{ editing.category }}</v-card-title>
+        <template #item="{ item, index }">
+          <tr :draggable="!search"
+              :class="selectedId === item.id ? 'bg-blue-grey-lighten-5' : ''"
+              @click="selectedId = (selectedId === item.id ? null : item.id)"
+              @dragstart="dragIndex = index" @dragover.prevent @drop="onDrop(index)">
+            <td>
+              <v-icon icon="mdi-drag" :class="{ 'text-disabled': !!search }"
+                      :style="{ cursor: search ? 'default' : 'grab' }" />
+            </td>
+            <td>{{ item.value }}</td>
+            <td>
+              <v-icon :color="item.isActive ? 'success' : 'grey'">
+                {{ item.isActive ? 'mdi-check-circle' : 'mdi-circle-outline' }}
+              </v-icon>
+            </td>
+            <td class="text-right">
+              <div v-if="selectedId === item.id" class="d-flex justify-end ga-1">
+                <v-btn icon="mdi-pencil" variant="text" size="small"
+                       :aria-label="`Edit ${item.value}`" @click.stop="openEdit(item)" />
+                <v-btn icon="mdi-delete" variant="text" size="small" color="error"
+                       :aria-label="`Delete ${item.value}`" @click.stop="askDelete(item)" />
+              </div>
+            </td>
+          </tr>
+        </template>
+      </v-data-table-virtual>
+    </div>
+
+    <ConfirmDeleteDialog v-model="confirmDelete" title="Delete this value?"
+                         :item-label="pendingDelete?.value ?? ''"
+                         :loading="deleting" @confirm="doDelete" />
+
+    <v-dialog v-model="dialog" max-width="480">
+      <v-card :title="editing.id ? 'Edit value' : 'Add value'"
+              :prepend-icon="editing.id ? 'mdi-playlist-edit' : 'mdi-playlist-plus'">
+        <v-divider />
         <v-card-text>
-          <v-select v-model="editing.category" :items="categories" label="Category" />
-          <v-text-field v-model="editing.value" label="Value" />
-          <v-text-field v-model="editing.sortOrder" label="Sort order" type="number" />
-          <v-switch v-model="editing.isActive" label="Active" color="primary" inset />
+          <v-row dense>
+            <v-col cols="12" sm="5">
+              <v-select v-model="editing.category" :items="categories" label="Category"
+                        variant="outlined" density="comfortable" hide-details="auto" />
+            </v-col>
+            <v-col cols="12" sm="7">
+              <v-text-field v-model="editing.value" label="Value"
+                            variant="outlined" density="comfortable" hide-details="auto" autofocus />
+            </v-col>
+            <v-col cols="12">
+              <v-switch v-model="editing.isActive" label="Active" color="primary" inset
+                        density="comfortable" hide-details />
+            </v-col>
+          </v-row>
         </v-card-text>
-        <v-card-actions>
+        <v-divider />
+        <v-card-actions class="px-4 py-3">
           <v-spacer />
           <v-btn variant="text" @click="dialog = false">Cancel</v-btn>
-          <v-btn color="primary" @click="save">Save</v-btn>
+          <v-btn color="primary" variant="flat" :loading="saving" @click="save">Save</v-btn>
         </v-card-actions>
       </v-card>
     </v-dialog>
@@ -44,25 +91,39 @@
 </template>
 
 <script setup>
-  import { onMounted, ref, watch } from 'vue';
+  import { computed, onMounted, ref, watch } from 'vue';
   import api from '@/utils/api';
+  import ConfirmDeleteDialog from '@/components/ConfirmDeleteDialog.vue';
 
   const categories = ['Process', 'Size', 'Type', 'Manuf'];
   const category = ref('Process');
   const items = ref([]);
+  const search = ref('');
   const loading = ref(false);
+  const saving = ref(false);
   const dialog = ref(false);
-  const editing = ref(null);
+  const editing = ref(blank());
+  const dragIndex = ref(null);
+  const selectedId = ref(null);
+  const confirmDelete = ref(false);
+  const pendingDelete = ref(null);
+  const deleting = ref(false);
 
   const headers = [
-      { title: 'Value', key: 'value' },
-      { title: 'Sort', key: 'sortOrder' },
-      { title: 'Active', key: 'isActive' },
-      { title: '', key: 'actions', sortable: false, align: 'end' },
+    { title: '',        key: 'drag',      width: '10%', sortable: false },
+    { title: 'Value',   key: 'value',     width: '70%' },
+    { title: 'Active',  key: 'isActive',  width: '10%' },
+    { title: '',        key: 'actions',   width: '10%', sortable: false, align: 'end' },
   ];
 
+  const filteredItems = computed(() => {
+      const q = search.value?.trim().toLowerCase();
+      if (!q) return items.value;
+      return items.value.filter((i) => i.value.toLowerCase().includes(q));
+  });
+
   function blank() {
-      return { id: 0, category: category.value, value: '', sortOrder: 0, isActive: true };
+      return { id: 0, category: category.value, value: '', isActive: true };
   }
 
   async function load() {
@@ -86,24 +147,45 @@
   }
 
   async function save() {
-      const payload = {
-        category: editing.value.category,
-        value: editing.value.value,
-        sortOrder: Number(editing.value.sortOrder) || 0,
-        isActive: editing.value.isActive,
-      };
-      if (editing.value.id) {
-        await api.put(`/lookups/${editing.value.id}`, payload);
-      } else {
-        await api.post('/lookups', payload);
+      saving.value = true;
+      try {
+        const sortOrder = editing.value.id ? editing.value.sortOrder : items.value.length;
+        const payload = { category: editing.value.category, value: editing.value.value, sortOrder, isActive: editing.value.isActive };
+        if (editing.value.id) await api.put(`/lookups/${editing.value.id}`, payload);
+        else await api.post('/lookups', payload);
+        dialog.value = false;
+        await load();
+      } finally {
+        saving.value = false;
       }
-      dialog.value = false;
-      await load();
   }
 
-  async function remove(row) {
-      await api.delete(`/lookups/${row.id}`);
-      await load();
+  function askDelete(row) {
+      pendingDelete.value = row;
+      confirmDelete.value = true;
+  }
+
+  async function doDelete() {
+      if (!pendingDelete.value) return;
+      deleting.value = true;
+      try {
+        await api.delete(`/lookups/${pendingDelete.value.id}`);
+        await load();
+      } finally {
+        deleting.value = false;
+        confirmDelete.value = false;
+        pendingDelete.value = null;
+      }
+  }
+
+  async function onDrop(dropIndex) {
+      if (search.value || dragIndex.value === null || dragIndex.value === dropIndex) return;
+      const list = [...items.value];
+      const [moved] = list.splice(dragIndex.value, 1);
+      list.splice(dropIndex, 0, moved);
+      items.value = list;
+      dragIndex.value = null;
+      await api.put('/lookups/reorder', list.map((i) => i.id));
   }
 
   watch(category, load);

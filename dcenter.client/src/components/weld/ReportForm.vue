@@ -75,40 +75,43 @@
     </table>
   </div>
 
-  <JointForm v-for="joint in report.joints.slice(0, 9)"
-             :key="joint.jointNumber"
-             :joint="joint" />
+  <div class="d-flex align-center ga-3 mb-3">
+    <v-text-field :model-value="jointCount" type="number" min="1" max="9" density="compact"
+                  variant="outlined" hide-details style="max-width:160px;"
+                  label="Joints to insert" @update:model-value="store.setJointCount($event)" />
+    <span class="text-caption text-medium-emphasis">Defaults to the number of WPS found for this job, max 9.</span>
+  </div>
+
+  <JointForm v-for="joint in report.joints" :key="joint.jointNumber" :joint="joint" />
 </template>
 
 <script setup>
-    import { computed } from 'vue';
-    import { storeToRefs } from 'pinia';
-    import { useReportStore } from '@/store/reportStore';
-    import { useLookupStore } from '@/store/lookupStore';
-    import JointForm from '@/components/weld/JointForm.vue';
+      import { computed } from 'vue';
+      import { storeToRefs } from 'pinia';
+      import { useReportStore } from '@/store/reportStore';
+      import { useLookupStore } from '@/store/lookupStore';
+      import JointForm from '@/components/weld/JointForm.vue';
 
-    const store = useReportStore();
-    const { report } = storeToRefs(store);
+      const store = useReportStore();
+      const { report, jointCount } = storeToRefs(store);
 
-    useLookupStore().load(true);
+      useLookupStore().load(true);
 
-    const yesNo = [{ t: 'YES', v: true }, { t: 'NO', v: false }];
+      const yesNo = [{ t: 'YES', v: true }, { t: 'NO', v: false }];
 
-    // Same field styling as the joint fields.
-    const f = { density: 'compact', variant: 'plain', hideDetails: true };
+      const f = { density: 'compact', variant: 'plain', hideDetails: true };
 
-    // Same bordered look as JointForm.
-    const wrap = 'background:#fff;padding:12px;border:1px solid #000;margin-bottom:16px;overflow-x:auto;';
-    const titleStyle = 'text-align:center;font-weight:bold;font-size:15px;text-decoration:underline;margin-bottom:10px;';
-    const tbl = 'border-collapse:collapse;width:100%;';
-    const innerTbl = 'border-collapse:collapse;width:100%;table-layout:fixed;';
-    const cell = 'border:1px solid #000;padding:0 4px;font-size:12px;vertical-align:middle;height:26px;';
-    const lbl = 'border:1px solid #000;padding:0 4px;font-size:12px;font-weight:bold;white-space:nowrap;vertical-align:middle;width:35%;';
-    const lblR = lbl + 'text-align:right;';
-    const hdrC = 'border:1px solid #000;padding:0 4px;font-size:12px;font-weight:bold;text-align:center;';
+      const wrap = 'background:#fff;padding:12px;border:1px solid #000;margin-bottom:16px;overflow-x:auto;';
+      const titleStyle = 'text-align:center;font-weight:bold;font-size:15px;text-decoration:underline;margin-bottom:10px;';
+      const tbl = 'border-collapse:collapse;width:100%;';
+      const innerTbl = 'border-collapse:collapse;width:100%;table-layout:fixed;';
+      const cell = 'border:1px solid #000;padding:0 4px;font-size:12px;vertical-align:middle;height:26px;';
+      const lbl = 'border:1px solid #000;padding:0 4px;font-size:12px;font-weight:bold;white-space:nowrap;vertical-align:middle;width:35%;';
+      const lblR = lbl + 'text-align:right;';
+      const hdrC = 'border:1px solid #000;padding:0 4px;font-size:12px;font-weight:bold;text-align:center;';
 
-    // Required field — save/complete are blocked without it, so flag the cell visually too.
-    const dateWeldedMissing = computed(() => !report.value.dateWelded);
-    const dateCell = computed(() =>
-      dateWeldedMissing.value ? cell + 'background:#fdecea;' : cell);
+      // Required field
+      const dateWeldedMissing = computed(() => !report.value.dateWelded);
+      const dateCell = computed(() =>
+        dateWeldedMissing.value ? cell + 'background:#fdecea;' : cell);
 </script>

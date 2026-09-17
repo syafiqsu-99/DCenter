@@ -20,6 +20,7 @@ builder.Services.AddDbContext<SourceContext>(opt =>
 
 builder.Services.AddScoped<JobSearchService>();
 builder.Services.AddScoped<ReportService>();
+builder.Services.AddScoped<WpsFilterService>();
 builder.Services.AddScoped<PdfReportService>();
 builder.Services.AddScoped<ExcelReportService>();
 
@@ -79,21 +80,25 @@ else
     app.MapFallbackToFile("/index.html");
 }
 
-using (var scope = app.Services.CreateScope())
-{
-    var services = scope.ServiceProvider;
-    var logger = services.GetRequiredService<ILogger<Program>>();
-    try
-    {
-        var db = services.GetRequiredService<WeldReportContext>();
-        db.Database.Migrate();
-        logger.LogInformation("Database migrations applied (or already up to date).");
-    }
-    catch (Exception ex)
-    {
-        logger.LogError(ex, "Failed to apply database migrations on startup.");
-        throw;
-    }
-}
+//var autoMigrate = app.Environment.IsDevelopment()
+//    || app.Configuration.GetValue<bool>("DCenter_AutoMigrate");
+
+//if (autoMigrate)
+//{
+//    using var scope = app.Services.CreateScope();
+//    var services = scope.ServiceProvider;
+//    var logger = services.GetRequiredService<ILogger<Program>>();
+//    try
+//    {
+//        var db = services.GetRequiredService<WeldReportContext>();
+//        db.Database.Migrate();
+//        logger.LogInformation("Database migrations applied (or already up to date).");
+//    }
+//    catch (Exception ex)
+//    {
+//        logger.LogError(ex, "Failed to apply database migrations on startup.");
+//        throw;
+//    }
+//}
 
 app.Run();

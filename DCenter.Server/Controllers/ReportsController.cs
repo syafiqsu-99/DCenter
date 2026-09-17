@@ -11,12 +11,10 @@ public class ReportsController(
     PdfReportService pdf,
     ExcelReportService excel) : ControllerBase
 {
-    // List all saved reports for the table under the job browser.
     [HttpGet]
     public async Task<ActionResult<List<ReportSummary>>> List(CancellationToken ct)
         => Ok(await reports.ListAsync(ct));
 
-    // Load existing draft for a job number (null-ish -> 204 so client can start fresh).
     [HttpGet("{jobNumber}")]
     public async Task<ActionResult<ReportDto>> Get(string jobNumber, CancellationToken ct)
     {
@@ -24,7 +22,6 @@ public class ReportsController(
         return dto is null ? NoContent() : Ok(dto);
     }
 
-    // Toggle completed status. POST body: true to complete, false to reopen.
     [HttpPost("{jobNumber}/complete")]
     public async Task<IActionResult> Complete(string jobNumber, [FromBody] bool complete, CancellationToken ct)
         => await reports.MarkCompleteAsync(jobNumber, complete, ct) switch
@@ -34,7 +31,6 @@ public class ReportsController(
             _ => NotFound(),
         };
 
-    // A draft can only be removed while it is not yet marked complete.
     [HttpDelete("{jobNumber}")]
     public async Task<IActionResult> Delete(string jobNumber, CancellationToken ct)
         => await reports.DeleteAsync(jobNumber, ct) switch
@@ -44,7 +40,6 @@ public class ReportsController(
             _ => NotFound(),
         };
 
-    // Newest-first Complete/Reopen audit trail for the history panel.
     [HttpGet("{jobNumber}/history")]
     public async Task<ActionResult<List<ReportStatusEventDto>>> History(string jobNumber, CancellationToken ct)
     {
@@ -69,7 +64,6 @@ public class ReportsController(
         }
     }
 
-    // PDF for on-screen display (inline).
     [HttpGet("{jobNumber}/pdf")]
     public async Task<IActionResult> Pdf(string jobNumber, CancellationToken ct)
     {
@@ -79,7 +73,6 @@ public class ReportsController(
         return File(bytes, "application/pdf");
     }
 
-    // Excel download (attachment).
     [HttpGet("{jobNumber}/excel")]
     public async Task<IActionResult> Excel(string jobNumber, CancellationToken ct)
     {

@@ -65,7 +65,7 @@
           <td :style="lbl">WPS No.:</td>
           <td :style="cell">
             <v-combobox v-bind="f" clearable :custom-filter="allowAll" v-model="joint.wpsNo" :items="wpsNos"
-                        @update:search="searchWps" @update:model-value="onWpsPick" />
+                        :loading="loadingWpsFilter" :messages="wpsHint" @update:search="searchWps" />
           </td>
           <td :style="lbl">Rev:</td>
           <td :style="cell"><v-text-field v-model="joint.rev" v-bind="f" /></td>
@@ -98,110 +98,123 @@
 </template>
 
 <script setup>
-    import { computed, ref, watch } from 'vue';
-    import { storeToRefs } from 'pinia';
-    import { useReportStore } from '@/store/reportStore';
-    import { useLookupStore } from '@/store/lookupStore';
-    import api from '@/utils/api';
+        import { computed, ref, watch } from 'vue';
+        import { storeToRefs } from 'pinia';
+        import { useReportStore } from '@/store/reportStore';
+        import { useLookupStore } from '@/store/lookupStore';
+        import api from '@/utils/api';
 
-    const props = defineProps({
-      joint: { type: Object, required: true },
-    });
+        const props = defineProps({
+          joint: { type: Object, required: true },
+        });
 
-    // One shared prop set so every in-cell field looks identical (borderless, compact).
-    const f = { density: 'compact', variant: 'plain', hideDetails: true };
-    const allowAll = () => true;
+        const f = { density: 'compact', variant: 'plain', hideDetails: true };
+        const allowAll = () => true;
 
-    const reportStore = useReportStore();
-    const { leftParts, rightParts } = storeToRefs(reportStore);
+        const reportStore = useReportStore();
+        const { leftParts, rightParts } = storeToRefs(reportStore);
 
-    const leftDescs = computed(() => leftParts.value.map((p) => p.desc));
-    const leftNos = computed(() => leftParts.value.map((p) => p.no));
-    const rightDescs = computed(() => rightParts.value.map((p) => p.desc));
-    const rightNos = computed(() => rightParts.value.map((p) => p.no));
+        const leftDescs = computed(() => leftParts.value.map((p) => p.desc));
+        const leftNos = computed(() => leftParts.value.map((p) => p.no));
+        const rightDescs = computed(() => rightParts.value.map((p) => p.desc));
+        const rightNos = computed(() => rightParts.value.map((p) => p.no));
 
-    const lookupStore = useLookupStore();
-    const { options } = storeToRefs(lookupStore);
+        const lookupStore = useLookupStore();
+        const { options } = storeToRefs(lookupStore);
 
-    function opt(category, current) {
-      const list = options.value[category] ?? [];
-      return current && !list.includes(current) ? [current, ...list] : list;
-    }
-
-    // Fill the partner on a match; clear the partner when this field is emptied.
-    // Treats null/'' the same. Value-equality checks make the reverse watcher a no-op.
-    function isEmpty(v) {
-      return v === null || v === undefined || v === '';
-    }
-
-    function pairSync(pairs, srcKey, dstKey, matchBy) {
-      watch(() => props.joint[srcKey], (v) => {
-        if (isEmpty(v)) {
-          if (!isEmpty(props.joint[dstKey])) props.joint[dstKey] = '';
-          return;
+        function opt(category, current) {
+          const list = options.value[category] ?? [];
+          return current && !list.includes(current) ? [current, ...list] : list;
         }
-        const hit = pairs.value.find((p) => p[matchBy] === v);
-        if (hit) {
-          const other = matchBy === 'no' ? hit.desc : hit.no;
-          if (props.joint[dstKey] !== other) props.joint[dstKey] = other;
+
+        function isEmpty(v) {
+          return v === null || v === undefined || v === '';
         }
-      });
-    }
 
-    // Left column (column 1): no <-> desc.
-    pairSync(leftParts, 'partNoLeft', 'partDescLeft', 'no');
-    pairSync(leftParts, 'partDescLeft', 'partNoLeft', 'desc');
-    // Right column (column 2): no <-> desc.
-    pairSync(rightParts, 'partNoRight', 'partDescRight', 'no');
-    pairSync(rightParts, 'partDescRight', 'partNoRight', 'desc');
+        function pairSync(pairs, srcKey, dstKey, matchBy) {
+          watch(() => props.joint[srcKey], (v) => {
+            if (isEmpty(v)) {
+              if (!isEmpty(props.joint[dstKey])) props.joint[dstKey] = '';
+              return;
+            }
+            const hit = pairs.value.find((p) => p[matchBy] === v);
+            if (hit) {
+              const other = matchBy === 'no' ? hit.desc : hit.no;
+              if (props.joint[dstKey] !== other) props.joint[dstKey] = other;
+            }
+          });
+        }
 
-    const welderItems = ref([]);
-    const welderNames = computed(() => welderItems.value.map((x) => x.welderName));
-    const welderNos = computed(() => welderItems.value.map((x) => x.welderNo));
-    async function searchWelders(q) {
-      const { data } = await api.get('/welders/search', { params: { q: q || '' } });
-      welderItems.value = data;
-    }
-    searchWelders('');
+        // Left column (column 1): no <-> desc.
+        pairSync(leftParts, 'partNoLeft', 'partDescLeft', 'no');
+        pairSync(leftParts, 'partDescLeft', 'partNoLeft', 'desc');
+        // Right column (column 2): no <-> desc.
+        pairSync(rightParts, 'partNoRight', 'partDescRight', 'no');
+        pairSync(rightParts, 'partDescRight', 'partNoRight', 'desc');
 
-    // Welder name <-> no: fill on match, clear the partner when emptied (same as parts).
-    watch(() => props.joint.welderName, (name) => {
-      if (isEmpty(name)) {
-        if (!isEmpty(props.joint.welderNo)) props.joint.welderNo = '';
-        return;
-      }
-      const w = welderItems.value.find((x) => x.welderName === name);
-      if (w && props.joint.welderNo !== w.welderNo) props.joint.welderNo = w.welderNo;
-    });
-    watch(() => props.joint.welderNo, (no) => {
-      if (isEmpty(no)) {
-        if (!isEmpty(props.joint.welderName)) props.joint.welderName = '';
-        return;
-      }
-      const w = welderItems.value.find((x) => x.welderNo === no);
-      if (w && props.joint.welderName !== w.welderName) props.joint.welderName = w.welderName;
-    });
+        const welderItems = ref([]);
+        const welderNames = computed(() => welderItems.value.map((x) => x.welderName));
+        const welderNos = computed(() => welderItems.value.map((x) => x.welderNo));
+        async function searchWelders(q) {
+          const { data } = await api.get('/welders/search', { params: { q: q || '' } });
+          welderItems.value = data;
+        }
+        searchWelders('');
 
-    const wpsItems = ref([]);
-    const wpsNos = computed(() => wpsItems.value.map((x) => x.wpsNo));
-    async function searchWps(q) {
-      const { data } = await api.get('/wps/search', { params: { q: q || '' } });
-      wpsItems.value = data;
-    }
-    searchWps('');
-    // v-combobox emits a string (custom text) or a selected string; look up rev if known.
-    function onWpsPick(val) {
-      const no = typeof val === 'object' && val !== null ? val.wpsNo : val;
-      const w = wpsItems.value.find((x) => x.wpsNo === no);
-      if (w?.rev && !props.joint.rev) props.joint.rev = w.rev;
-    }
+        watch(() => props.joint.welderName, (name) => {
+          if (isEmpty(name)) {
+            if (!isEmpty(props.joint.welderNo)) props.joint.welderNo = '';
+            return;
+          }
+          const w = welderItems.value.find((x) => x.welderName === name);
+          if (w && props.joint.welderNo !== w.welderNo) props.joint.welderNo = w.welderNo;
+        });
+        watch(() => props.joint.welderNo, (no) => {
+          if (isEmpty(no)) {
+            if (!isEmpty(props.joint.welderName)) props.joint.welderName = '';
+            return;
+          }
+          const w = welderItems.value.find((x) => x.welderNo === no);
+          if (w && props.joint.welderName !== w.welderName) props.joint.welderName = w.welderName;
+        });
 
-    // Inline styles matching the bordered spreadsheet look.
-    const wrap = 'background:#fff;padding:12px;border:1px solid #000;margin-bottom:16px;overflow-x:auto;';
-    const titleStyle = 'font-weight:bold;font-size:14px;margin-bottom:6px;';
-    const tbl = 'border-collapse:collapse;width:100%;table-layout:fixed;';
-    const cell = 'border:1px solid #000;padding:0 4px;font-size:12px;vertical-align:middle;height:26px;';
-    const lbl = 'border:1px solid #000;padding:0 4px;font-size:12px;font-weight:bold;white-space:nowrap;vertical-align:middle;';
-    const hdr = 'border:1px solid #000;padding:2px 4px;font-size:12px;font-weight:bold;text-align:center;';
-    const hdrC = 'border:1px solid #000;';
+        const { allowedWps, wpsFilterNote, loadingWpsFilter } = storeToRefs(reportStore);
+        const searchResults = ref([]);
+        const wpsQuery = ref('');
+
+        const hasFilter = computed(() => allowedWps.value.length > 0);
+
+        const wpsItems = computed(() => {
+          if (!hasFilter.value) return searchResults.value;
+          const q = wpsQuery.value.trim().toLowerCase();
+          if (!q) return allowedWps.value;
+          return allowedWps.value.filter(
+            (w) => w.wpsNo.toLowerCase().includes(q) || (w.process ?? '').toLowerCase().includes(q));
+        });
+
+        const wpsNos = computed(() => [...new Set(wpsItems.value.map((x) => x.wpsNo))]);
+
+        const wpsHint = computed(() => {
+          if (hasFilter.value) {
+            const pNos = reportStore.wpsFilter?.pNos ?? [];
+            return pNos.length ? `Filtered to P-No ${pNos.join(', ')}` : '';
+          }
+          return wpsFilterNote.value ?? '';
+        });
+
+        async function searchWps(q) {
+          wpsQuery.value = q || '';
+          if (hasFilter.value) return;
+          const { data } = await api.get('/wps/search', { params: { q: q || '' } });
+          searchResults.value = data;
+        }
+        searchWps('');
+
+        const wrap = 'background:#fff;padding:12px;border:1px solid #000;margin-bottom:16px;overflow-x:auto;';
+        const titleStyle = 'font-weight:bold;font-size:14px;margin-bottom:6px;';
+        const tbl = 'border-collapse:collapse;width:100%;table-layout:fixed;';
+        const cell = 'border:1px solid #000;padding:0 4px;font-size:12px;vertical-align:middle;height:26px;';
+        const lbl = 'border:1px solid #000;padding:0 4px;font-size:12px;font-weight:bold;white-space:nowrap;vertical-align:middle;';
+        const hdr = 'border:1px solid #000;padding:2px 4px;font-size:12px;font-weight:bold;text-align:center;';
+        const hdrC = 'border:1px solid #000;';
 </script>

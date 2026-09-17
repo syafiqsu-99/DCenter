@@ -17,10 +17,72 @@ namespace DCenter.Server.Migrations
         {
 #pragma warning disable 612, 618
             modelBuilder
-                .HasAnnotation("ProductVersion", "10.0.0")
+                .HasAnnotation("ProductVersion", "10.0.12")
                 .HasAnnotation("Relational:MaxIdentifierLength", 128);
 
             SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
+
+            modelBuilder.Entity("DCenter.Server.Entities.BpvcMaterial", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("BrazingPNo")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<string>("Designation")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("GroupNo")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<string>("IsoGroup")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("MinTensile")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("NominalComposition")
+                        .HasMaxLength(400)
+                        .HasColumnType("nvarchar(400)");
+
+                    b.Property<string>("NominalThicknessLimits")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("PNo")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<string>("SpecNo")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("TypicalProductForm")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("UnsNo")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("SpecNo", "PNo")
+                        .IsUnique();
+
+                    b.ToTable("DCenter_BpvcIx", (string)null);
+                });
 
             modelBuilder.Entity("DCenter.Server.Entities.Joint", b =>
                 {
@@ -70,7 +132,7 @@ namespace DCenter.Server.Migrations
 
                     b.HasIndex("ReportId");
 
-                    b.ToTable("joints", (string)null);
+                    b.ToTable("DCenter_Joints", (string)null);
                 });
 
             modelBuilder.Entity("DCenter.Server.Entities.JointMaterial", b =>
@@ -106,7 +168,7 @@ namespace DCenter.Server.Migrations
 
                     b.HasIndex("JointId");
 
-                    b.ToTable("joint_materials", (string)null);
+                    b.ToTable("DCenter_JointMaterials", (string)null);
                 });
 
             modelBuilder.Entity("DCenter.Server.Entities.LookupItem", b =>
@@ -138,7 +200,41 @@ namespace DCenter.Server.Migrations
                     b.HasIndex("Category", "Value")
                         .IsUnique();
 
-                    b.ToTable("lookups", (string)null);
+                    b.ToTable("DCenter_Lookups", (string)null);
+                });
+
+            modelBuilder.Entity("DCenter.Server.Entities.MrnSpec", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Form")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("FullSpecification")
+                        .HasMaxLength(400)
+                        .HasColumnType("nvarchar(400)");
+
+                    b.Property<string>("Mrn")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("SpecNo")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Mrn")
+                        .IsUnique();
+
+                    b.ToTable("DCenter_MrnSpecs", (string)null);
                 });
 
             modelBuilder.Entity("DCenter.Server.Entities.Report", b =>
@@ -155,8 +251,8 @@ namespace DCenter.Server.Migrations
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
 
-                    b.Property<DateTime?>("DateWelded")
-                        .HasColumnType("datetime2");
+                    b.Property<DateOnly?>("DateWelded")
+                        .HasColumnType("date");
 
                     b.Property<string>("Description")
                         .HasColumnType("nvarchar(max)");
@@ -222,7 +318,7 @@ namespace DCenter.Server.Migrations
                     b.HasIndex("JobNumber")
                         .IsUnique();
 
-                    b.ToTable("reports", (string)null);
+                    b.ToTable("DCenter_Reports", (string)null);
                 });
 
             modelBuilder.Entity("DCenter.Server.Entities.ReportStatusEvent", b =>
@@ -248,7 +344,7 @@ namespace DCenter.Server.Migrations
 
                     b.HasIndex("ReportId");
 
-                    b.ToTable("report_status_events", (string)null);
+                    b.ToTable("DCenter_ReportStatusEvents", (string)null);
                 });
 
             modelBuilder.Entity("DCenter.Server.Entities.Welder", b =>
@@ -278,7 +374,7 @@ namespace DCenter.Server.Migrations
 
                     b.HasIndex("WelderNo");
 
-                    b.ToTable("welders", (string)null);
+                    b.ToTable("DCenter_Welders", (string)null);
                 });
 
             modelBuilder.Entity("DCenter.Server.Entities.WpsItem", b =>
@@ -289,16 +385,18 @@ namespace DCenter.Server.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
-                    b.Property<string>("Description")
-                        .HasMaxLength(400)
-                        .HasColumnType("nvarchar(400)");
+                    b.Property<string>("BaseMetal")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
 
-                    b.Property<bool>("IsActive")
-                        .HasColumnType("bit");
-
-                    b.Property<string>("Rev")
+                    b.Property<string>("PNo")
+                        .IsRequired()
                         .HasMaxLength(50)
                         .HasColumnType("nvarchar(50)");
+
+                    b.Property<string>("Process")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
 
                     b.Property<string>("WpsNo")
                         .IsRequired()
@@ -307,10 +405,14 @@ namespace DCenter.Server.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("WpsNo")
+                    b.HasIndex("PNo");
+
+                    b.HasIndex("WpsNo");
+
+                    b.HasIndex("WpsNo", "PNo")
                         .IsUnique();
 
-                    b.ToTable("wps_items", (string)null);
+                    b.ToTable("DCenter_WpsItems", (string)null);
                 });
 
             modelBuilder.Entity("DCenter.Server.Entities.Joint", b =>

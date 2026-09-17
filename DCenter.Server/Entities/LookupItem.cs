@@ -1,6 +1,5 @@
 namespace DCenter.Server.Entities;
 
-// Category-keyed dropdown source. Category is one of: Process, Size, Type, Manuf.
 public class LookupItem
 {
     public int Id { get; set; }

@@ -1,42 +1,84 @@
 <template>
-  <v-card flat border>
-    <v-toolbar color="transparent" density="comfortable">
-      <v-icon icon="mdi-cog-outline" class="ms-4 me-3" />
-      <div>
-        <div class="text-subtitle-1 font-weight-medium">Settings</div>
-        <div class="text-caption text-medium-emphasis">Manage welders, dropdown lists, and WPS numbers</div>
+  <v-card flat border class="page-card">
+    <div class="d-flex flex-grow-1 min-h-0">
+      <v-list nav density="comfortable" width="230"
+              class="d-none d-sm-block flex-shrink-0 py-4 overflow-y-auto border-e">
+        <v-list-subheader>SETTINGS</v-list-subheader>
+        <v-list-item v-for="s in sections" :key="s.value" :active="sub === s.value"
+                     :prepend-icon="s.icon" :title="s.label" rounded="lg" class="mx-2"
+                     @click="sub = s.value" />
+      </v-list>
+
+      <div class="flex-grow-1 pa-4 d-flex flex-column min-w-0 min-h-0">
+        <v-select v-model="sub" :items="sections" item-title="label" item-value="value"
+                  variant="outlined" density="comfortable" hide-details
+                  class="d-sm-none mb-4 flex-shrink-0" prepend-inner-icon="mdi-cog-outline" />
+
+        <div class="flex-grow-1 min-h-0">
+          <component :is="active.component" v-bind="active.props" :key="active.value" />
+        </div>
       </div>
-
-      <v-spacer />
-
-      <v-btn-toggle v-model="sub" color="primary" variant="outlined" divided mandatory class="me-4">
-        <v-btn v-for="s in sections" :key="s.value" :value="s.value" :prepend-icon="s.icon">
-          {{ s.label }}
-        </v-btn>
-      </v-btn-toggle>
-    </v-toolbar>
-
-    <v-divider />
-
-    <v-window v-model="sub" class="pa-4">
-      <v-window-item value="welders"><WelderTable /></v-window-item>
-      <v-window-item value="dropdowns"><LookupTable /></v-window-item>
-      <v-window-item value="wps"><WpsTable /></v-window-item>
-    </v-window>
+    </div>
   </v-card>
 </template>
 
 <script setup>
-  import { ref } from 'vue';
+  import { computed, ref } from 'vue';
   import WelderTable from '@/components/WelderTable.vue';
   import LookupTable from '@/components/LookupTable.vue';
-  import WpsTable from '@/components/WpsTable.vue';
+  import ReferenceTable from '@/components/ReferenceTable.vue';
+
+  const wpsFields = [
+    { key: 'wpsNo',     label: 'WPS No.',     width: '30%' },
+    { key: 'baseMetal', label: 'Base Metal',  width: '30%' },
+    { key: 'process',   label: 'Process',     width: '20%' },
+    { key: 'pNo',       label: 'P-No.',       width: '10%' },
+  ];
+
+  const mrnFields = [
+    { key: 'mrn',               label: 'MRN',                 width: '20%' },
+    { key: 'form',              label: 'Form',                width: '20%' },
+    { key: 'fullSpecification', label: 'Full Specification',  width: '40%' },
+    { key: 'specNo',            label: 'Spec No.',            width: '10%' },
+  ];
+
+  const bpvcFields = [
+    { key: 'specNo',                  label: 'Spec No.',                    width: '7%' },
+    { key: 'designation',             label: 'Designation / Alloy / Grade', width: '7%' },
+    { key: 'unsNo',                   label: 'UNS No.',                     width: '7%' },
+    { key: 'minTensile',              label: 'Min. Tensile',                width: '7%' },
+    { key: 'pNo',                     label: 'P-No.',                       width: '7%' },
+    { key: 'groupNo',                 label: 'Group No.',                   width: '7%' },
+    { key: 'isoGroup',                label: 'ISO 15608 Group',             width: '7%' },
+    { key: 'brazingPNo',              label: 'Brazing P-No.',               width: '7%' },
+    { key: 'nominalComposition',      label: 'Nominal Composition',         width: '15%' },
+    { key: 'typicalProductForm',      label: 'Typical Product Form',        width: '15%' },
+    { key: 'nominalThicknessLimits',  label: 'Nominal Thickness Limits',    width: '5%' },
+  ];
 
   const sections = [
-    { value: 'welders', label: 'Welders', icon: 'mdi-account-hard-hat' },
-    { value: 'dropdowns', label: 'Dropdown Lists', icon: 'mdi-format-list-bulleted' },
-    { value: 'wps', label: 'WPS No.', icon: 'mdi-clipboard-text-outline' },
+    { value: 'welders', label: 'Welders', icon: 'mdi-account-hard-hat', component: WelderTable },
+    { value: 'dropdowns', label: 'Dropdown Lists', icon: 'mdi-format-list-bulleted', component: LookupTable },
+    {
+      value: 'wps', label: 'WPS No.', icon: 'mdi-clipboard-text-outline', component: ReferenceTable,
+      props: {
+        apiBase: '/wps', title: 'WPS Numbers', fields: wpsFields,
+      },
+    },
+    {
+      value: 'mrn', label: 'MRN', icon: 'mdi-table-key', component: ReferenceTable,
+      props: {
+        apiBase: '/mrn', title: 'MRN Numbers', fields: mrnFields,
+      },
+    },
+    {
+      value: 'bpvc', label: 'BPVC IX', icon: 'mdi-book-open-variant', component: ReferenceTable,
+      props: {
+        apiBase: '/bpvc', title: 'BPVC IX', fields: bpvcFields,
+      },
+    },
   ];
 
   const sub = ref('welders');
+  const active = computed(() => sections.find((s) => s.value === sub.value));
 </script>

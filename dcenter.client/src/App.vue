@@ -3,7 +3,7 @@
     <v-overlay :model-value="booting || bootError" class="align-center justify-center" persistent
                scrim="#ffffff" opacity="1" style="z-index:3000;">
       <div class="text-center" style="max-width:420px;">
-        <v-img :src="logo" width="160" class="mx-auto mb-6" />
+        <v-img :src="logonobg" width="160" class="mx-auto mb-6" alt="DCenter" />
 
         <template v-if="!bootError">
           <v-progress-circular color="primary" indeterminate size="42" width="4" />
@@ -25,82 +25,166 @@
     </v-overlay>
 
     <v-app-bar color="primary" flat>
-      <v-img :src="logo" max-width="34" class="ms-3 me-2" />
-      <v-app-bar-title>Weld Report System</v-app-bar-title>
+      <button type="button" class="brand-home d-flex align-center ms-3"
+              aria-label="Go to dashboard" @click="goHome">
+        <v-img :src="logo" width="40" height="40" class="me-3" alt="" />
+        <span class="text-h6">DCenter Operations Hub</span>
+      </button>
 
       <v-spacer />
 
       <v-btn v-for="item in navItems" :key="item.to"
-             :to="item.to"
              :variant="route.path === item.to ? 'tonal' : 'text'"
              :prepend-icon="item.icon"
-             class="me-2">
+             class="me-2"
+             @click="navigate(item.to)">
         {{ item.label }}
       </v-btn>
     </v-app-bar>
 
     <v-main>
-      <v-container fluid>
-        <router-view />
+      <v-container fluid class="pa-4">
+        <router-view v-if="!booting && !bootError" />
       </v-container>
     </v-main>
 
     <v-footer color="primary" app class="text-caption justify-space-between px-4">
-      <span>Weld Report System</span>
+      <span>DCenter Operations Hub</span>
       <span>&copy; {{ year }} Emerson — DCenter</span>
     </v-footer>
+
+    <v-dialog v-model="leaveDialog" max-width="480" persistent>
+      <v-card>
+        <v-card-title>You're editing a report</v-card-title>
+        <v-card-text>
+          Job <strong>{{ reportStore.report?.jobNumber }}</strong> is still open.
+          Save it as a draft, mark it complete, or leave without saving.
+          <v-alert v-if="!reportStore.hasDateWelded" type="warning" variant="tonal"
+                   density="compact" class="mt-3">
+            Date welded is empty, so this report can't be saved or completed yet.
+          </v-alert>
+        </v-card-text>
+        <v-card-actions class="flex-wrap ga-1">
+          <v-btn variant="text" @click="leaveDialog = false">Stay</v-btn>
+          <v-spacer />
+          <v-btn color="error" variant="text" @click="leaveWithoutSaving">Leave without saving</v-btn>
+          <v-btn variant="tonal" :disabled="!reportStore.hasDateWelded"
+                 :loading="reportStore.saving" @click="leaveAfter('save')">
+            Save draft
+          </v-btn>
+          <v-btn color="success" variant="flat" :disabled="!reportStore.hasDateWelded"
+                 @click="leaveAfter('complete')">
+            Mark complete
+          </v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
   </v-app>
 </template>
 
 <script setup>
-    import { computed, ref } from 'vue';
-    import { useRoute } from 'vue-router';
-    import { useReportStore } from '@/store/reportStore';
-    import { useLookupStore } from '@/store/lookupStore';
-    import logo from '@/assets/DCenter.png';
+  import { computed, ref } from 'vue';
+  import { useRoute, useRouter } from 'vue-router';
+  import { useReportStore } from '@/store/reportStore';
+  import { useLookupStore } from '@/store/lookupStore';
+  import logo from '@/assets/DCenter.png'
+  import logonobg from '@/assets/DCenter_No_bg.png';
 
-    const route = useRoute();
-    const navItems = [
-      { to: '/', label: 'Report', icon: 'mdi-file-document-edit-outline' },
-      { to: '/settings', label: 'Settings', icon: 'mdi-cog-outline' },
-    ];
+  const route = useRoute();
+  const router = useRouter();
+  const navItems = [
+    { to: '/', label: 'Report', icon: 'mdi-file-document-edit-outline' },
+    { to: '/settings', label: 'Settings', icon: 'mdi-cog-outline' },
+  ];
 
-    const year = computed(() => new Date().getFullYear());
+  const year = computed(() => new Date().getFullYear());
 
-    const booting = ref(true);
-    const bootError = ref(false);
-    const attempt = ref(0);
+  const booting = ref(true);
+  const bootError = ref(false);
+  const attempt = ref(0);
 
-    const reportStore = useReportStore();
-    const lookupStore = useLookupStore();
+  const reportStore = useReportStore();
+  const lookupStore = useLookupStore();
 
-    const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+  const leaveDialog = ref(false);
+  const pendingPath = ref('/');
 
-    async function boot() {
-      booting.value = true;
-      bootError.value = false;
-      const maxAttempts = 8;
-      const delays = [500, 1000, 2000, 3000, 4000, 5000, 5000];
+  function navigate(path) {
+    pendingPath.value = path;
+    if (reportStore.confirmed && route.path === '/') {
+      leaveDialog.value = true;
+      return;
+    }
+    if (route.path !== path) router.push(path);
+  }
 
-      for (let i = 0; i < maxAttempts; i++) {
-        attempt.value = i + 1;
-        try {
-          await Promise.all([
-            reportStore.loadRows(),
-            reportStore.loadSavedReports(),
-            lookupStore.load(true),
-          ]);
-          booting.value = false;
-          return;
-        } catch {
-          if (i < maxAttempts - 1) {
-            await sleep(delays[i] ?? 5000);
-          }
+  function goHome() {
+    pendingPath.value = '/';
+    if (reportStore.confirmed) {
+      leaveDialog.value = true;
+      return;
+    }
+    if (route.path !== '/') router.push('/');
+  }
+
+  function finishLeaving() {
+    leaveDialog.value = false;
+    reportStore.backToList();
+    if (route.path !== pendingPath.value) router.push(pendingPath.value);
+  }
+
+  function leaveWithoutSaving() {
+    finishLeaving();
+  }
+
+  async function leaveAfter(mode) {
+    if (!(await reportStore.save())) return;
+    if (mode === 'complete' && !(await reportStore.setComplete(true))) return;
+    finishLeaving();
+  }
+
+  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+  async function boot() {
+    booting.value = true;
+    bootError.value = false;
+    const maxAttempts = 8;
+    const delays = [500, 1000, 2000, 3000, 4000, 5000, 5000];
+
+    for (let i = 0; i < maxAttempts; i++) {
+      attempt.value = i + 1;
+      try {
+        await Promise.all([
+          reportStore.loadSavedReports(),
+          lookupStore.load(true),
+        ]);
+        booting.value = false;
+        return;
+      } catch {
+        if (i < maxAttempts - 1) {
+          await sleep(delays[i] ?? 5000);
         }
       }
-      booting.value = false;
-      bootError.value = true;
     }
+    booting.value = false;
+    bootError.value = true;
+  }
 
-    boot();
+  boot();
 </script>
+
+<style scoped>
+  .brand-home {
+    background: none;
+    border: 0;
+    padding: 0;
+    color: inherit;
+    cursor: pointer;
+  }
+
+    .brand-home:focus-visible {
+      outline: 2px solid currentColor;
+      outline-offset: 4px;
+      border-radius: 4px;
+    }
+</style>

@@ -1,25 +1,16 @@
 namespace DCenter.Server.Models;
 
-// ---- Job search ----
-public record JobSearchResult(
-    string JobNumber,
-    int RowCount,
-    List<JobRow> Rows);
-
-// ---- Welder autocomplete ----
 public record WelderDto(int Id, string WelderName, string WelderNo, bool IsActive);
 
-// ---- Lookup CRUD ----
 public record LookupDto(int Id, string Category, string Value, int SortOrder, bool IsActive);
 public record LookupUpsert(string Category, string Value, int SortOrder, bool IsActive);
 
-// ---- Report save/load ----
 public class ReportDto
 {
     public int Id { get; set; }
     public string JobNumber { get; set; } = string.Empty;
     public bool ReportRequired { get; set; } = true;
-    public DateTime? DateWelded { get; set; }
+    public DateOnly? DateWelded { get; set; }
     public string? WorkOrder { get; set; }
     public string? PartNo { get; set; }
     public string? Description { get; set; }
@@ -67,7 +58,6 @@ public class JointMaterialDto
     public string? HeatLot { get; set; }
 }
 
-// Row in the saved-reports list under the job table.
 public record ReportSummary(
     int Id,
     string JobNumber,
@@ -77,8 +67,19 @@ public record ReportSummary(
     string Status,
     DateTime UpdatedAt);
 
-// Complete/Reopen audit entry for a report.
 public record ReportStatusEventDto(string Action, DateTime OccurredAt);
-// ---- WPS CRUD ----
-public record WpsDto(int Id, string WpsNo, string? Rev, string? Description, bool IsActive);
-public record WpsUpsert(string WpsNo, string? Rev, string? Description, bool IsActive);
+public record WpsDto(int Id, string WpsNo, string? BaseMetal, string? Process, string PNo);
+public record WpsUpsert(string WpsNo, string? BaseMetal, string? Process, string PNo);
+
+public record MrnSpecDto(int Id, string Mrn, string? Form, string? FullSpecification, string SpecNo);
+public record MrnSpecUpsert(string Mrn, string? Form, string? FullSpecification, string SpecNo);
+
+public record BpvcMaterialDto(
+    int Id, string SpecNo, string? Designation, string? UnsNo, string? MinTensile, string PNo,
+    string? GroupNo, string? IsoGroup, string? BrazingPNo, string? NominalComposition,
+    string? TypicalProductForm, string? NominalThicknessLimits);
+
+public record BpvcMaterialUpsert(
+    string SpecNo, string? Designation, string? UnsNo, string? MinTensile, string PNo,
+    string? GroupNo, string? IsoGroup, string? BrazingPNo, string? NominalComposition,
+    string? TypicalProductForm, string? NominalThicknessLimits);
