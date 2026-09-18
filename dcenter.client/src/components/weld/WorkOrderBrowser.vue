@@ -4,16 +4,16 @@
       <v-card-item>
         <v-card-title class="d-flex align-center">
           <v-icon icon="mdi-magnify" class="me-2" />
-          Find a job
+          Find a work order
         </v-card-title>
-        <v-card-subtitle>Search by job number, then select the job to open its report.</v-card-subtitle>
+        <v-card-subtitle>Search by work order number, then select it to open its report.</v-card-subtitle>
       </v-card-item>
 
       <v-card-text>
         <v-row align="center" dense>
           <v-col cols="12" sm="8" md="6">
             <v-text-field :model-value="searchInput"
-                          label="Job number"
+                          label="Work order number"
                           variant="outlined"
                           placeholder="Type to filter (2+ characters)"
                           prepend-inner-icon="mdi-file-search-outline"
@@ -25,14 +25,14 @@
           </v-col>
           <v-col cols="12" sm="4" md="3">
             <v-btn v-if="canSelect" color="primary" block :loading="loading"
-                   prepend-icon="mdi-check" @click="store.selectJob()">
-              Open {{ distinctJobs[0] }}
+                   prepend-icon="mdi-check" @click="store.selectWorkOrder()">
+              Open {{ distinctWorkOrders[0] }}
             </v-btn>
           </v-col>
           <v-col cols="12" md="3" class="text-medium-emphasis text-body-2">
             <template v-if="searchQuery">
-              <span v-if="filteredRows.length === 0 && !loadingRows">No jobs match "{{ searchQuery }}".</span>
-              <span v-else-if="distinctJobs.length > 1">{{ distinctJobs.length }} job numbers match — narrow it down to select.</span>
+              <span v-if="filteredRows.length === 0 && !loadingRows">No work orders match "{{ searchQuery }}".</span>
+              <span v-else-if="distinctWorkOrders.length > 1">{{ distinctWorkOrders.length }} Work order numbers match — narrow it down to select.</span>
               <span v-else-if="existingForSelected">
                 <v-icon icon="mdi-information-outline" size="16" class="me-1" />
                 Already has a {{ existingForSelected.status.toLowerCase() }} report — opening it, not a blank one.
@@ -51,7 +51,7 @@
       <div ref="tableArea" class="card-table-area">
         <v-data-table-virtual :headers="headers" :items="filteredRows" :loading="loadingRows"
                               height="100%" density="compact" fixed-header hover
-                              item-value="_index" :row-props="jobRowProps"
+                              item-value="_index" :row-props="workOrderRowProps"
                               :no-data-text="noDataText"
                               @click:row="onRowClick">
           <template #loading>
@@ -91,9 +91,9 @@
       <div class="card-table-area">
         <v-data-table-virtual :headers="savedHeaders" :items="visibleSaved" :loading="loadingSaved"
                               height="100%" density="compact" fixed-header hover
-                              item-value="jobNumber" :row-props="savedRowProps"
+                              item-value="workOrderNumber" :row-props="savedRowProps"
                               no-data-text="No saved reports match this filter."
-                              @click:row="(e, { item }) => selectedSaved = (selectedSaved === item.jobNumber ? null : item.jobNumber)">
+                              @click:row="(e, { item }) => selectedSaved = (selectedSaved === item.workOrderNumber ? null : item.workOrderNumber)">
           <template #loading>
             <v-skeleton-loader type="table-row@8" />
           </template>
@@ -106,14 +106,21 @@
             {{ fmt(item.updatedAt) }}
           </template>
           <template #item.actions="{ item }">
-            <div v-if="selectedSaved === item.jobNumber" class="d-flex justify-end ga-1">
+            <div v-if="selectedSaved === item.workOrderNumber" class="d-flex justify-end ga-1">
               <v-btn size="small" variant="text" color="primary" prepend-icon="mdi-folder-open-outline"
-                     :aria-label="`Open report for job ${item.jobNumber}`" @click.stop="store.openReport(item.jobNumber)">
+                     :aria-label="`Open report for work order ${item.workOrderNumber}`"
+                     @click.stop="store.openReport(item.workOrderNumber)">
                 Open
+              </v-btn>
+              <v-btn size="small" variant="text" prepend-icon="mdi-content-copy"
+                     :aria-label="`Duplicate report for work order ${item.workOrderNumber}`"
+                     @click.stop="store.duplicateReport(item.workOrderNumber)">
+                Duplicate
               </v-btn>
               <v-btn size="small" variant="text" color="error" icon="mdi-delete-outline"
                      :disabled="item.status === 'Completed'"
-                     :aria-label="`Delete draft for job ${item.jobNumber}`" @click.stop="askDelete(item)" />
+                     :aria-label="`Delete draft for work order ${item.workOrderNumber}`"
+                     @click.stop="askDelete(item)" />
             </div>
           </template>
         </v-data-table-virtual>
@@ -124,7 +131,7 @@
   <ConfirmDeleteDialog v-model="confirmDialog" title="Delete this draft?"
                        :loading="deletingRow" @confirm="doDelete">
     This permanently removes the draft for job
-    <strong>{{ pendingDelete?.jobNumber }}</strong>. This cannot be undone.
+    <strong>{{ pendingDelete?.workOrderNumber }}</strong>. This cannot be undone.
   </ConfirmDeleteDialog>
 </template>
 
@@ -135,8 +142,8 @@ import { useReportStore } from '@/store/reportStore';
 import ConfirmDeleteDialog from '@/components/ConfirmDeleteDialog.vue';
 
 const store = useReportStore();
-const { searchInput, searchQuery, filteredRows, canSelect, distinctJobs, loadingRows, loading,
-          loadingMoreRows, hasMoreResults, savedReports, loadingSaved, savedByJobNumber } = storeToRefs(store);
+const { searchInput, searchQuery, filteredRows, canSelect, distinctWorkOrders, loadingRows, loading,
+  loadingMoreRows, hasMoreResults, savedReports, loadingSaved, savedByWorkOrder } = storeToRefs(store);
 
 const tableArea = ref(null);
 let scrollEl = null;
@@ -144,7 +151,7 @@ let scrollEl = null;
 function onTableScroll() {
       if (!scrollEl) return;
       const remaining = scrollEl.scrollHeight - scrollEl.scrollTop - scrollEl.clientHeight;
-      if (remaining < 200) store.loadMoreJobs();
+  if (remaining < 200) store.loadMoreWorkOrders();
 }
 
 async function attachScroll() {
@@ -154,7 +161,7 @@ async function attachScroll() {
 }
 
 const headers = [
-      { title: 'Job Number',     key: 'jobNumber',     width: '110px', sortable: false },
+      { title: 'Work Order Number', key: 'workOrderNumber',     width: '110px', sortable: false },
       { title: 'Assembly Item',  key: 'assemblyItem',  width: '140px', sortable: false },
       { title: 'Item Desc',      key: 'itemDesc',      width: '320px', sortable: false },
       { title: 'Qty',            key: 'qty',           width: '70px',  sortable: false },
@@ -165,7 +172,7 @@ const headers = [
 ];
 
 const savedHeaders = [
-      { title: 'Job Number',  key: 'jobNumber',   width: '130px' },
+      { title: 'Work Order Number', key: 'workOrderNumber',   width: '130px' },
       { title: 'Part No.',    key: 'partNo',      width: '150px' },
       { title: 'Description', key: 'description', width: '320px' },
       { title: 'Joints',      key: 'jointCount',  width: '90px', align: 'center' },
@@ -176,23 +183,23 @@ const savedHeaders = [
 
 const statusFilter = ref('all');
 const selectedSaved = ref(null);
-const selectedJobRow = ref(null);
+const selectedWorkOrderRow = ref(null);
 
-const jobRowProps = ({ item }) => ({
-      class: selectedJobRow.value === item._index ? 'bg-blue-grey-lighten-5' : '',
+const workOrderRowProps = ({ item }) => ({
+  class: selectedWorkOrderRow.value === item._index ? 'bg-blue-grey-lighten-5' : '',
 });
 const savedRowProps = ({ item }) => ({
-      class: selectedSaved.value === item.jobNumber ? 'bg-blue-grey-lighten-5' : '',
+  class: selectedSaved.value === item.workOrderNumber ? 'bg-blue-grey-lighten-5' : '',
 });
 
 const visibleSaved = computed(() =>
       statusFilter.value === 'all' ? savedReports.value : savedReports.value.filter((r) => r.status === statusFilter.value));
 
 const existingForSelected = computed(() =>
-      canSelect.value ? savedByJobNumber.value.get(distinctJobs.value[0]) : undefined);
+  canSelect.value ? savedByWorkOrder.value.get(distinctWorkOrders.value[0]) : undefined);
 
 const noDataText = computed(() =>
-      searchQuery.value ? 'No jobs match your search.' : 'No jobs found.');
+      searchQuery.value ? 'No work orders match your search.' : 'No work orders found.');
 
 const confirmDialog = ref(false);
 const pendingDelete = ref(null);
@@ -203,15 +210,15 @@ function askDelete(item) { pendingDelete.value = item; confirmDialog.value = tru
 async function doDelete() {
       if (!pendingDelete.value) return;
       deletingRow.value = true;
-      try { await store.deleteSaved(pendingDelete.value.jobNumber); }
+  try { await store.deleteSaved(pendingDelete.value.workOrderNumber); }
       finally { deletingRow.value = false; confirmDialog.value = false; pendingDelete.value = null; }
 }
 
 function fmt(iso) { return iso ? new Date(iso).toLocaleString() : ''; }
 
 function onRowClick(_event, { item }) {
-      selectedJobRow.value = item._index;
-      store.setSearchInput(item.jobNumber);
+  selectedWorkOrderRow.value = item._index;
+  store.setSearchInput(item.workOrderNumber);
 }
 
 onMounted(async () => {

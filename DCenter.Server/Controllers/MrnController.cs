@@ -13,17 +13,17 @@ public class MrnController(WeldReportContext db) : ControllerBase
 {
     [HttpGet]
     public async Task<ActionResult<List<MrnSpecDto>>> GetAll(CancellationToken ct)
-        => Ok(await db.MrnSpecs.OrderBy(m => m.Mrn).ThenBy(m => m.SpecNo)
-            .Select(m => new MrnSpecDto(m.Id, m.Mrn, m.Form, m.FullSpecification, m.SpecNo))
-            .ToListAsync(ct));
+    => Ok(await db.MrnSpecs.OrderBy(m => m.Mrn).ThenBy(m => m.SpecNo)
+        .Select(m => new MrnSpecDto(m.Id, m.Mrn, m.Form, m.FullSpecification, m.SpecNo, m.SpecNoRaw))
+        .ToListAsync(ct));
 
     [HttpPost]
     public async Task<ActionResult<MrnSpecDto>> Create(MrnSpecUpsert dto, CancellationToken ct)
     {
-        var m = new MrnSpec { Mrn = dto.Mrn, Form = dto.Form, FullSpecification = dto.FullSpecification, SpecNo = dto.SpecNo };
+        var m = new MrnSpec { Mrn = dto.Mrn, Form = dto.Form, FullSpecification = dto.FullSpecification, SpecNo = dto.SpecNo, SpecNoRaw = dto.SpecNoRaw };
         db.MrnSpecs.Add(m);
         await db.SaveChangesAsync(ct);
-        return Ok(new MrnSpecDto(m.Id, m.Mrn, m.Form, m.FullSpecification, m.SpecNo));
+        return Ok(new MrnSpecDto(m.Id, m.Mrn, m.Form, m.FullSpecification, m.SpecNo, m.SpecNoRaw));
     }
 
     [HttpPut("{id:int}")]
@@ -31,7 +31,7 @@ public class MrnController(WeldReportContext db) : ControllerBase
     {
         var m = await db.MrnSpecs.FindAsync([id], ct);
         if (m is null) return NotFound();
-        (m.Mrn, m.Form, m.FullSpecification, m.SpecNo) = (dto.Mrn, dto.Form, dto.FullSpecification, dto.SpecNo);
+        (m.Mrn, m.Form, m.FullSpecification, m.SpecNo, m.SpecNoRaw) = (dto.Mrn, dto.Form, dto.FullSpecification, dto.SpecNo, dto.SpecNoRaw);
         await db.SaveChangesAsync(ct);
         return NoContent();
     }
@@ -51,8 +51,8 @@ public class MrnController(WeldReportContext db) : ControllerBase
     {
         var items = await db.MrnSpecs.OrderBy(m => m.Mrn).ThenBy(m => m.SpecNo).ToListAsync(ct);
         var csv = CsvHelper.ToCsv(
-            ["MRN", "Form", "FullSpecification", "SpecNo"],
-            items.Select(m => new string?[] { m.Mrn, m.Form, m.FullSpecification, m.SpecNo }));
+            ["MRN", "Form", "FullSpecification", "SpecNo", "SpecNoRaw"],
+            items.Select(m => new string?[] { m.Mrn, m.Form, m.FullSpecification, m.SpecNo, m.SpecNoRaw }));
         return File(System.Text.Encoding.UTF8.GetBytes(csv), "text/csv", "mrn.csv");
     }
 
@@ -71,12 +71,12 @@ public class MrnController(WeldReportContext db) : ControllerBase
 
             if (existing.TryGetValue(mrn, out var m))
             {
-                (m.Form, m.FullSpecification, m.SpecNo) = (f.Field(1), f.Field(2), specNo);
+                (m.Form, m.FullSpecification, m.SpecNo, m.SpecNoRaw) = (f.Field(1), f.Field(2), specNo, f.Field(4));
                 updated++;
             }
             else
             {
-                var m2 = new MrnSpec { Mrn = mrn, Form = f.Field(1), FullSpecification = f.Field(2), SpecNo = specNo };
+                var m2 = new MrnSpec { Mrn = mrn, Form = f.Field(1), FullSpecification = f.Field(2), SpecNo = specNo, SpecNoRaw = f.Field(4) };
                 db.MrnSpecs.Add(m2);
                 existing[mrn] = m2;
                 added++;

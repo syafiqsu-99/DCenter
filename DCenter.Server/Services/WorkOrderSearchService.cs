@@ -4,12 +4,12 @@ using Microsoft.EntityFrameworkCore;
 
 namespace DCenter.Server.Services;
 
-public class JobSearchService(SourceContext db)
+public class WorkOrderSearchService(SourceContext db)
 {
     public const int MaxPageSize = 100;
     public const int DefaultPageSize = 50;
 
-    private IQueryable<JobRow> BaseQuery(IQueryable<WorkOrderDetail> workOrders) =>
+    private IQueryable<WorkOrderRow> BaseQuery(IQueryable<WorkOrderDetail> workOrders) =>
         from wod in workOrders
 
         join bom in db.BillOfMaterialOthers
@@ -22,9 +22,9 @@ public class JobSearchService(SourceContext db)
 
         orderby wod.WoNumber
 
-        select new JobRow
+        select new WorkOrderRow
         {
-            JobNumber = wod.WoNumber,
+            WorkOrderNumber = wod.WoNumber,
             AssemblyItem = wod.AssemblyItem,
             ItemDesc = wod.ItemDesc,
             Qty = wod.StartQuantity,
@@ -33,10 +33,11 @@ public class JobSearchService(SourceContext db)
             MRN = mrn != null ? mrn.MRN : null,
             MRNDesc = mrn != null ? mrn.MRNDesc : null
         };
-    public async Task<(List<JobRow> Items, bool HasMore)> SearchAsync(
-        string? jobNumberPrefix, int skip, int take, CancellationToken ct)
+
+    public async Task<(List<WorkOrderRow> Items, bool HasMore)> SearchAsync(
+        string? workOrderPrefix, int skip, int take, CancellationToken ct)
     {
-        var term = (jobNumberPrefix ?? string.Empty).Trim();
+        var term = (workOrderPrefix ?? string.Empty).Trim();
         take = Math.Clamp(take, 1, MaxPageSize);
         skip = Math.Max(0, skip);
 
@@ -55,7 +56,7 @@ public class JobSearchService(SourceContext db)
         return (rows, hasMore);
     }
 
-    public async Task<List<JobRow>> PartsForJobAsync(string jobNumber, CancellationToken ct)
-        => await BaseQuery(db.WorkOrderDetails.Where(w => w.WoNumber == jobNumber))
+    public async Task<List<WorkOrderRow>> PartsForWorkOrderAsync(string workOrderNumber, CancellationToken ct)
+        => await BaseQuery(db.WorkOrderDetails.Where(w => w.WoNumber == workOrderNumber))
             .AsNoTracking().ToListAsync(ct);
 }

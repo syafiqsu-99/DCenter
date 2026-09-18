@@ -27,6 +27,7 @@
   import WelderTable from '@/components/WelderTable.vue';
   import LookupTable from '@/components/LookupTable.vue';
   import ReferenceTable from '@/components/ReferenceTable.vue';
+  import ProcessTypeLinkTable from '@/components/ProcessTypeLinkTable.vue';
 
   const wpsFields = [
     { key: 'wpsNo',     label: 'WPS No.',     width: '30%' },
@@ -36,29 +37,32 @@
   ];
 
   const mrnFields = [
-    { key: 'mrn',               label: 'MRN',                 width: '20%' },
-    { key: 'form',              label: 'Form',                width: '20%' },
-    { key: 'fullSpecification', label: 'Full Specification',  width: '40%' },
-    { key: 'specNo',            label: 'Spec No.',            width: '10%' },
-  ];
+    { key: 'mrn', label: 'MRN', width: '18%' },
+    { key: 'form', label: 'Form', width: '17%' },
+    { key: 'fullSpecification', label: 'Full Specification', width: '35%' },
+    { key: 'specNo', label: 'Spec No.', width: '15%' },
+    { key: 'specNoRaw', label: 'Spec No. (Raw)', width: '15%' },
+  ]
 
   const bpvcFields = [
-    { key: 'specNo',                  label: 'Spec No.',                    width: '7%' },
-    { key: 'designation',             label: 'Designation / Alloy / Grade', width: '7%' },
-    { key: 'unsNo',                   label: 'UNS No.',                     width: '7%' },
-    { key: 'minTensile',              label: 'Min. Tensile',                width: '7%' },
-    { key: 'pNo',                     label: 'P-No.',                       width: '7%' },
-    { key: 'groupNo',                 label: 'Group No.',                   width: '7%' },
-    { key: 'isoGroup',                label: 'ISO 15608 Group',             width: '7%' },
-    { key: 'brazingPNo',              label: 'Brazing P-No.',               width: '7%' },
-    { key: 'nominalComposition',      label: 'Nominal Composition',         width: '15%' },
-    { key: 'typicalProductForm',      label: 'Typical Product Form',        width: '15%' },
-    { key: 'nominalThicknessLimits',  label: 'Nominal Thickness Limits',    width: '5%' },
+    { key: 'specNo', label: 'Spec No.', width: '7%' },
+    { key: 'specNoRaw', label: 'Spec No. (Raw)', width: '7%' },
+    { key: 'designation', label: 'Designation / Alloy / Grade', width: '7%' },
+    { key: 'unsNo', label: 'UNS No.', width: '7%' },
+    { key: 'minTensile', label: 'Min. Tensile', width: '7%' },
+    { key: 'pNo', label: 'P-No.', width: '7%' },
+    { key: 'groupNo', label: 'Group No.', width: '7%' },
+    { key: 'isoGroup', label: 'ISO 15608 Group', width: '7%' },
+    { key: 'brazingPNo', label: 'Brazing P-No.', width: '7%' },
+    { key: 'nominalComposition', label: 'Nominal Composition', width: '15%' },
+    { key: 'typicalProductForm', label: 'Typical Product Form', width: '15%' },
+    { key: 'nominalThicknessLimits', label: 'Nominal Thickness Limits', width: '5%' },
   ];
 
   const sections = [
     { value: 'welders', label: 'Welders', icon: 'mdi-account-hard-hat', component: WelderTable },
     { value: 'dropdowns', label: 'Dropdown Lists', icon: 'mdi-format-list-bulleted', component: LookupTable },
+    { value: 'processType', label: 'Process → Type', icon: 'mdi-link-variant', component: ProcessTypeLinkTable },
     {
       value: 'wps', label: 'WPS No.', icon: 'mdi-clipboard-text-outline', component: ReferenceTable,
       props: {

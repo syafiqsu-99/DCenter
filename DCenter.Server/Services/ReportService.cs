@@ -7,14 +7,14 @@ namespace DCenter.Server.Services;
 
 public class ReportService(WeldReportContext db)
 {
-    public async Task<Report?> GetEntityAsync(string jobNumber, CancellationToken ct)
+    public async Task<Report?> GetEntityAsync(string workOrderNumber, CancellationToken ct)
         => await db.Reports
             .Include(r => r.Joints).ThenInclude(j => j.Materials)
-            .FirstOrDefaultAsync(r => r.JobNumber == jobNumber, ct);
+            .FirstOrDefaultAsync(r => r.WorkOrderNumber == workOrderNumber, ct);
 
-    public async Task<ReportDto?> LoadAsync(string jobNumber, CancellationToken ct)
+    public async Task<ReportDto?> LoadAsync(string workOrderNumber, CancellationToken ct)
     {
-        var r = await GetEntityAsync(jobNumber, ct);
+        var r = await GetEntityAsync(workOrderNumber, ct);
         return r is null ? null : ToDto(r);
     }
 
@@ -23,7 +23,7 @@ public class ReportService(WeldReportContext db)
             .OrderByDescending(r => r.UpdatedAt)
             .Select(r => new ReportSummary(
                 r.Id,
-                r.JobNumber,
+                r.WorkOrderNumber,
                 r.PartNo,
                 r.Description,
                 r.Joints.Count,
@@ -33,9 +33,9 @@ public class ReportService(WeldReportContext db)
 
     public enum CompleteResult { Ok, NotFound, DateWeldedRequired }
 
-    public async Task<CompleteResult> MarkCompleteAsync(string jobNumber, bool complete, CancellationToken ct)
+    public async Task<CompleteResult> MarkCompleteAsync(string workOrderNumber, bool complete, CancellationToken ct)
     {
-        var r = await db.Reports.FirstOrDefaultAsync(x => x.JobNumber == jobNumber, ct);
+        var r = await db.Reports.FirstOrDefaultAsync(x => x.WorkOrderNumber == workOrderNumber, ct);
         if (r is null) return CompleteResult.NotFound;
         if (complete && r.DateWelded is null) return CompleteResult.DateWeldedRequired;
         r.CompletedAt = complete ? DateTime.Now : null;
@@ -49,10 +49,10 @@ public class ReportService(WeldReportContext db)
         return CompleteResult.Ok;
     }
 
-    public async Task<List<ReportStatusEventDto>?> GetHistoryAsync(string jobNumber, CancellationToken ct)
+    public async Task<List<ReportStatusEventDto>?> GetHistoryAsync(string WorkOrderNumber, CancellationToken ct)
     {
         var reportId = await db.Reports
-            .Where(x => x.JobNumber == jobNumber)
+            .Where(x => x.WorkOrderNumber == WorkOrderNumber)
             .Select(x => (int?)x.Id)
             .FirstOrDefaultAsync(ct);
         if (reportId is null) return null;
@@ -66,9 +66,9 @@ public class ReportService(WeldReportContext db)
 
     public enum DeleteResult { Ok, NotFound, Completed }
 
-    public async Task<DeleteResult> DeleteAsync(string jobNumber, CancellationToken ct)
+    public async Task<DeleteResult> DeleteAsync(string WorkOrderNumber, CancellationToken ct)
     {
-        var r = await db.Reports.FirstOrDefaultAsync(x => x.JobNumber == jobNumber, ct);
+        var r = await db.Reports.FirstOrDefaultAsync(x => x.WorkOrderNumber == WorkOrderNumber, ct);
         if (r is null) return DeleteResult.NotFound;
         if (r.CompletedAt is not null) return DeleteResult.Completed;
         db.Reports.Remove(r);
@@ -80,13 +80,13 @@ public class ReportService(WeldReportContext db)
     {
         var r = await db.Reports
             .Include(x => x.Joints).ThenInclude(j => j.Materials)
-            .FirstOrDefaultAsync(x => x.JobNumber == dto.JobNumber, ct);
+            .FirstOrDefaultAsync(x => x.WorkOrderNumber == dto.WorkOrderNumber, ct);
 
         var isInsert = r is null;
 
         if (r is null)
         {
-            r = new Report { JobNumber = dto.JobNumber, CreatedAt = DateTime.Now };
+            r = new Report { WorkOrderNumber = dto.WorkOrderNumber, CreatedAt = DateTime.Now };
             db.Reports.Add(r);
         }
         else
@@ -103,7 +103,7 @@ public class ReportService(WeldReportContext db)
         ApplyHeader(r, dto);
         r.UpdatedAt = DateTime.Now;
 
-        foreach (var jd in dto.Joints.OrderBy(j => j.JointNumber).Take(9))
+        foreach (var jd in dto.Joints.OrderBy(j => j.JointNumber).Take(50))
         {
             var joint = new Joint
             {
@@ -145,7 +145,7 @@ public class ReportService(WeldReportContext db)
         catch (DbUpdateException) when (isInsert)
         {
             throw new ReportConflictException(
-                $"A report for job {dto.JobNumber} was just created by someone else. Reload the list and open it.");
+                $"A report for job {dto.WorkOrderNumber} was just created by someone else. Reload the list and open it.");
         }
 
         return ToDto(r);
@@ -155,7 +155,6 @@ public class ReportService(WeldReportContext db)
     {
         r.ReportRequired = d.ReportRequired;
         r.DateWelded = d.DateWelded;
-        r.WorkOrder = d.WorkOrder;
         r.PartNo = d.PartNo;
         r.Description = d.Description;
         r.MaterialSpec1 = d.MaterialSpec1; r.MaterialSpec2 = d.MaterialSpec2; r.MaterialSpec3 = d.MaterialSpec3;
@@ -168,10 +167,9 @@ public class ReportService(WeldReportContext db)
     public static ReportDto ToDto(Report r) => new()
     {
         Id = r.Id,
-        JobNumber = r.JobNumber,
+        WorkOrderNumber = r.WorkOrderNumber,
         ReportRequired = r.ReportRequired,
         DateWelded = r.DateWelded,
-        WorkOrder = r.WorkOrder,
         PartNo = r.PartNo,
         Description = r.Description,
         MaterialSpec1 = r.MaterialSpec1,

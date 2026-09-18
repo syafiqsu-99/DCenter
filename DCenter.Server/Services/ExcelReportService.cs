@@ -48,7 +48,7 @@ public class ExcelReportService
         // ---- Header block: Part No / Desc / Job No / Piece S/N / Date ----
         LabelValueStacked(ws, row, 1, 4, "Part No.", r.PartNo);
         LabelValueStacked(ws, row, 5, 8, "Part Description", r.Description);
-        LabelValueStacked(ws, row, 13, 4, "Job No.", r.JobNumber);
+        LabelValueStacked(ws, row, 13, 4, "Work Order No.", r.WorkOrderNumber);
         LabelValueStacked(ws, row, 17, 5, "Piece S/N", "-");
         LabelValueStacked(ws, row, 22, 4, "Date", dateStr);
         row += 2;

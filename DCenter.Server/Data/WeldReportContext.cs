@@ -14,6 +14,7 @@ public class WeldReportContext(DbContextOptions<WeldReportContext> options) : Db
     public DbSet<ReportStatusEvent> ReportStatusEvents => Set<ReportStatusEvent>();
     public DbSet<MrnSpec> MrnSpecs => Set<MrnSpec>();
     public DbSet<BpvcMaterial> BpvcMaterials => Set<BpvcMaterial>();
+    public DbSet<ProcessTypeLink> ProcessTypeLinks => Set<ProcessTypeLink>();
 
     protected override void OnModelCreating(ModelBuilder b)
     {
@@ -49,8 +50,8 @@ public class WeldReportContext(DbContextOptions<WeldReportContext> options) : Db
         b.Entity<Report>(e =>
         {
             e.ToTable("DCenter_Reports");
-            e.Property(x => x.JobNumber).HasMaxLength(100).IsRequired();
-            e.HasIndex(x => x.JobNumber).IsUnique();
+            e.Property(x => x.WorkOrderNumber).HasMaxLength(100).IsRequired();
+            e.HasIndex(x => x.WorkOrderNumber).IsUnique();
             e.Property(x => x.RowVersion).IsRowVersion();
             e.HasMany(x => x.Joints)
              .WithOne(x => x.Report)
@@ -87,6 +88,7 @@ public class WeldReportContext(DbContextOptions<WeldReportContext> options) : Db
             e.Property(x => x.Form).HasMaxLength(200);
             e.Property(x => x.FullSpecification).HasMaxLength(400);
             e.Property(x => x.SpecNo).HasMaxLength(100).IsRequired();
+            e.Property(x => x.SpecNoRaw).HasMaxLength(100);
             e.HasIndex(x => x.Mrn).IsUnique();
         });
 
@@ -94,6 +96,7 @@ public class WeldReportContext(DbContextOptions<WeldReportContext> options) : Db
         {
             e.ToTable("DCenter_BpvcIx");
             e.Property(x => x.SpecNo).HasMaxLength(100).IsRequired();
+            e.Property(x => x.SpecNoRaw).HasMaxLength(100);
             e.Property(x => x.Designation).HasMaxLength(200);
             e.Property(x => x.UnsNo).HasMaxLength(100);
             e.Property(x => x.MinTensile).HasMaxLength(100);
@@ -105,6 +108,14 @@ public class WeldReportContext(DbContextOptions<WeldReportContext> options) : Db
             e.Property(x => x.TypicalProductForm).HasMaxLength(200);
             e.Property(x => x.NominalThicknessLimits).HasMaxLength(200);
             e.HasIndex(x => new { x.SpecNo, x.PNo }).IsUnique();
+        });
+
+        b.Entity<ProcessTypeLink>(e =>
+        {
+            e.ToTable("DCenter_ProcessTypeLinks");
+            e.Property(x => x.Process).HasMaxLength(200).IsRequired();
+            e.Property(x => x.Type).HasMaxLength(200).IsRequired();
+            e.HasIndex(x => new { x.Process, x.Type }).IsUnique();
         });
     }
 }

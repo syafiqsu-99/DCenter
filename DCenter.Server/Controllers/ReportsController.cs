@@ -15,43 +15,43 @@ public class ReportsController(
     public async Task<ActionResult<List<ReportSummary>>> List(CancellationToken ct)
         => Ok(await reports.ListAsync(ct));
 
-    [HttpGet("{jobNumber}")]
-    public async Task<ActionResult<ReportDto>> Get(string jobNumber, CancellationToken ct)
+    [HttpGet("{workOrderNumber}")]
+    public async Task<ActionResult<ReportDto>> Get(string workOrderNumber, CancellationToken ct)
     {
-        var dto = await reports.LoadAsync(jobNumber, ct);
+        var dto = await reports.LoadAsync(workOrderNumber, ct);
         return dto is null ? NoContent() : Ok(dto);
     }
 
-    [HttpPost("{jobNumber}/complete")]
-    public async Task<IActionResult> Complete(string jobNumber, [FromBody] bool complete, CancellationToken ct)
-        => await reports.MarkCompleteAsync(jobNumber, complete, ct) switch
+    [HttpPost("{workOrderNumber}/complete")]
+    public async Task<IActionResult> Complete(string workOrderNumber, [FromBody] bool complete, CancellationToken ct)
+        => await reports.MarkCompleteAsync(workOrderNumber, complete, ct) switch
         {
             ReportService.CompleteResult.Ok => NoContent(),
             ReportService.CompleteResult.DateWeldedRequired => BadRequest("Date welded is required to mark a report complete."),
             _ => NotFound(),
         };
 
-    [HttpDelete("{jobNumber}")]
-    public async Task<IActionResult> Delete(string jobNumber, CancellationToken ct)
-        => await reports.DeleteAsync(jobNumber, ct) switch
+    [HttpDelete("{workOrderNumber}")]
+    public async Task<IActionResult> Delete(string workOrderNumber, CancellationToken ct)
+        => await reports.DeleteAsync(workOrderNumber, ct) switch
         {
             ReportService.DeleteResult.Ok => NoContent(),
             ReportService.DeleteResult.Completed => Conflict("Completed reports cannot be deleted. Reopen the report first."),
             _ => NotFound(),
         };
 
-    [HttpGet("{jobNumber}/history")]
-    public async Task<ActionResult<List<ReportStatusEventDto>>> History(string jobNumber, CancellationToken ct)
+    [HttpGet("{workOrderNumber}/history")]
+    public async Task<ActionResult<List<ReportStatusEventDto>>> History(string workOrderNumber, CancellationToken ct)
     {
-        var history = await reports.GetHistoryAsync(jobNumber, ct);
+        var history = await reports.GetHistoryAsync(workOrderNumber, ct);
         return history is null ? NotFound() : Ok(history);
     }
 
     [HttpPost]
     public async Task<ActionResult<ReportDto>> Save(ReportDto dto, CancellationToken ct)
     {
-        if (string.IsNullOrWhiteSpace(dto.JobNumber))
-            return BadRequest("JobNumber is required.");
+        if (string.IsNullOrWhiteSpace(dto.WorkOrderNumber))
+            return BadRequest("Work order number is required.");
         if (dto.DateWelded is null)
             return BadRequest("Date welded is required to save a report.");
         try
@@ -64,23 +64,23 @@ public class ReportsController(
         }
     }
 
-    [HttpGet("{jobNumber}/pdf")]
-    public async Task<IActionResult> Pdf(string jobNumber, CancellationToken ct)
+    [HttpGet("{workOrderNumber}/pdf")]
+    public async Task<IActionResult> Pdf(string workOrderNumber, CancellationToken ct)
     {
-        var r = await reports.GetEntityAsync(jobNumber, ct);
+        var r = await reports.GetEntityAsync(workOrderNumber, ct);
         if (r is null) return NotFound();
         var bytes = pdf.Generate(r);
         return File(bytes, "application/pdf");
     }
 
-    [HttpGet("{jobNumber}/excel")]
-    public async Task<IActionResult> Excel(string jobNumber, CancellationToken ct)
+    [HttpGet("{workOrderNumber}/excel")]
+    public async Task<IActionResult> Excel(string workOrderNumber, CancellationToken ct)
     {
-        var r = await reports.GetEntityAsync(jobNumber, ct);
+        var r = await reports.GetEntityAsync(workOrderNumber, ct);
         if (r is null) return NotFound();
         var bytes = excel.Generate(r);
         return File(bytes,
             "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-            $"WeldOrderCard_{jobNumber}.xlsx");
+            $"WeldOrderCard_{workOrderNumber}.xlsx");
     }
 }

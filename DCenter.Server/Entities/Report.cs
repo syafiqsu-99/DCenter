@@ -3,11 +3,10 @@ namespace DCenter.Server.Entities;
 public class Report
 {
     public int Id { get; set; }
-    public string JobNumber { get; set; } = string.Empty;
+    public string WorkOrderNumber { get; set; } = string.Empty;
 
     public bool ReportRequired { get; set; } = true;
     public DateOnly? DateWelded { get; set; }
-    public string? WorkOrder { get; set; }
     public string? PartNo { get; set; }
     public string? Description { get; set; }
 

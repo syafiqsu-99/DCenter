@@ -45,7 +45,7 @@ public class PdfReportService
             {
                 left.Item().Element(e => Field(e, "Report Required?", r.ReportRequired ? "YES" : "NO"));
                 left.Item().Element(e => Field(e, "Date Welded :", r.DateWelded?.ToString("d/M/yyyy") ?? "-"));
-                left.Item().Element(e => Field(e, "Work Order:", r.WorkOrder));
+                left.Item().Element(e => Field(e, "Work Order:", r.WorkOrderNumber));
                 left.Item().Element(e => Field(e, "Part No. :", r.PartNo));
                 left.Item().Element(e => Field(e, "Description:", r.Description));
             });

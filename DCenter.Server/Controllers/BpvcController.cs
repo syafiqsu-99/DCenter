@@ -13,7 +13,9 @@ public class BpvcController(WeldReportContext db) : ControllerBase
 {
     private static BpvcMaterialDto ToDto(BpvcMaterial b) => new(
         b.Id, b.SpecNo, b.Designation, b.UnsNo, b.MinTensile, b.PNo,
-        b.GroupNo, b.IsoGroup, b.BrazingPNo, b.NominalComposition, b.TypicalProductForm, b.NominalThicknessLimits);
+        b.GroupNo, b.IsoGroup, b.BrazingPNo, b.NominalComposition, b.TypicalProductForm, b.NominalThicknessLimits,
+        b.SpecNoRaw
+    );
 
     private static void Apply(BpvcMaterial b, BpvcMaterialUpsert dto)
     {
@@ -21,6 +23,7 @@ public class BpvcController(WeldReportContext db) : ControllerBase
         (b.GroupNo, b.IsoGroup, b.BrazingPNo) = (dto.GroupNo, dto.IsoGroup, dto.BrazingPNo);
         (b.NominalComposition, b.TypicalProductForm, b.NominalThicknessLimits) =
             (dto.NominalComposition, dto.TypicalProductForm, dto.NominalThicknessLimits);
+        b.SpecNoRaw = dto.SpecNoRaw;
     }
 
     [HttpGet]
@@ -61,7 +64,7 @@ public class BpvcController(WeldReportContext db) : ControllerBase
     private static readonly string[] Headers =
     [
         "SpecNo", "Designation", "UnsNo", "MinTensile", "PNo", "GroupNo",
-        "IsoGroup", "BrazingPNo", "NominalComposition", "TypicalProductForm", "NominalThicknessLimits",
+        "IsoGroup", "BrazingPNo", "NominalComposition", "TypicalProductForm", "NominalThicknessLimits", "SpecNoRaw",
     ];
 
     [HttpGet("export")]
@@ -70,8 +73,8 @@ public class BpvcController(WeldReportContext db) : ControllerBase
         var items = await db.BpvcMaterials.OrderBy(b => b.SpecNo).ThenBy(b => b.PNo).ToListAsync(ct);
         var csv = CsvHelper.ToCsv(Headers, items.Select(b => new string?[]
         {
-            b.SpecNo, b.Designation, b.UnsNo, b.MinTensile, b.PNo,
-            b.GroupNo, b.IsoGroup, b.BrazingPNo, b.NominalComposition, b.TypicalProductForm, b.NominalThicknessLimits,
+        b.SpecNo, b.Designation, b.UnsNo, b.MinTensile, b.PNo,
+        b.GroupNo, b.IsoGroup, b.BrazingPNo, b.NominalComposition, b.TypicalProductForm, b.NominalThicknessLimits, b.SpecNoRaw,
         }));
         return File(System.Text.Encoding.UTF8.GetBytes(csv), "text/csv", "bpvc.csv");
     }
@@ -90,7 +93,7 @@ public class BpvcController(WeldReportContext db) : ControllerBase
             if (specNo.Length == 0 || pNo.Length == 0) { skipped++; continue; }
 
             var dto = new BpvcMaterialUpsert(specNo, f.Field(1), f.Field(2), f.Field(3), pNo,
-                f.Field(5), f.Field(6), f.Field(7), f.Field(8), f.Field(9), f.Field(10));
+                f.Field(5), f.Field(6), f.Field(7), f.Field(8), f.Field(9), f.Field(10), f.Field(11));
 
             if (existing.TryGetValue((specNo, pNo), out var b))
             {

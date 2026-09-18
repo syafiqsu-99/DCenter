@@ -12,11 +12,11 @@ public record WpsFilterResult(
 
 public record WpsOption(string WpsNo, string? Process, string? BaseMetal, string PNo);
 
-public class WpsFilterService(WeldReportContext db, JobSearchService jobs)
+public class WpsFilterService(WeldReportContext db, WorkOrderSearchService workOrders)
 {
-    public async Task<WpsFilterResult> ForJobAsync(string jobNumber, CancellationToken ct)
+    public async Task<WpsFilterResult> ForWorkOrderAsync(string workOrderNumber, CancellationToken ct)
     {
-        var rows = await jobs.PartsForJobAsync(jobNumber, ct);
+        var rows = await workOrders.PartsForWorkOrderAsync(workOrderNumber, ct);
         var mrns = rows.Select(r => r.MRN)
                        .Where(m => !string.IsNullOrWhiteSpace(m))
                        .Select(m => m!.Trim())
@@ -24,7 +24,7 @@ public class WpsFilterService(WeldReportContext db, JobSearchService jobs)
                        .ToList();
 
         if (mrns.Count == 0)
-            return new WpsFilterResult([], [], [], [], $"Job {jobNumber} has no MRN, so the WPS list can't be narrowed.");
+            return new WpsFilterResult([], [], [], [], $"Work order {workOrderNumber} has no MRN, so the WPS list can't be narrowed.");
 
         return await ForMrnsAsync(mrns, ct);
     }

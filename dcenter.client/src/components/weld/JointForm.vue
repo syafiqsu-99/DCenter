@@ -27,9 +27,25 @@
         <!-- Part Desc | Part Desc | Process -->
         <tr>
           <td :style="lbl">Part Desc. :</td>
-          <td :style="cell"><v-combobox v-model="joint.partDescLeft" :items="leftDescs" v-bind="f" clearable /></td>
+          <td :style="cell">
+            <v-combobox v-bind="f" clearable :items="rightParts"
+                        :model-value="joint.partDescLeft" :item-title="partDescTitle"
+                        @update:model-value="(v) => setPart('Left', 'desc', v)">
+              <template #item="{ props: p, item }">
+                <v-list-item v-bind="p" :title="item.raw?.no ?? item.raw" :subtitle="item.raw?.desc" />
+              </template>
+            </v-combobox>
+          </td>
           <td :style="lbl">Part Desc. :</td>
-          <td :style="cell"><v-combobox v-model="joint.partDescRight" :items="rightDescs" v-bind="f" clearable /></td>
+          <td :style="cell">
+            <v-combobox v-bind="f" clearable :items="rightParts"
+                        :model-value="joint.partDescRight" :item-title="partDescTitle"
+                        @update:model-value="(v) => setPart('Right', 'desc', v)">
+              <template #item="{ props: p, item }">
+                <v-list-item v-bind="p" :title="item.raw?.no ?? item.raw" :subtitle="item.raw?.desc" />
+              </template>
+            </v-combobox>
+          </td>
           <td :style="lbl">Process</td>
           <td :style="cell"><v-combobox v-model="joint.materials[0].process" :items="opt('Process', joint.materials[0].process)" v-bind="f" clearable /></td>
           <td :style="cell"><v-combobox v-model="joint.materials[1].process" :items="opt('Process', joint.materials[1].process)" v-bind="f" clearable /></td>
@@ -39,9 +55,25 @@
         <!-- Part No | Part No | Size -->
         <tr>
           <td :style="lbl">Part No. :</td>
-          <td :style="cell"><v-combobox v-model="joint.partNoLeft" :items="leftNos" v-bind="f" clearable /></td>
+          <td :style="cell">
+            <v-combobox v-bind="f" clearable :items="rightParts"
+                        :model-value="joint.partNoLeft" :item-title="partNoTitle"
+                        @update:model-value="(v) => setPart('Left', 'no', v)">
+              <template #item="{ props: p, item }">
+                <v-list-item v-bind="p" :title="item.raw?.no ?? item.raw" :subtitle="item.raw?.desc" />
+              </template>
+            </v-combobox>
+          </td>
           <td :style="lbl">Part No. :</td>
-          <td :style="cell"><v-combobox v-model="joint.partNoRight" :items="rightNos" v-bind="f" clearable /></td>
+          <td :style="cell">
+            <v-combobox v-bind="f" clearable :items="rightParts"
+                        :model-value="joint.partNoRight" :item-title="partNoTitle"
+                        @update:model-value="(v) => setPart('Right', 'no', v)">
+              <template #item="{ props: p, item }">
+                <v-list-item v-bind="p" :title="item.raw?.no ?? item.raw" :subtitle="item.raw?.desc" />
+              </template>
+            </v-combobox>
+          </td>
           <td :style="lbl">Size</td>
           <td :style="cell"><v-combobox v-model="joint.materials[0].size" :items="opt('Size', joint.materials[0].size)" v-bind="f" clearable /></td>
           <td :style="cell"><v-combobox v-model="joint.materials[1].size" :items="opt('Size', joint.materials[1].size)" v-bind="f" clearable /></td>
@@ -55,9 +87,9 @@
           <td :style="lbl">Heat Number :</td>
           <td :style="cell"><v-text-field v-model="joint.heatNumberRight" v-bind="f" /></td>
           <td :style="lbl">Type</td>
-          <td :style="cell"><v-combobox v-model="joint.materials[0].type" :items="opt('Type', joint.materials[0].type)" v-bind="f" clearable /></td>
-          <td :style="cell"><v-combobox v-model="joint.materials[1].type" :items="opt('Type', joint.materials[1].type)" v-bind="f" clearable /></td>
-          <td :style="cell"><v-combobox v-model="joint.materials[2].type" :items="opt('Type', joint.materials[2].type)" v-bind="f" clearable /></td>
+          <td :style="cell"><v-combobox v-model="joint.materials[0].type" :items="typeOpt(0)" v-bind="f" clearable /></td>
+          <td :style="cell"><v-combobox v-model="joint.materials[1].type" :items="typeOpt(1)" v-bind="f" clearable /></td>
+          <td :style="cell"><v-combobox v-model="joint.materials[2].type" :items="typeOpt(2)" v-bind="f" clearable /></td>
         </tr>
 
         <!-- WPS No | Rev | Manuf -->
@@ -98,123 +130,134 @@
 </template>
 
 <script setup>
-        import { computed, ref, watch } from 'vue';
-        import { storeToRefs } from 'pinia';
-        import { useReportStore } from '@/store/reportStore';
-        import { useLookupStore } from '@/store/lookupStore';
-        import api from '@/utils/api';
+  import { computed, ref, watch } from 'vue';
+  import { storeToRefs } from 'pinia';
+  import { useReportStore } from '@/store/reportStore';
+  import { useLookupStore } from '@/store/lookupStore';
+  import { useProcessTypeStore } from '@/store/processTypeStore';
+  import api from '@/utils/api';
 
-        const props = defineProps({
-          joint: { type: Object, required: true },
-        });
+  const props = defineProps({
+    joint: { type: Object, required: true },
+  });
 
-        const f = { density: 'compact', variant: 'plain', hideDetails: true };
-        const allowAll = () => true;
+  const processTypeStore = useProcessTypeStore()
+  processTypeStore.load()
 
-        const reportStore = useReportStore();
-        const { leftParts, rightParts } = storeToRefs(reportStore);
+  function typeOpt(col) {
+    const linked = processTypeStore.typesForProcess(props.joint.materials[col].process)
+    const base = linked ?? (options.value['Type'] ?? [])
+    const current = props.joint.materials[col].type
+    return current && !base.includes(current) ? [current, ...base] : base
+  }
 
-        const leftDescs = computed(() => leftParts.value.map((p) => p.desc));
-        const leftNos = computed(() => leftParts.value.map((p) => p.no));
-        const rightDescs = computed(() => rightParts.value.map((p) => p.desc));
-        const rightNos = computed(() => rightParts.value.map((p) => p.no));
+  const f = { density: 'compact', variant: 'plain', hideDetails: true };
+  const allowAll = () => true;
 
-        const lookupStore = useLookupStore();
-        const { options } = storeToRefs(lookupStore);
+  const reportStore = useReportStore();
+  const { rightParts } = storeToRefs(reportStore);
 
-        function opt(category, current) {
-          const list = options.value[category] ?? [];
-          return current && !list.includes(current) ? [current, ...list] : list;
-        }
+  const lookupStore = useLookupStore();
+  const { options } = storeToRefs(lookupStore);
 
-        function isEmpty(v) {
-          return v === null || v === undefined || v === '';
-        }
+  function opt(category, current) {
+    const list = options.value[category] ?? [];
+    return current && !list.includes(current) ? [current, ...list] : list;
+  }
 
-        function pairSync(pairs, srcKey, dstKey, matchBy) {
-          watch(() => props.joint[srcKey], (v) => {
-            if (isEmpty(v)) {
-              if (!isEmpty(props.joint[dstKey])) props.joint[dstKey] = '';
-              return;
-            }
-            const hit = pairs.value.find((p) => p[matchBy] === v);
-            if (hit) {
-              const other = matchBy === 'no' ? hit.desc : hit.no;
-              if (props.joint[dstKey] !== other) props.joint[dstKey] = other;
-            }
-          });
-        }
+  function isEmpty(v) {
+    return v === null || v === undefined || v === '';
+  }
 
-        // Left column (column 1): no <-> desc.
-        pairSync(leftParts, 'partNoLeft', 'partDescLeft', 'no');
-        pairSync(leftParts, 'partDescLeft', 'partNoLeft', 'desc');
-        // Right column (column 2): no <-> desc.
-        pairSync(rightParts, 'partNoRight', 'partDescRight', 'no');
-        pairSync(rightParts, 'partDescRight', 'partNoRight', 'desc');
+  function partNoTitle(p) {
+    return typeof p === 'string' ? p : (p?.no ?? '')
+  }
+  function partDescTitle(p) {
+    return typeof p === 'string' ? p : (p?.desc ?? '')
+  }
+  function setPart(side, field, v) {
+    const j = props.joint
+    const noKey = `partNo${side}`
+    const descKey = `partDesc${side}`
+    if (v && typeof v === 'object') {
+      j[noKey] = v.no ?? ''
+      j[descKey] = v.desc ?? ''
+      return
+    }
+    const val = v ?? ''
+    const hit = rightParts.value.find((p) => (field === 'no' ? p.no : p.desc) === val)
+    if (hit) {
+      j[noKey] = hit.no
+      j[descKey] = hit.desc
+    } else {
+      j[field === 'no' ? noKey : descKey] = val
+    }
+  }
 
-        const welderItems = ref([]);
-        const welderNames = computed(() => welderItems.value.map((x) => x.welderName));
-        const welderNos = computed(() => welderItems.value.map((x) => x.welderNo));
-        async function searchWelders(q) {
-          const { data } = await api.get('/welders/search', { params: { q: q || '' } });
-          welderItems.value = data;
-        }
-        searchWelders('');
+  const welderItems = ref([]);
+  const welderNames = computed(() => welderItems.value.map((x) => x.welderName));
+  const welderNos = computed(() => welderItems.value.map((x) => x.welderNo));
+  async function searchWelders(q) {
+    const { data } = await api.get('/welders/search', { params: { q: q || '' } });
+    welderItems.value = data;
+  }
+  searchWelders('');
 
-        watch(() => props.joint.welderName, (name) => {
-          if (isEmpty(name)) {
-            if (!isEmpty(props.joint.welderNo)) props.joint.welderNo = '';
-            return;
-          }
-          const w = welderItems.value.find((x) => x.welderName === name);
-          if (w && props.joint.welderNo !== w.welderNo) props.joint.welderNo = w.welderNo;
-        });
-        watch(() => props.joint.welderNo, (no) => {
-          if (isEmpty(no)) {
-            if (!isEmpty(props.joint.welderName)) props.joint.welderName = '';
-            return;
-          }
-          const w = welderItems.value.find((x) => x.welderNo === no);
-          if (w && props.joint.welderName !== w.welderName) props.joint.welderName = w.welderName;
-        });
+  watch(() => props.joint.welderName, (name) => {
+    if (isEmpty(name)) {
+      if (!isEmpty(props.joint.welderNo)) props.joint.welderNo = '';
+      return;
+    }
+    const w = welderItems.value.find((x) => x.welderName === name);
+    if (w && props.joint.welderNo !== w.welderNo) props.joint.welderNo = w.welderNo;
+  });
 
-        const { allowedWps, wpsFilterNote, loadingWpsFilter } = storeToRefs(reportStore);
-        const searchResults = ref([]);
-        const wpsQuery = ref('');
+  watch(() => props.joint.welderNo, (no) => {
+    if (isEmpty(no)) {
+      if (!isEmpty(props.joint.welderName)) props.joint.welderName = '';
+      return;
+    }
+    const w = welderItems.value.find((x) => x.welderNo === no);
+    if (w && props.joint.welderName !== w.welderName) props.joint.welderName = w.welderName;
+  });
 
-        const hasFilter = computed(() => allowedWps.value.length > 0);
+  const { allowedWps, wpsFilterNote, loadingWpsFilter } = storeToRefs(reportStore);
+  const searchResults = ref([]);
+  const wpsQuery = ref('');
 
-        const wpsItems = computed(() => {
-          if (!hasFilter.value) return searchResults.value;
-          const q = wpsQuery.value.trim().toLowerCase();
-          if (!q) return allowedWps.value;
-          return allowedWps.value.filter(
-            (w) => w.wpsNo.toLowerCase().includes(q) || (w.process ?? '').toLowerCase().includes(q));
-        });
+  const hasFilter = computed(() => allowedWps.value.length > 0);
 
-        const wpsNos = computed(() => [...new Set(wpsItems.value.map((x) => x.wpsNo))]);
+  const wpsItems = computed(() => {
+    if (!hasFilter.value) return searchResults.value;
+    const q = wpsQuery.value.trim().toLowerCase();
+    if (!q) return allowedWps.value;
+    return allowedWps.value.filter(
+      (w) => w.wpsNo.toLowerCase().includes(q) || (w.process ?? '').toLowerCase().includes(q));
+  });
 
-        const wpsHint = computed(() => {
-          if (hasFilter.value) {
-            const pNos = reportStore.wpsFilter?.pNos ?? [];
-            return pNos.length ? `Filtered to P-No ${pNos.join(', ')}` : '';
-          }
-          return wpsFilterNote.value ?? '';
-        });
+  const wpsNos = computed(() => [...new Set(wpsItems.value.map((x) => x.wpsNo))]);
 
-        async function searchWps(q) {
-          wpsQuery.value = q || '';
-          if (hasFilter.value) return;
-          const { data } = await api.get('/wps/search', { params: { q: q || '' } });
-          searchResults.value = data;
-        }
-        searchWps('');
+  const wpsHint = computed(() => {
+    if (hasFilter.value) {
+      const pNos = reportStore.filterPNos ?? [];
+      return pNos.length ? `Filtered to P-No ${pNos.join(', ')}` : '';
+    }
+    return wpsFilterNote.value ?? '';
+  });
 
-        const wrap = 'background:#fff;padding:12px;border:1px solid #000;margin-bottom:16px;overflow-x:auto;';
-        const titleStyle = 'font-weight:bold;font-size:14px;margin-bottom:6px;';
-        const tbl = 'border-collapse:collapse;width:100%;table-layout:fixed;';
-        const cell = 'border:1px solid #000;padding:0 4px;font-size:12px;vertical-align:middle;height:26px;';
-        const lbl = 'border:1px solid #000;padding:0 4px;font-size:12px;font-weight:bold;white-space:nowrap;vertical-align:middle;';
-        const hdr = 'border:1px solid #000;padding:2px 4px;font-size:12px;font-weight:bold;text-align:center;';
-        const hdrC = 'border:1px solid #000;';
+  async function searchWps(q) {
+    wpsQuery.value = q || '';
+    if (hasFilter.value) return;
+    const { data } = await api.get('/wps/search', { params: { q: q || '' } });
+    searchResults.value = data;
+  }
+  searchWps('');
+
+  const wrap = 'background:#fff;padding:12px;border:1px solid #000;margin-bottom:16px;overflow-x:auto;';
+  const titleStyle = 'font-weight:bold;font-size:14px;margin-bottom:6px;';
+  const tbl = 'border-collapse:collapse;width:100%;table-layout:fixed;';
+  const cell = 'border:1px solid #000;padding:0 4px;font-size:12px;vertical-align:middle;height:26px;';
+  const lbl = 'border:1px solid #000;padding:0 4px;font-size:12px;font-weight:bold;white-space:nowrap;vertical-align:middle;';
+  const hdr = 'border:1px solid #000;padding:2px 4px;font-size:12px;font-weight:bold;text-align:center;';
+  const hdrC = 'border:1px solid #000;';
 </script>

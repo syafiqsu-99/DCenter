@@ -18,7 +18,7 @@ builder.Services.AddDbContext<WeldReportContext>(opt =>
 builder.Services.AddDbContext<SourceContext>(opt =>
     opt.UseSqlServer(builder.Configuration.GetConnectionString("SourceConnection")));
 
-builder.Services.AddScoped<JobSearchService>();
+builder.Services.AddScoped<WorkOrderSearchService>();
 builder.Services.AddScoped<ReportService>();
 builder.Services.AddScoped<WpsFilterService>();
 builder.Services.AddScoped<PdfReportService>();

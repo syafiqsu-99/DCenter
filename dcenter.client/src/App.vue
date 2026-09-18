@@ -26,7 +26,7 @@
 
     <v-app-bar color="primary" flat>
       <button type="button" class="brand-home d-flex align-center ms-3"
-              aria-label="Go to dashboard" @click="goHome">
+              aria-label="Go to dashboard" @click="onGoHome">
         <v-img :src="logo" width="40" height="40" class="me-3" alt="" />
         <span class="text-h6">DCenter Operations Hub</span>
       </button>
@@ -37,7 +37,7 @@
              :variant="route.path === item.to ? 'tonal' : 'text'"
              :prepend-icon="item.icon"
              class="me-2"
-             @click="navigate(item.to)">
+             @click="onNav(item.to)">
         {{ item.label }}
       </v-btn>
     </v-app-bar>
@@ -53,29 +53,36 @@
       <span>&copy; {{ year }} Emerson — DCenter</span>
     </v-footer>
 
-    <v-dialog v-model="leaveDialog" max-width="480" persistent>
-      <v-card>
-        <v-card-title>You're editing a report</v-card-title>
+    <v-dialog v-model="leaveDialog" max-width="500" persistent>
+      <v-card title="Unsaved changes" prepend-icon="mdi-content-save-alert">
+        <v-divider />
         <v-card-text>
-          Job <strong>{{ reportStore.report?.jobNumber }}</strong> is still open.
-          Save it as a draft, mark it complete, or leave without saving.
-          <v-alert v-if="!reportStore.hasDateWelded" type="warning" variant="tonal"
+          Work order <strong>{{ reportStore.report?.workOrderNumber || '(new report)' }}</strong>
+          has changes that aren't saved yet.
+          <v-alert v-if="!reportStore.report?.workOrderNumber" type="warning" variant="tonal"
                    density="compact" class="mt-3">
-            Date welded is empty, so this report can't be saved or completed yet.
+            Enter a work order number before saving — or leave without saving.
+          </v-alert>
+          <v-alert v-else-if="!reportStore.hasDateWelded" type="warning" variant="tonal"
+                   density="compact" class="mt-3">
+            Date welded is empty, so this report can't be saved or completed yet — you can
+            still leave without saving.
           </v-alert>
         </v-card-text>
-        <v-card-actions class="flex-wrap ga-1">
-          <v-btn variant="text" @click="leaveDialog = false">Stay</v-btn>
+        <v-divider />
+        <v-card-actions class="px-4 py-3 flex-wrap ga-1">
+          <v-btn variant="text" @click="stay">Stay</v-btn>
           <v-spacer />
-          <v-btn color="error" variant="text" @click="leaveWithoutSaving">Leave without saving</v-btn>
-          <v-btn variant="tonal" :disabled="!reportStore.hasDateWelded"
-                 :loading="reportStore.saving" @click="leaveAfter('save')">
-            Save draft
-          </v-btn>
-          <v-btn color="success" variant="flat" :disabled="!reportStore.hasDateWelded"
-                 @click="leaveAfter('complete')">
-            Mark complete
-          </v-btn>
+          <v-btn color="error" variant="text" @click="discardAndProceed">Leave without saving</v-btn>
+          <template v-if="reportStore.report?.workOrderNumber && reportStore.hasDateWelded">
+            <v-btn variant="tonal" :loading="reportStore.saving" @click="saveAndProceed(false)">
+              Save draft
+            </v-btn>
+            <v-btn color="success" variant="flat" :loading="reportStore.saving"
+                   @click="saveAndProceed(true)">
+              Mark complete
+            </v-btn>
+          </template>
         </v-card-actions>
       </v-card>
     </v-dialog>
@@ -83,12 +90,13 @@
 </template>
 
 <script setup>
-  import { computed, ref } from 'vue';
+  import { onMounted, onBeforeUnmount, computed, ref } from 'vue';
   import { useRoute, useRouter } from 'vue-router';
   import { useReportStore } from '@/store/reportStore';
   import { useLookupStore } from '@/store/lookupStore';
   import logo from '@/assets/DCenter.png'
   import logonobg from '@/assets/DCenter_No_bg.png';
+  import { useLeaveGuard } from '@/composables/useLeaveGuard';
 
   const route = useRoute();
   const router = useRouter();
@@ -105,43 +113,7 @@
 
   const reportStore = useReportStore();
   const lookupStore = useLookupStore();
-
-  const leaveDialog = ref(false);
-  const pendingPath = ref('/');
-
-  function navigate(path) {
-    pendingPath.value = path;
-    if (reportStore.confirmed && route.path === '/') {
-      leaveDialog.value = true;
-      return;
-    }
-    if (route.path !== path) router.push(path);
-  }
-
-  function goHome() {
-    pendingPath.value = '/';
-    if (reportStore.confirmed) {
-      leaveDialog.value = true;
-      return;
-    }
-    if (route.path !== '/') router.push('/');
-  }
-
-  function finishLeaving() {
-    leaveDialog.value = false;
-    reportStore.backToList();
-    if (route.path !== pendingPath.value) router.push(pendingPath.value);
-  }
-
-  function leaveWithoutSaving() {
-    finishLeaving();
-  }
-
-  async function leaveAfter(mode) {
-    if (!(await reportStore.save())) return;
-    if (mode === 'complete' && !(await reportStore.setComplete(true))) return;
-    finishLeaving();
-  }
+  const { leaveDialog, hold, guardLeave, stay, discardAndProceed, saveAndProceed } = useLeaveGuard();
 
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
@@ -169,6 +141,43 @@
     booting.value = false;
     bootError.value = true;
   }
+
+  function onGoHome() {
+    onNav('/')
+  }
+  function onNav(path) {
+    if (path === route.path) {
+      if (path === '/' && reportStore.confirmed) guardLeave(() => reportStore.backToList())
+      return
+    }
+    router.push(path)
+  }
+
+  let bypass = false
+  const removeGuard = router.beforeEach((to, from) => {
+    if (bypass) { bypass = false; return true }
+    if (from.path === '/' && to.path !== '/' && reportStore.confirmed) {
+      if (reportStore.needsLeavePrompt) {
+        hold(() => { reportStore.backToList(); bypass = true; router.push(to.fullPath) })
+        return false
+      }
+      reportStore.backToList()
+    }
+    return true
+  })
+
+  function onBeforeUnload(e) {
+    if (reportStore.needsLeavePrompt) {
+      e.preventDefault()
+      e.returnValue = ''
+    }
+  }
+
+  onMounted(() => window.addEventListener('beforeunload', onBeforeUnload))
+  onBeforeUnmount(() => {
+    window.removeEventListener('beforeunload', onBeforeUnload)
+    removeGuard()
+  });
 
   boot();
 </script>

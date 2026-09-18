@@ -9,9 +9,9 @@ namespace DCenter.Server.Controllers;
 [Route("api/weldreference")]
 public class WeldReferenceController(WeldReportContext db, WpsFilterService filter) : ControllerBase
 {
-    [HttpGet("wps-for-job/{jobNumber}")]
-    public async Task<ActionResult<WpsFilterResult>> WpsForJob(string jobNumber, CancellationToken ct)
-        => Ok(await filter.ForJobAsync(jobNumber, ct));
+    [HttpGet("wps-for-workorder/{workOrderNumber}")]
+    public async Task<ActionResult<WpsFilterResult>> WpsForWorkOrder(string workOrderNumber, CancellationToken ct)
+        => Ok(await filter.ForWorkOrderAsync(workOrderNumber, ct));
 
     [HttpGet("wps-for-mrn")]
     public async Task<ActionResult<WpsFilterResult>> WpsForMrn([FromQuery] string mrn, CancellationToken ct)

@@ -5,7 +5,7 @@ namespace DCenter.Server.Data;
 
 public class SourceContext(DbContextOptions<SourceContext> options) : DbContext(options)
 {
-    public DbSet<JobRow> JobRows => Set<JobRow>();
+    public DbSet<WorkOrderRow> WorkOrderRows => Set<WorkOrderRow>();
 
     public DbSet<WorkOrderDetail> WorkOrderDetails => Set<WorkOrderDetail>();
     public DbSet<BillOfMaterialOther> BillOfMaterialOthers => Set<BillOfMaterialOther>();
@@ -13,8 +13,8 @@ public class SourceContext(DbContextOptions<SourceContext> options) : DbContext(
 
     protected override void OnModelCreating(ModelBuilder b)
     {
-        b.Entity<JobRow>().HasNoKey().ToView(null);
-        b.Entity<JobRow>().Property(x => x.Qty).HasPrecision(18, 4);
+        b.Entity<WorkOrderRow>().HasNoKey().ToView(null);
+        b.Entity<WorkOrderRow>().Property(x => x.Qty).HasPrecision(18, 4);
 
         b.Entity<WorkOrderDetail>(e =>
         {

@@ -37,7 +37,6 @@ if (!fs.existsSync(certFilePath) || !fs.existsSync(keyFilePath)) {
 const target = env.ASPNETCORE_HTTPS_PORT ? `https://localhost:${env.ASPNETCORE_HTTPS_PORT}` :
     env.ASPNETCORE_URLS ? env.ASPNETCORE_URLS.split(';')[0] : 'https://localhost:7260';
 
-// https://vitejs.dev/config/
 export default defineConfig({
     plugins: [plugin()],
     resolve: {
@@ -46,8 +45,6 @@ export default defineConfig({
         }
     },
     build: {
-        // Split the large, rarely-changing vendor libraries out of the app chunk so
-        // browsers cache them across deployments.
         rollupOptions: {
             output: {
                 manualChunks(id) {
