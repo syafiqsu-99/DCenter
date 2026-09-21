@@ -80,6 +80,9 @@ export const useReportStore = defineStore('report', {
     loadingHistory: false,
     savedSnapshot: '',
     reportParts: [],
+    mode: 'browse',
+    allWorkOrderNumbers: [],
+    loadingWorkOrderNumbers: false,
   }),
 
   getters: {
@@ -215,6 +218,20 @@ export const useReportStore = defineStore('report', {
       }
     },
 
+    async loadAllWorkOrderNumbers(force = false) {
+      if (this.loadingWorkOrderNumbers) return
+      if (!force && this.allWorkOrderNumbers.length) return
+      this.loadingWorkOrderNumbers = true
+      try {
+        const { data } = await api.get('/workorders/numbers')
+        this.allWorkOrderNumbers = data ?? []
+      } catch {
+        // keep any cached list; the field still accepts typed input
+      } finally {
+        this.loadingWorkOrderNumbers = false
+      }
+    },
+
     async loadSavedReports() {
       this.loadingSaved = true
       this.error = ''
@@ -237,10 +254,11 @@ export const useReportStore = defineStore('report', {
       this.error = ''
       try {
         const res = await api.get(`/reports/${encodeURIComponent(this.resolvedWorkOrder)}`)
-        this.report =
-          res.status === 204 || !res.data
-            ? newReport(this.resolvedWorkOrder, this.selectedRows)
-            : normalizeJoints(res.data)
+        const isNew = res.status === 204 || !res.data
+        this.report = isNew
+          ? newReport(this.resolvedWorkOrder, this.selectedRows)
+          : normalizeJoints(res.data)
+        this.mode = isNew ? 'new' : 'saved'
         this.confirmed = true
         this.reportParts = this.selectedRows
         this.markPristine()
@@ -263,6 +281,7 @@ export const useReportStore = defineStore('report', {
           return
         }
         this.report = normalizeJoints(res.data)
+        this.mode = 'saved'
         this.confirmed = true
         this.markPristine()
         this.ensureRefData()
@@ -367,6 +386,7 @@ export const useReportStore = defineStore('report', {
       this.conflict = false
       this.savedSnapshot = ''
       this.reportParts = []
+      this.mode = 'browse'
     },
 
     async deleteSaved(workOrderNumber) {
@@ -408,12 +428,13 @@ export const useReportStore = defineStore('report', {
           })),
         }
         this.resolvedWorkOrder = ''
+        this.mode = 'duplicate'
         this.confirmed = true
         this.history = []
         this.conflict = false
+        this.reportParts = []
         this.markPristine()
         this.ensureRefData()
-        this.loadReportParts(workOrderNumber)
       } catch {
         this.error = 'Could not duplicate the report.'
       } finally {
@@ -422,17 +443,20 @@ export const useReportStore = defineStore('report', {
     },
 
     async autofillFromWorkOrder(workOrderNumber) {
+      if (!this.report || this.report.id !== 0) return
       const wo = (workOrderNumber ?? '').trim()
-      if (!this.report || this.report.id !== 0 || !wo) return
+      this.report.partNo = ''
+      this.report.description = ''
+      if (!wo) { this.reportParts = []; return }
       this.loadReportParts(wo)
       try {
         const { data } = await api.get(`/workorders/${encodeURIComponent(wo)}/header`)
         if (data && typeof data === 'object') {
-          if (data.partNo) this.report.partNo = data.partNo
-          if (data.description) this.report.description = data.description
+          this.report.partNo = data.partNo ?? ''
+          this.report.description = data.description ?? ''
         }
       } catch {
-        // no matching work order in the ERP source
+        // no matching work order header in the ERP source; fields stay cleared
       }
     },
 

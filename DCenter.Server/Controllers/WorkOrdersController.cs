@@ -30,6 +30,19 @@ public class WorkOrdersController(WorkOrderSearchService workOrders) : Controlle
         }
     }
 
+    [HttpGet("numbers")]
+    public async Task<ActionResult<List<string>>> Numbers(CancellationToken ct)
+    {
+        try
+        {
+            return Ok(await workOrders.AllWorkOrderNumbersAsync(ct));
+        }
+        catch (Exception ex) when (ex is SqlException { Number: -2 } or TimeoutException)
+        {
+            return StatusCode(504, "Loading the work order list took too long.");
+        }
+    }
+
     [HttpGet("{workOrderNumber}/header")]
     public async Task<ActionResult<WorkOrderHeader>> Header(string workOrderNumber, CancellationToken ct)
     {

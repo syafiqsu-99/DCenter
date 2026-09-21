@@ -29,35 +29,31 @@
     <div class="card-table-area">
       <v-data-table-virtual :headers="headers" :items="filteredItems" :loading="loading"
                             height="100%" density="comfortable" fixed-header hover
-                            no-data-text="No values match your search.">
+                            item-value="id" :row-props="rowProps"
+                            no-data-text="No values match your search."
+                            @click:row="(e, { item }) => selectedId = (selectedId === item.id ? null : item.id)">
         <template #loading>
           <v-skeleton-loader type="table-row@6" />
         </template>
 
-        <template #item="{ item, index }">
-          <tr :draggable="!search"
-              :class="selectedId === item.id ? 'bg-blue-grey-lighten-5' : ''"
-              @click="selectedId = (selectedId === item.id ? null : item.id)"
-              @dragstart="dragIndex = index" @dragover.prevent @drop="onDrop(index)">
-            <td>
-              <v-icon icon="mdi-drag" :class="{ 'text-disabled': !!search }"
-                      :style="{ cursor: search ? 'default' : 'grab' }" />
-            </td>
-            <td>{{ item.value }}</td>
-            <td>
-              <v-icon :color="item.isActive ? 'success' : 'grey'">
-                {{ item.isActive ? 'mdi-check-circle' : 'mdi-circle-outline' }}
-              </v-icon>
-            </td>
-            <td class="text-right">
-              <div v-if="selectedId === item.id" class="d-flex justify-end ga-1">
-                <v-btn icon="mdi-pencil" variant="text" size="small"
-                       :aria-label="`Edit ${item.value}`" @click.stop="openEdit(item)" />
-                <v-btn icon="mdi-delete" variant="text" size="small" color="error"
-                       :aria-label="`Delete ${item.value}`" @click.stop="askDelete(item)" />
-              </div>
-            </td>
-          </tr>
+        <template #item.drag>
+          <v-icon icon="mdi-drag" :class="{ 'text-disabled': !!search }"
+                  :style="{ cursor: search ? 'default' : 'grab' }" />
+        </template>
+
+        <template #item.isActive="{ item }">
+          <v-icon :color="item.isActive ? 'success' : 'grey'">
+            {{ item.isActive ? 'mdi-check-circle' : 'mdi-circle-outline' }}
+          </v-icon>
+        </template>
+
+        <template #item.actions="{ item }">
+          <div v-if="selectedId === item.id" class="d-flex justify-end ga-1">
+            <v-btn icon="mdi-pencil" variant="text" size="small"
+                   :aria-label="`Edit ${item.value}`" @click.stop="openEdit(item)" />
+            <v-btn icon="mdi-delete" variant="text" size="small" color="error"
+                   :aria-label="`Delete ${item.value}`" @click.stop="askDelete(item)" />
+          </div>
         </template>
       </v-data-table-virtual>
     </div>
@@ -110,121 +106,132 @@
   const saving = ref(false);
   const dialog = ref(false);
   const editing = ref(blank());
-  const dragIndex = ref(null);
+  const dragId = ref(null);
   const selectedId = ref(null);
   const confirmDelete = ref(false);
   const pendingDelete = ref(null);
   const deleting = ref(false);
 
-  const importing = ref(false)
-  const importMsg = ref('')
+  const importing = ref(false);
+  const importMsg = ref('');
   const fileInput = ref(null);
 
   const headers = [
-    { title: '',        key: 'drag',      width: '10%', sortable: false },
-    { title: 'Value',   key: 'value',     width: '70%' },
-    { title: 'Active',  key: 'isActive',  width: '10%' },
-    { title: '',        key: 'actions',   width: '10%', sortable: false, align: 'end' },
+    { title: '',       key: 'drag',     width: '10%', sortable: false },
+    { title: 'Value',  key: 'value',    width: '70%' },
+    { title: 'Active', key: 'isActive', width: '10%' },
+    { title: '',       key: 'actions',  width: '10%', sortable: false, align: 'end' },
   ];
 
   const filteredItems = computed(() => {
-      const q = search.value?.trim().toLowerCase();
-      if (!q) return items.value;
-      return items.value.filter((i) => i.value.toLowerCase().includes(q));
+    const q = search.value?.trim().toLowerCase();
+    if (!q) return items.value;
+    return items.value.filter((i) => i.value.toLowerCase().includes(q));
+  });
+
+  const rowProps = ({ item }) => ({
+    class: selectedId.value === item.id ? 'bg-blue-grey-lighten-5' : '',
+    draggable: !search.value,
+    onDragstart: () => { dragId.value = item.id; },
+    onDragover: (e) => e.preventDefault(),
+    onDrop: () => onDrop(item),
   });
 
   function blank() {
-      return { id: 0, category: category.value, value: '', isActive: true };
+    return { id: 0, category: category.value, value: '', isActive: true };
   }
 
   async function load() {
-      loading.value = true;
-      try {
-        const { data } = await api.get('/lookups', { params: { category: category.value } });
-        items.value = data;
-      } finally {
-        loading.value = false;
-      }
+    loading.value = true;
+    try {
+      const { data } = await api.get('/lookups', { params: { category: category.value } });
+      items.value = data;
+    } finally {
+      loading.value = false;
+    }
   }
 
   function openNew() {
-      editing.value = blank();
-      dialog.value = true;
+    editing.value = blank();
+    dialog.value = true;
   }
 
   function openEdit(row) {
-      editing.value = { ...row };
-      dialog.value = true;
+    editing.value = { ...row };
+    dialog.value = true;
   }
 
   async function save() {
-      saving.value = true;
-      try {
-        const sortOrder = editing.value.id ? editing.value.sortOrder : items.value.length;
-        const payload = { category: editing.value.category, value: editing.value.value, sortOrder, isActive: editing.value.isActive };
-        if (editing.value.id) await api.put(`/lookups/${editing.value.id}`, payload);
-        else await api.post('/lookups', payload);
-        dialog.value = false;
-        await load();
-      } finally {
-        saving.value = false;
-      }
+    saving.value = true;
+    try {
+      const sortOrder = editing.value.id ? editing.value.sortOrder : items.value.length;
+      const payload = { category: editing.value.category, value: editing.value.value, sortOrder, isActive: editing.value.isActive };
+      if (editing.value.id) await api.put(`/lookups/${editing.value.id}`, payload);
+      else await api.post('/lookups', payload);
+      dialog.value = false;
+      await load();
+    } finally {
+      saving.value = false;
+    }
   }
 
   function askDelete(row) {
-      pendingDelete.value = row;
-      confirmDelete.value = true;
+    pendingDelete.value = row;
+    confirmDelete.value = true;
   }
 
   async function doDelete() {
-      if (!pendingDelete.value) return;
-      deleting.value = true;
-      try {
-        await api.delete(`/lookups/${pendingDelete.value.id}`);
-        await load();
-      } finally {
-        deleting.value = false;
-        confirmDelete.value = false;
-        pendingDelete.value = null;
-      }
+    if (!pendingDelete.value) return;
+    deleting.value = true;
+    try {
+      await api.delete(`/lookups/${pendingDelete.value.id}`);
+      await load();
+    } finally {
+      deleting.value = false;
+      confirmDelete.value = false;
+      pendingDelete.value = null;
+    }
   }
 
-  async function onDrop(dropIndex) {
-      if (search.value || dragIndex.value === null || dragIndex.value === dropIndex) return;
-      const list = [...items.value];
-      const [moved] = list.splice(dragIndex.value, 1);
-      list.splice(dropIndex, 0, moved);
-      items.value = list;
-      dragIndex.value = null;
-      await api.put('/lookups/reorder', list.map((i) => i.id));
+  async function onDrop(targetItem) {
+    if (search.value || dragId.value === null || dragId.value === targetItem.id) return;
+    const from = items.value.findIndex((i) => i.id === dragId.value);
+    const to = items.value.findIndex((i) => i.id === targetItem.id);
+    dragId.value = null;
+    if (from === -1 || to === -1) return;
+    const list = [...items.value];
+    const [moved] = list.splice(from, 1);
+    list.splice(to, 0, moved);
+    items.value = list;
+    await api.put('/lookups/reorder', list.map((i) => i.id));
   }
 
   async function exportCsv() {
-    const res = await api.get('/lookups/export', { responseType: 'blob' })
-    const url = URL.createObjectURL(res.data)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = 'dropdown-lists.csv'
-    a.click()
-    URL.revokeObjectURL(url)
+    const res = await api.get('/lookups/export', { responseType: 'blob' });
+    const url = URL.createObjectURL(res.data);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'dropdown-lists.csv';
+    a.click();
+    URL.revokeObjectURL(url);
   }
 
   async function importCsv(e) {
-    const file = e.target.files?.[0]
-    if (!file) return
-    importing.value = true
-    importMsg.value = ''
+    const file = e.target.files?.[0];
+    if (!file) return;
+    importing.value = true;
+    importMsg.value = '';
     try {
-      const form = new FormData()
-      form.append('file', file)
-      const { data } = await api.post('/lookups/import', form)
-      importMsg.value = `Imported: ${data.added} added, ${data.updated} updated, ${data.skipped} skipped.`
-      await load()
+      const form = new FormData();
+      form.append('file', file);
+      const { data } = await api.post('/lookups/import', form);
+      importMsg.value = `Imported: ${data.added} added, ${data.updated} updated, ${data.skipped} skipped.`;
+      await load();
     } catch (err) {
-      importMsg.value = err.response?.data ?? 'Import failed.'
+      importMsg.value = err.response?.data ?? 'Import failed.';
     } finally {
-      importing.value = false
-      e.target.value = ''
+      importing.value = false;
+      e.target.value = '';
     }
   }
 

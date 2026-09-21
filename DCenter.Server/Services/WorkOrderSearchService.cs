@@ -59,4 +59,12 @@ public class WorkOrderSearchService(SourceContext db)
     public async Task<List<WorkOrderRow>> PartsForWorkOrderAsync(string workOrderNumber, CancellationToken ct)
         => await BaseQuery(db.WorkOrderDetails.Where(w => w.WoNumber == workOrderNumber))
             .AsNoTracking().ToListAsync(ct);
+
+    public async Task<List<string>> AllWorkOrderNumbersAsync(CancellationToken ct)
+        => await db.WorkOrderDetails
+            .AsNoTracking()
+            .Select(w => w.WoNumber)
+            .Distinct()
+            .OrderBy(n => n)
+            .ToListAsync(ct);
 }

@@ -26,20 +26,24 @@
                 <tr>
                   <td :style="lbl">Work Order:</td>
                   <td :style="cell">
-                    <v-combobox v-if="!isSaved" v-model="report.workOrderNumber" :items="woItems"
-                                v-bind="f" clearable :custom-filter="allowAll"
-                                @update:search="searchWorkOrders"
+                    <v-combobox v-if="isDuplicate" v-model="report.workOrderNumber"
+                                :items="allWorkOrderNumbers" :loading="loadingWorkOrderNumbers"
+                                v-bind="f" clearable
                                 @update:model-value="onWorkOrderPick" />
                     <v-text-field v-else v-model="report.workOrderNumber" v-bind="f" readonly />
                   </td>
                 </tr>
                 <tr>
                   <td :style="lbl">Part No. :</td>
-                  <td :style="cell"><v-text-field v-model="report.partNo" v-bind="f" /></td>
+                  <td :style="cell">
+                    <v-text-field v-model="report.partNo" v-bind="f" :readonly="lockedFromSearch" />
+                  </td>
                 </tr>
                 <tr>
                   <td :style="lbl">Description:</td>
-                  <td :style="cell"><v-text-field v-model="report.description" v-bind="f" /></td>
+                  <td :style="cell">
+                    <v-text-field v-model="report.description" v-bind="f" :readonly="lockedFromSearch" />
+                  </td>
                 </tr>
               </tbody>
             </table>
@@ -92,54 +96,37 @@
 </template>
 
 <script setup>
-  import { computed, ref } from 'vue';
+  import { computed, onMounted } from 'vue';
   import { storeToRefs } from 'pinia';
   import { useReportStore } from '@/store/reportStore';
   import { useLookupStore } from '@/store/lookupStore';
   import JointForm from '@/components/weld/JointForm.vue';
   import { useBpvcStore } from '@/store/bpvcStore';
-  import api from '@/utils/api';
-
-  const allowAll = () => true
-  const woItems = ref([])
-  let woSearchTimer = null;
 
   const store = useReportStore();
-  const { report, jointCount } = storeToRefs(store);
-  const isSaved = computed(() => (report.value?.id ?? 0) !== 0);
+  const { report, jointCount, mode, allWorkOrderNumbers, loadingWorkOrderNumbers } = storeToRefs(store);
+  const isDuplicate = computed(() => mode.value === 'duplicate');
+  const lockedFromSearch = computed(() => mode.value === 'new');
 
   useLookupStore().load(true);
 
-  function searchWorkOrders(q) {
-    clearTimeout(woSearchTimer)
-    const term = (q ?? '').trim()
-    if (term.length < 2) { woItems.value = []; return }
-    woSearchTimer = setTimeout(async () => {
-      try {
-        const { data } = await api.get('/workorders/search', { params: { q: term, skip: 0, take: 50 } })
-        woItems.value = [...new Set(data.items.map((r) => r.workOrderNumber))]
-      } catch {
-        woItems.value = []
-      }
-    }, 300)
-  }
   function onWorkOrderPick(v) {
-    store.autofillFromWorkOrder(v)
+    store.autofillFromWorkOrder(v);
   }
 
-  const bpvc = useBpvcStore()
-  bpvc.load()
-  const { materialOptions, gradeOptions } = storeToRefs(bpvc)
+  const bpvc = useBpvcStore();
+  bpvc.load();
+  const { materialOptions, gradeOptions } = storeToRefs(bpvc);
 
   function fillPNo(col, spec, grade) {
-    const pno = bpvc.resolvePNo(spec, grade)
-    if (pno) report.value[`pNumber${col}`] = pno
+    const pno = bpvc.resolvePNo(spec, grade);
+    if (pno) report.value[`pNumber${col}`] = pno;
   }
   function onMaterial(col, spec) {
-    fillPNo(col, spec, report.value[`grade${col}`])
+    fillPNo(col, spec, report.value[`grade${col}`]);
   }
   function onGrade(col, grade) {
-    fillPNo(col, report.value[`materialSpec${col}`], grade)
+    fillPNo(col, report.value[`materialSpec${col}`], grade);
   }
 
   const yesNo = [{ t: 'YES', v: true }, { t: 'NO', v: false }];
@@ -155,8 +142,11 @@
   const lblR = lbl + 'text-align:right;';
   const hdrC = 'border:1px solid #000;padding:0 4px;font-size:12px;font-weight:bold;text-align:center;';
 
-  // Required field
   const dateWeldedMissing = computed(() => !report.value.dateWelded);
   const dateCell = computed(() =>
     dateWeldedMissing.value ? cell + 'background:#fdecea;' : cell);
+
+  onMounted(() => {
+    if (isDuplicate.value) store.loadAllWorkOrderNumbers();
+  });
 </script>
