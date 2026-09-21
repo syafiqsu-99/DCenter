@@ -7,9 +7,16 @@
                     variant="outlined" density="compact" hide-details clearable
                     style="max-width:220px;" />
       <v-btn color="primary" prepend-icon="mdi-plus" @click="openNew">Add value</v-btn>
+      <v-btn variant="text" size="small" prepend-icon="mdi-download" @click="exportCsv">Export CSV</v-btn>
+      <v-btn variant="text" size="small" prepend-icon="mdi-upload" :loading="importing"
+             @click="fileInput?.click()">Import CSV</v-btn>
+      <input ref="fileInput" type="file" accept=".csv" hidden @change="importCsv" />
     </v-card-title>
 
-    <v-card-text class="pb-0">
+    <v-alert v-if="importMsg" type="info" variant="tonal" density="compact" class="mx-4 mt-2"
+             closable @click:close="importMsg = ''">{{ importMsg }}</v-alert>
+
+    <v-card-text class="pb-0 flex-grow-0">
       <v-btn-toggle v-model="category" mandatory divided color="primary" class="mb-2">
         <v-btn v-for="c in categories" :key="c" :value="c">{{ c }}</v-btn>
       </v-btn-toggle>
@@ -21,7 +28,7 @@
 
     <div class="card-table-area">
       <v-data-table-virtual :headers="headers" :items="filteredItems" :loading="loading"
-                            height="100%" density="comfortable" fixed-header
+                            height="100%" density="comfortable" fixed-header hover
                             no-data-text="No values match your search.">
         <template #loading>
           <v-skeleton-loader type="table-row@6" />
@@ -109,6 +116,10 @@
   const pendingDelete = ref(null);
   const deleting = ref(false);
 
+  const importing = ref(false)
+  const importMsg = ref('')
+  const fileInput = ref(null);
+
   const headers = [
     { title: '',        key: 'drag',      width: '10%', sortable: false },
     { title: 'Value',   key: 'value',     width: '70%' },
@@ -186,6 +197,35 @@
       items.value = list;
       dragIndex.value = null;
       await api.put('/lookups/reorder', list.map((i) => i.id));
+  }
+
+  async function exportCsv() {
+    const res = await api.get('/lookups/export', { responseType: 'blob' })
+    const url = URL.createObjectURL(res.data)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = 'dropdown-lists.csv'
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
+  async function importCsv(e) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    importing.value = true
+    importMsg.value = ''
+    try {
+      const form = new FormData()
+      form.append('file', file)
+      const { data } = await api.post('/lookups/import', form)
+      importMsg.value = `Imported: ${data.added} added, ${data.updated} updated, ${data.skipped} skipped.`
+      await load()
+    } catch (err) {
+      importMsg.value = err.response?.data ?? 'Import failed.'
+    } finally {
+      importing.value = false
+      e.target.value = ''
+    }
   }
 
   watch(category, load);

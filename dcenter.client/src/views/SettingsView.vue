@@ -40,13 +40,13 @@
     { key: 'mrn', label: 'MRN', width: '18%' },
     { key: 'form', label: 'Form', width: '17%' },
     { key: 'fullSpecification', label: 'Full Specification', width: '35%' },
-    { key: 'specNo', label: 'Spec No.', width: '15%' },
     { key: 'specNoRaw', label: 'Spec No. (Raw)', width: '15%' },
-  ]
+    { key: 'specNo', label: 'Spec No.', width: '15%' },
+  ];
 
   const bpvcFields = [
-    { key: 'specNo', label: 'Spec No.', width: '7%' },
     { key: 'specNoRaw', label: 'Spec No. (Raw)', width: '7%' },
+    { key: 'specNo', label: 'Spec No.', width: '7%' },
     { key: 'designation', label: 'Designation / Alloy / Grade', width: '7%' },
     { key: 'unsNo', label: 'UNS No.', width: '7%' },
     { key: 'minTensile', label: 'Min. Tensile', width: '7%' },

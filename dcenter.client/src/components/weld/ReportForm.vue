@@ -26,8 +26,11 @@
                 <tr>
                   <td :style="lbl">Work Order:</td>
                   <td :style="cell">
-                    <v-text-field v-model="report.workOrderNumber" v-bind="f" :readonly="isSaved"
-                                  @update:model-value="onWorkOrder" />
+                    <v-combobox v-if="!isSaved" v-model="report.workOrderNumber" :items="woItems"
+                                v-bind="f" clearable :custom-filter="allowAll"
+                                @update:search="searchWorkOrders"
+                                @update:model-value="onWorkOrderPick" />
+                    <v-text-field v-else v-model="report.workOrderNumber" v-bind="f" readonly />
                   </td>
                 </tr>
                 <tr>
@@ -89,12 +92,17 @@
 </template>
 
 <script setup>
-  import { computed } from 'vue';
+  import { computed, ref } from 'vue';
   import { storeToRefs } from 'pinia';
   import { useReportStore } from '@/store/reportStore';
   import { useLookupStore } from '@/store/lookupStore';
   import JointForm from '@/components/weld/JointForm.vue';
   import { useBpvcStore } from '@/store/bpvcStore';
+  import api from '@/utils/api';
+
+  const allowAll = () => true
+  const woItems = ref([])
+  let woSearchTimer = null;
 
   const store = useReportStore();
   const { report, jointCount } = storeToRefs(store);
@@ -102,10 +110,21 @@
 
   useLookupStore().load(true);
 
-  let woTimer = null
-  function onWorkOrder(v) {
-    clearTimeout(woTimer)
-    woTimer = setTimeout(() => store.autofillFromWorkOrder(v), 400)
+  function searchWorkOrders(q) {
+    clearTimeout(woSearchTimer)
+    const term = (q ?? '').trim()
+    if (term.length < 2) { woItems.value = []; return }
+    woSearchTimer = setTimeout(async () => {
+      try {
+        const { data } = await api.get('/workorders/search', { params: { q: term, skip: 0, take: 50 } })
+        woItems.value = [...new Set(data.items.map((r) => r.workOrderNumber))]
+      } catch {
+        woItems.value = []
+      }
+    }, 300)
+  }
+  function onWorkOrderPick(v) {
+    store.autofillFromWorkOrder(v)
   }
 
   const bpvc = useBpvcStore()

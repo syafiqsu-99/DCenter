@@ -69,7 +69,7 @@ public record ReportSummary(
     string Status,
     DateTime UpdatedAt);
 
-public record ReportStatusEventDto(string Action, DateTime OccurredAt);
+public record ReportStatusEventDto(string Action, DateTime OccurredAt, string? Details);
 public record WpsDto(int Id, string WpsNo, string? BaseMetal, string? Process, string PNo);
 public record WpsUpsert(string WpsNo, string? BaseMetal, string? Process, string PNo);
 

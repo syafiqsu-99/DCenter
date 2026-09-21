@@ -46,13 +46,18 @@ public class MrnController(WeldReportContext db) : ControllerBase
         return NoContent();
     }
 
+    private static string RowKey(MrnSpec m) => string.Join('\u001f', new[]
+    {
+        m.Mrn, m.Form, m.FullSpecification, m.SpecNoRaw, m.SpecNo,
+    }.Select(v => v ?? ""));
+
     [HttpGet("export")]
     public async Task<IActionResult> Export(CancellationToken ct)
     {
         var items = await db.MrnSpecs.OrderBy(m => m.Mrn).ThenBy(m => m.SpecNo).ToListAsync(ct);
         var csv = CsvHelper.ToCsv(
-            ["MRN", "Form", "FullSpecification", "SpecNo", "SpecNoRaw"],
-            items.Select(m => new string?[] { m.Mrn, m.Form, m.FullSpecification, m.SpecNo, m.SpecNoRaw }));
+            ["MRN", "Form", "FullSpecification", "SpecNoRaw", "SpecNo"],
+            items.Select(m => new string?[] { m.Mrn, m.Form, m.FullSpecification, m.SpecNoRaw, m.SpecNo }));
         return File(System.Text.Encoding.UTF8.GetBytes(csv), "text/csv", "mrn.csv");
     }
 
@@ -61,29 +66,29 @@ public class MrnController(WeldReportContext db) : ControllerBase
     {
         if (file is null || file.Length == 0) return BadRequest("No file uploaded.");
 
-        int added = 0, updated = 0, skipped = 0;
-        var existing = await db.MrnSpecs.ToDictionaryAsync(m => m.Mrn, ct);
+        int added = 0, skipped = 0;
+        var seen = (await db.MrnSpecs.ToListAsync(ct)).Select(RowKey).ToHashSet();
 
         foreach (var f in await CsvHelper.ReadRowsAsync(file, ct))
         {
-            var (mrn, specNo) = (f.Field(0), f.Field(3));
+            var mrn = f.Field(0);
+            var specNo = f.Field(4);
             if (mrn.Length == 0 || specNo.Length == 0) { skipped++; continue; }
 
-            if (existing.TryGetValue(mrn, out var m))
+            var m = new MrnSpec
             {
-                (m.Form, m.FullSpecification, m.SpecNo, m.SpecNoRaw) = (f.Field(1), f.Field(2), specNo, f.Field(4));
-                updated++;
-            }
-            else
-            {
-                var m2 = new MrnSpec { Mrn = mrn, Form = f.Field(1), FullSpecification = f.Field(2), SpecNo = specNo, SpecNoRaw = f.Field(4) };
-                db.MrnSpecs.Add(m2);
-                existing[mrn] = m2;
-                added++;
-            }
+                Mrn = mrn,
+                Form = f.Field(1),
+                FullSpecification = f.Field(2),
+                SpecNoRaw = f.Field(3),
+                SpecNo = specNo,
+            };
+            if (!seen.Add(RowKey(m))) { skipped++; continue; }
+            db.MrnSpecs.Add(m);
+            added++;
         }
 
         await db.SaveChangesAsync(ct);
-        return Ok(new { added, updated, skipped });
+        return Ok(new { added, updated = 0, skipped });
     }
 }

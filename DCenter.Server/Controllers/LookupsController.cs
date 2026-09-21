@@ -3,6 +3,7 @@ using DCenter.Server.Entities;
 using DCenter.Server.Models;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using DCenter.Server.Services;
 
 namespace DCenter.Server.Controllers;
 
@@ -11,6 +12,7 @@ namespace DCenter.Server.Controllers;
 public class LookupsController(WeldReportContext db) : ControllerBase
 {
     public static readonly string[] Categories = ["Process", "Size", "Type", "Manuf"];
+    private static readonly string[] Headers = ["Category", "Value", "SortOrder", "IsActive"];
 
     [HttpGet]
     public async Task<ActionResult<List<LookupDto>>> Get([FromQuery] string? category, CancellationToken ct)
@@ -71,5 +73,51 @@ public class LookupsController(WeldReportContext db) : ControllerBase
         db.Lookups.Remove(l);
         await db.SaveChangesAsync(ct);
         return NoContent();
+    }
+
+    [HttpGet("export")]
+    public async Task<IActionResult> Export(CancellationToken ct)
+    {
+        var items = await db.Lookups
+            .OrderBy(l => l.Category).ThenBy(l => l.SortOrder).ThenBy(l => l.Value)
+            .ToListAsync(ct);
+        var csv = CsvHelper.ToCsv(Headers, items.Select(l =>
+            new string?[] { l.Category, l.Value, l.SortOrder.ToString(), l.IsActive ? "1" : "0" }));
+        return File(System.Text.Encoding.UTF8.GetBytes(csv), "text/csv", "dropdown-lists.csv");
+    }
+
+    [HttpPost("import")]
+    public async Task<ActionResult<object>> Import(IFormFile file, CancellationToken ct)
+    {
+        if (file is null || file.Length == 0) return BadRequest("No file uploaded.");
+
+        int added = 0, updated = 0, skipped = 0;
+        var existing = await db.Lookups.ToDictionaryAsync(l => (l.Category, l.Value), ct);
+
+        foreach (var f in await CsvHelper.ReadRowsAsync(file, ct))
+        {
+            var (category, value) = (f.Field(0), f.Field(1));
+            if (!Categories.Contains(category) || value.Length == 0) { skipped++; continue; }
+            int.TryParse(f.Field(2), out var sortOrder);
+            var raw = f.Field(3).ToLowerInvariant();
+            var active = raw is "" or "1" or "true" or "yes" or "y";
+
+            if (existing.TryGetValue((category, value), out var l))
+            {
+                l.SortOrder = sortOrder;
+                l.IsActive = active;
+                updated++;
+            }
+            else
+            {
+                var l2 = new LookupItem { Category = category, Value = value, SortOrder = sortOrder, IsActive = active };
+                db.Lookups.Add(l2);
+                existing[(category, value)] = l2;
+                added++;
+            }
+        }
+
+        await db.SaveChangesAsync(ct);
+        return Ok(new { added, updated, skipped });
     }
 }

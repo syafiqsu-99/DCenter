@@ -13,7 +13,8 @@ export const useBpvcStore = defineStore('bpvc', {
   }),
 
   getters: {
-    materialOptions: (s) => [...new Set(s.items.map((b) => b.specNoRaw).filter(Boolean))].sort(),
+    materialOptions: (s) =>
+      [...new Set(s.items.map((b) => b.specNoRaw || b.specNo).filter(Boolean))].sort(),
     gradeOptions: (s) => [...new Set(s.items.map((b) => b.designation).filter(Boolean))].sort(),
   },
 
@@ -39,7 +40,7 @@ export const useBpvcStore = defineStore('bpvc', {
       const pnos = [
         ...new Set(
           this.items
-            .filter((b) => norm(b.specNoRaw) === m && norm(b.designation) === g)
+            .filter((b) => norm(b.specNoRaw || b.specNo) === m && norm(b.designation) === g)
             .map((b) => b.pNo)
             .filter(Boolean),
         ),

@@ -111,13 +111,23 @@
         <tr>
           <td :style="lbl">Welder Name :</td>
           <td :style="cell">
-            <v-combobox v-bind="f" clearable :custom-filter="allowAll" v-model="joint.welderName" :items="welderNames"
-                        @update:search="searchWelders" />
+            <v-combobox v-bind="f" clearable :custom-filter="allowAll" :items="welderItems"
+                        :model-value="joint.welderName" :item-title="welderNameTitle"
+                        @update:search="searchWelders" @update:model-value="(v) => setWelder('name', v)">
+              <template #item="{ props: p, item }">
+                <v-list-item v-bind="p" :title="item.raw?.welderName ?? item.raw" :subtitle="item.raw?.welderNo" />
+              </template>
+            </v-combobox>
           </td>
           <td :style="lbl">Welder No :</td>
           <td :style="cell">
-            <v-combobox v-bind="f" clearable :custom-filter="allowAll" v-model="joint.welderNo" :items="welderNos"
-                        @update:search="searchWelders" />
+            <v-combobox v-bind="f" clearable :custom-filter="allowAll" :items="welderItems"
+                        :model-value="joint.welderNo" :item-title="welderNoTitle"
+                        @update:search="searchWelders" @update:model-value="(v) => setWelder('no', v)">
+              <template #item="{ props: p, item }">
+                <v-list-item v-bind="p" :title="item.raw?.welderName ?? item.raw" :subtitle="item.raw?.welderNo" />
+              </template>
+            </v-combobox>
           </td>
           <td :style="lbl">Heat/Lot</td>
           <td :style="cell"><v-text-field v-model="joint.materials[0].heatLot" v-bind="f" /></td>
@@ -135,7 +145,11 @@
   import { useReportStore } from '@/store/reportStore';
   import { useLookupStore } from '@/store/lookupStore';
   import { useProcessTypeStore } from '@/store/processTypeStore';
+  import { useWpsStore } from '@/store/wpsStore';
   import api from '@/utils/api';
+
+  const wpsStore = useWpsStore()
+  wpsStore.load();
 
   const props = defineProps({
     joint: { type: Object, required: true },
@@ -195,63 +209,62 @@
   }
 
   const welderItems = ref([]);
-  const welderNames = computed(() => welderItems.value.map((x) => x.welderName));
-  const welderNos = computed(() => welderItems.value.map((x) => x.welderNo));
   async function searchWelders(q) {
     const { data } = await api.get('/welders/search', { params: { q: q || '' } });
     welderItems.value = data;
   }
   searchWelders('');
 
-  watch(() => props.joint.welderName, (name) => {
-    if (isEmpty(name)) {
-      if (!isEmpty(props.joint.welderNo)) props.joint.welderNo = '';
-      return;
+  function welderNameTitle(w) {
+    return typeof w === 'string' ? w : (w?.welderName ?? '')
+  }
+  function welderNoTitle(w) {
+    return typeof w === 'string' ? w : (w?.welderNo ?? '')
+  }
+  function setWelder(field, v) {
+    const j = props.joint
+    if (v && typeof v === 'object') {
+      j.welderName = v.welderName ?? ''
+      j.welderNo = v.welderNo ?? ''
+      return
     }
-    const w = welderItems.value.find((x) => x.welderName === name);
-    if (w && props.joint.welderNo !== w.welderNo) props.joint.welderNo = w.welderNo;
-  });
-
-  watch(() => props.joint.welderNo, (no) => {
-    if (isEmpty(no)) {
-      if (!isEmpty(props.joint.welderName)) props.joint.welderName = '';
-      return;
+    const val = v ?? ''
+    const hit = welderItems.value.find((w) => (field === 'name' ? w.welderName : w.welderNo) === val)
+    if (hit) {
+      j.welderName = hit.welderName
+      j.welderNo = hit.welderNo
+    } else {
+      j[field === 'name' ? 'welderName' : 'welderNo'] = val
     }
-    const w = welderItems.value.find((x) => x.welderNo === no);
-    if (w && props.joint.welderName !== w.welderName) props.joint.welderName = w.welderName;
-  });
+  }
 
-  const { allowedWps, wpsFilterNote, loadingWpsFilter } = storeToRefs(reportStore);
-  const searchResults = ref([]);
-  const wpsQuery = ref('');
+  const { allowedWps, wpsFilterNote, loadingWpsFilter, filterPNos } = storeToRefs(reportStore)
+  const wpsQuery = ref('')
 
-  const hasFilter = computed(() => allowedWps.value.length > 0);
+  const hasFilter = computed(() => filterPNos.value.length > 0)
+
+  const wpsPool = computed(() =>
+    hasFilter.value
+      ? allowedWps.value
+      : wpsStore.items.map((w) => ({ wpsNo: w.wpsNo, process: w.process, baseMetal: w.baseMetal, pNo: w.pNo })))
 
   const wpsItems = computed(() => {
-    if (!hasFilter.value) return searchResults.value;
-    const q = wpsQuery.value.trim().toLowerCase();
-    if (!q) return allowedWps.value;
-    return allowedWps.value.filter(
-      (w) => w.wpsNo.toLowerCase().includes(q) || (w.process ?? '').toLowerCase().includes(q));
-  });
+    const q = wpsQuery.value.trim().toLowerCase()
+    if (!q) return wpsPool.value
+    return wpsPool.value.filter(
+      (w) => w.wpsNo.toLowerCase().includes(q) || (w.process ?? '').toLowerCase().includes(q))
+  })
 
-  const wpsNos = computed(() => [...new Set(wpsItems.value.map((x) => x.wpsNo))]);
+  const wpsNos = computed(() => [...new Set(wpsItems.value.map((x) => x.wpsNo))])
 
-  const wpsHint = computed(() => {
-    if (hasFilter.value) {
-      const pNos = reportStore.filterPNos ?? [];
-      return pNos.length ? `Filtered to P-No ${pNos.join(', ')}` : '';
-    }
-    return wpsFilterNote.value ?? '';
-  });
+  const wpsHint = computed(() =>
+    hasFilter.value
+      ? (wpsFilterNote.value ?? `Filtered to P-No ${filterPNos.value.join(', ')}`)
+      : 'Showing all WPS — fill a P# above to narrow.')
 
-  async function searchWps(q) {
-    wpsQuery.value = q || '';
-    if (hasFilter.value) return;
-    const { data } = await api.get('/wps/search', { params: { q: q || '' } });
-    searchResults.value = data;
+  function searchWps(q) {
+    wpsQuery.value = q || ''
   }
-  searchWps('');
 
   const wrap = 'background:#fff;padding:12px;border:1px solid #000;margin-bottom:16px;overflow-x:auto;';
   const titleStyle = 'font-weight:bold;font-size:14px;margin-bottom:6px;';

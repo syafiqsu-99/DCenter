@@ -79,14 +79,13 @@
         <div v-else-if="!history.length" class="text-medium-emphasis">
           This report has not been completed or reopened yet.
         </div>
-        <v-timeline v-else side="end" density="compact" align="start">
-          <v-timeline-item v-for="(h, i) in history" :key="i"
-                           :dot-color="h.action === 'Completed' ? 'success' : 'warning'"
-                           size="x-small">
-            <div class="text-body-2 font-weight-medium">{{ h.action }}</div>
-            <div class="text-caption text-medium-emphasis">{{ fmt(h.occurredAt) }}</div>
-          </v-timeline-item>
-        </v-timeline>
+        <v-timeline-item v-for="(h, i) in history" :key="i"
+                         :dot-color="h.action === 'Completed' ? 'success' : h.action === 'Reopened' ? 'warning' : 'info'"
+                         size="x-small">
+          <div class="text-body-2 font-weight-medium">{{ h.action }}</div>
+          <div v-if="h.details" class="text-caption">{{ h.details }}</div>
+          <div class="text-caption text-medium-emphasis">{{ fmt(h.occurredAt) }}</div>
+        </v-timeline-item>
       </v-card-text>
       <v-card-actions>
         <v-spacer />

@@ -29,14 +29,16 @@
         </div>
 
         <v-row dense align="center">
-          <v-col cols="12" sm="4">
-            <v-select v-model="typeToAdd" :items="addableTypes" label="Add a Type"
-                      variant="outlined" density="comfortable" hide-details
-                      :disabled="!addableTypes.length" />
+          <v-col cols="12" sm="6">
+            <v-autocomplete v-model="typesToAdd" :items="addableTypes" label="Add Types"
+                            multiple chips closable-chips variant="outlined" density="comfortable"
+                            hide-details :disabled="!addableTypes.length" />
           </v-col>
-          <v-col cols="12" sm="2">
-            <v-btn color="primary" variant="flat" :disabled="!typeToAdd" :loading="adding"
-                   @click="addLink">Add</v-btn>
+          <v-col cols="12" sm="3" class="d-flex ga-2">
+            <v-btn variant="text" :disabled="!addableTypes.length"
+                   @click="typesToAdd = [...addableTypes]">Select all</v-btn>
+            <v-btn color="primary" variant="flat" :disabled="!typesToAdd.length" :loading="adding"
+                   @click="addLinks">Add</v-btn>
           </v-col>
         </v-row>
       </template>
@@ -46,7 +48,7 @@
 </template>
 
 <script setup>
-  import { computed, onMounted, ref } from 'vue';
+import { computed, onMounted, ref, watch } from 'vue';
   import { storeToRefs } from 'pinia';
   import api from '@/utils/api';
   import { useLookupStore } from '@/store/lookupStore';
@@ -56,7 +58,7 @@
 
   const links = ref([]);
   const process = ref(null);
-  const typeToAdd = ref(null);
+  const typesToAdd = ref([])
   const adding = ref(false);
   const deletingId = ref(null);
 
@@ -72,15 +74,19 @@
     links.value = data;
   }
 
-  async function addLink() {
-    if (!process.value || !typeToAdd.value) return;
-    adding.value = true;
+  watch(process, () => { typesToAdd.value = [] });
+
+  async function addLinks() {
+    if (!process.value || !typesToAdd.value.length) return
+    adding.value = true
     try {
-      const { data } = await api.post('/processtypelinks', { process: process.value, type: typeToAdd.value });
-      links.value.push(data);
-      typeToAdd.value = null;
+      for (const type of typesToAdd.value) {
+        const { data } = await api.post('/processtypelinks', { process: process.value, type })
+        links.value.push(data)
+      }
+      typesToAdd.value = []
     } finally {
-      adding.value = false;
+      adding.value = false
     }
   }
 

@@ -60,7 +60,7 @@ public class ReportService(WeldReportContext db)
         return await db.ReportStatusEvents
             .Where(e => e.ReportId == reportId)
             .OrderByDescending(e => e.OccurredAt)
-            .Select(e => new ReportStatusEventDto(e.Action, e.OccurredAt))
+            .Select(e => new ReportStatusEventDto(e.Action, e.OccurredAt, e.Details))
             .ToListAsync(ct);
     }
 
@@ -84,13 +84,16 @@ public class ReportService(WeldReportContext db)
 
         var isInsert = r is null;
 
+        string summary;
         if (r is null)
         {
             r = new Report { WorkOrderNumber = dto.WorkOrderNumber, CreatedAt = DateTime.Now };
             db.Reports.Add(r);
+            summary = "Report created";
         }
         else
         {
+            summary = BuildSaveSummary(r, dto);
             if (!string.IsNullOrEmpty(dto.RowVersion))
             {
                 db.Entry(r).Property(x => x.RowVersion).OriginalValue = Convert.FromBase64String(dto.RowVersion);
@@ -132,6 +135,13 @@ public class ReportService(WeldReportContext db)
             };
             r.Joints.Add(joint);
         }
+
+        db.ReportStatusEvents.Add(new ReportStatusEvent
+        {
+            Report = r,
+            Action = isInsert ? "Created" : "Saved",
+            Details = summary,
+        });
 
         try
         {
@@ -211,4 +221,44 @@ public class ReportService(WeldReportContext db)
             }).ToList()
         }).ToList()
     };
+
+    private static string BuildSaveSummary(Report old, ReportDto dto)
+    {
+        var changes = new List<string>();
+        void Cmp(string label, string? a, string? b)
+        {
+            if ((a ?? "") != (b ?? "")) changes.Add(label);
+        }
+
+        Cmp("Date Welded", old.DateWelded?.ToString("yyyy-MM-dd"), dto.DateWelded?.ToString("yyyy-MM-dd"));
+        if (old.ReportRequired != dto.ReportRequired) changes.Add("Report Required");
+        Cmp("Part No.", old.PartNo, dto.PartNo);
+        Cmp("Description", old.Description, dto.Description);
+        Cmp("Material 1", old.MaterialSpec1, dto.MaterialSpec1);
+        Cmp("Material 2", old.MaterialSpec2, dto.MaterialSpec2);
+        Cmp("Material 3", old.MaterialSpec3, dto.MaterialSpec3);
+        Cmp("Grade 1", old.Grade1, dto.Grade1);
+        Cmp("Grade 2", old.Grade2, dto.Grade2);
+        Cmp("Grade 3", old.Grade3, dto.Grade3);
+        Cmp("P# 1", old.PNumber1, dto.PNumber1);
+        Cmp("P# 2", old.PNumber2, dto.PNumber2);
+        Cmp("P# 3", old.PNumber3, dto.PNumber3);
+        Cmp("Engineer/Supervisor", old.EngineerSupervisor, dto.EngineerSupervisor);
+        Cmp("QA Inspector", old.QaInspector, dto.QaInspector);
+        if (JointSignature(old.Joints) != JointSignature(dto.Joints)) changes.Add("Joints");
+
+        return changes.Count == 0 ? "Saved with no field changes" : "Updated: " + string.Join(", ", changes);
+    }
+
+    private static string JointSignature(IEnumerable<Joint> joints) =>
+        string.Join("|", joints.OrderBy(j => j.JointNumber).Select(j =>
+            $"{j.JointNumber};{j.PartDescLeft};{j.PartNoLeft};{j.HeatNumberLeft};{j.PartDescRight};{j.PartNoRight};{j.HeatNumberRight};{j.WpsNo};{j.Rev};{j.WelderName};{j.WelderNo};" +
+            string.Join(",", j.Materials.OrderBy(m => m.ColumnNumber)
+                .Select(m => $"{m.ColumnNumber}:{m.Process}:{m.Size}:{m.Type}:{m.Manuf}:{m.HeatLot}"))));
+
+    private static string JointSignature(IEnumerable<JointDto> joints) =>
+        string.Join("|", joints.OrderBy(j => j.JointNumber).Select(j =>
+            $"{j.JointNumber};{j.PartDescLeft};{j.PartNoLeft};{j.HeatNumberLeft};{j.PartDescRight};{j.PartNoRight};{j.HeatNumberRight};{j.WpsNo};{j.Rev};{j.WelderName};{j.WelderNo};" +
+            string.Join(",", j.Materials.OrderBy(m => m.ColumnNumber)
+                .Select(m => $"{m.ColumnNumber}:{m.Process}:{m.Size}:{m.Type}:{m.Manuf}:{m.HeatLot}"))));
 }

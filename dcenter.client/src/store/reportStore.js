@@ -79,6 +79,7 @@ export const useReportStore = defineStore('report', {
     history: [],
     loadingHistory: false,
     savedSnapshot: '',
+    reportParts: [],
   }),
 
   getters: {
@@ -132,7 +133,7 @@ export const useReportStore = defineStore('report', {
     },
     leftParts() {
       const seen = new Map()
-      for (const r of this.selectedRows) {
+      for (const r of this.reportParts) {
         if (r.assemblyItem && !seen.has(r.assemblyItem)) {
           seen.set(r.assemblyItem, { no: r.assemblyItem, desc: r.itemDesc ?? '' })
         }
@@ -141,7 +142,7 @@ export const useReportStore = defineStore('report', {
     },
     rightParts() {
       const seen = new Map()
-      for (const r of this.selectedRows) {
+      for (const r of this.reportParts) {
         if (r.childPart && !seen.has(r.childPart)) {
           seen.set(r.childPart, { no: r.childPart, desc: r.componentDesc ?? '' })
         }
@@ -203,6 +204,17 @@ export const useReportStore = defineStore('report', {
       }
     },
 
+    async loadReportParts(workOrderNumber) {
+      const wo = (workOrderNumber ?? '').trim()
+      if (!wo) { this.reportParts = []; return }
+      try {
+        const { data } = await api.get(`/workorders/${encodeURIComponent(wo)}/parts`)
+        this.reportParts = data ?? []
+      } catch {
+        this.reportParts = []
+      }
+    },
+
     async loadSavedReports() {
       this.loadingSaved = true
       this.error = ''
@@ -230,6 +242,7 @@ export const useReportStore = defineStore('report', {
             ? newReport(this.resolvedWorkOrder, this.selectedRows)
             : normalizeJoints(res.data)
         this.confirmed = true
+        this.reportParts = this.selectedRows
         this.markPristine()
         this.ensureRefData()
       } catch {
@@ -253,6 +266,7 @@ export const useReportStore = defineStore('report', {
         this.confirmed = true
         this.markPristine()
         this.ensureRefData()
+        this.loadReportParts(workOrderNumber)
       } catch {
         this.error = 'Could not open the report.'
       } finally {
@@ -352,6 +366,7 @@ export const useReportStore = defineStore('report', {
       this.history = []
       this.conflict = false
       this.savedSnapshot = ''
+      this.reportParts = []
     },
 
     async deleteSaved(workOrderNumber) {
@@ -398,6 +413,7 @@ export const useReportStore = defineStore('report', {
         this.conflict = false
         this.markPristine()
         this.ensureRefData()
+        this.loadReportParts(workOrderNumber)
       } catch {
         this.error = 'Could not duplicate the report.'
       } finally {
@@ -408,6 +424,7 @@ export const useReportStore = defineStore('report', {
     async autofillFromWorkOrder(workOrderNumber) {
       const wo = (workOrderNumber ?? '').trim()
       if (!this.report || this.report.id !== 0 || !wo) return
+      this.loadReportParts(wo)
       try {
         const { data } = await api.get(`/workorders/${encodeURIComponent(wo)}/header`)
         if (data && typeof data === 'object') {
@@ -415,7 +432,7 @@ export const useReportStore = defineStore('report', {
           if (data.description) this.report.description = data.description
         }
       } catch {
-        // no matching work order in the ERP source;
+        // no matching work order in the ERP source
       }
     },
 

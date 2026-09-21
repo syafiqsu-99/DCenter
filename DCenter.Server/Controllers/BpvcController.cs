@@ -63,9 +63,15 @@ public class BpvcController(WeldReportContext db) : ControllerBase
 
     private static readonly string[] Headers =
     [
-        "SpecNo", "Designation", "UnsNo", "MinTensile", "PNo", "GroupNo",
-        "IsoGroup", "BrazingPNo", "NominalComposition", "TypicalProductForm", "NominalThicknessLimits", "SpecNoRaw",
+        "SpecNoRaw", "SpecNo", "Designation", "UnsNo", "MinTensile", "PNo", "GroupNo",
+        "IsoGroup", "BrazingPNo", "NominalComposition", "TypicalProductForm", "NominalThicknessLimits",
     ];
+
+    private static string RowKey(BpvcMaterial b) => string.Join('\u001f', new[]
+    {
+        b.SpecNoRaw, b.SpecNo, b.Designation, b.UnsNo, b.MinTensile, b.PNo,
+        b.GroupNo, b.IsoGroup, b.BrazingPNo, b.NominalComposition, b.TypicalProductForm, b.NominalThicknessLimits,
+    }.Select(v => v ?? ""));
 
     [HttpGet("export")]
     public async Task<IActionResult> Export(CancellationToken ct)
@@ -73,8 +79,8 @@ public class BpvcController(WeldReportContext db) : ControllerBase
         var items = await db.BpvcMaterials.OrderBy(b => b.SpecNo).ThenBy(b => b.PNo).ToListAsync(ct);
         var csv = CsvHelper.ToCsv(Headers, items.Select(b => new string?[]
         {
-        b.SpecNo, b.Designation, b.UnsNo, b.MinTensile, b.PNo,
-        b.GroupNo, b.IsoGroup, b.BrazingPNo, b.NominalComposition, b.TypicalProductForm, b.NominalThicknessLimits, b.SpecNoRaw,
+            b.SpecNoRaw, b.SpecNo, b.Designation, b.UnsNo, b.MinTensile, b.PNo,
+            b.GroupNo, b.IsoGroup, b.BrazingPNo, b.NominalComposition, b.TypicalProductForm, b.NominalThicknessLimits,
         }));
         return File(System.Text.Encoding.UTF8.GetBytes(csv), "text/csv", "bpvc.csv");
     }
@@ -84,33 +90,26 @@ public class BpvcController(WeldReportContext db) : ControllerBase
     {
         if (file is null || file.Length == 0) return BadRequest("No file uploaded.");
 
-        int added = 0, updated = 0, skipped = 0;
-        var existing = await db.BpvcMaterials.ToDictionaryAsync(b => (b.SpecNo, b.PNo), ct);
+        int added = 0, skipped = 0;
+        var seen = (await db.BpvcMaterials.ToListAsync(ct)).Select(RowKey).ToHashSet();
 
         foreach (var f in await CsvHelper.ReadRowsAsync(file, ct))
         {
-            var (specNo, pNo) = (f.Field(0), f.Field(4));
+            var specNo = f.Field(1);
+            var pNo = f.Field(5);
             if (specNo.Length == 0 || pNo.Length == 0) { skipped++; continue; }
 
-            var dto = new BpvcMaterialUpsert(specNo, f.Field(1), f.Field(2), f.Field(3), pNo,
-                f.Field(5), f.Field(6), f.Field(7), f.Field(8), f.Field(9), f.Field(10), f.Field(11));
+            var dto = new BpvcMaterialUpsert(specNo, f.Field(2), f.Field(3), f.Field(4), pNo,
+                f.Field(6), f.Field(7), f.Field(8), f.Field(9), f.Field(10), f.Field(11), f.Field(0));
 
-            if (existing.TryGetValue((specNo, pNo), out var b))
-            {
-                Apply(b, dto);
-                updated++;
-            }
-            else
-            {
-                var b2 = new BpvcMaterial();
-                Apply(b2, dto);
-                db.BpvcMaterials.Add(b2);
-                existing[(specNo, pNo)] = b2;
-                added++;
-            }
+            var b = new BpvcMaterial();
+            Apply(b, dto);
+            if (!seen.Add(RowKey(b))) { skipped++; continue; }
+            db.BpvcMaterials.Add(b);
+            added++;
         }
 
         await db.SaveChangesAsync(ct);
-        return Ok(new { added, updated, skipped });
+        return Ok(new { added, updated = 0, skipped });
     }
 }

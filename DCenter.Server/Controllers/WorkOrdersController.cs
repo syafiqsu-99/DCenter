@@ -39,4 +39,8 @@ public class WorkOrdersController(WorkOrderSearchService workOrders) : Controlle
             ? NoContent()
             : Ok(new WorkOrderHeader(workOrderNumber, first.AssemblyItem, first.ItemDesc));
     }
+
+    [HttpGet("{workOrderNumber}/parts")]
+    public async Task<ActionResult<List<WorkOrderRow>>> Parts(string workOrderNumber, CancellationToken ct)
+    => Ok(await workOrders.PartsForWorkOrderAsync(workOrderNumber, ct));
 }

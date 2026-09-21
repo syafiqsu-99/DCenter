@@ -75,6 +75,9 @@
           <span>Saved reports</span>
           <v-chip size="small" variant="tonal">{{ savedReports.length }}</v-chip>
           <v-spacer />
+          <v-text-field v-model="savedSearch" prepend-inner-icon="mdi-magnify" label="Search"
+                        variant="outlined" density="compact" hide-details clearable
+                        style="max-width:220px;" />
           <v-btn-toggle v-model="statusFilter" density="compact" variant="outlined" divided mandatory>
             <v-btn value="all" size="small">All</v-btn>
             <v-btn value="Draft" size="small">Drafts</v-btn>
@@ -136,96 +139,105 @@
 </template>
 
 <script setup>
-import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue';
-import { storeToRefs } from 'pinia';
-import { useReportStore } from '@/store/reportStore';
-import ConfirmDeleteDialog from '@/components/ConfirmDeleteDialog.vue';
+  import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue';
+  import { storeToRefs } from 'pinia';
+  import { useReportStore } from '@/store/reportStore';
+  import ConfirmDeleteDialog from '@/components/ConfirmDeleteDialog.vue';
 
-const store = useReportStore();
-const { searchInput, searchQuery, filteredRows, canSelect, distinctWorkOrders, loadingRows, loading,
-  loadingMoreRows, hasMoreResults, savedReports, loadingSaved, savedByWorkOrder } = storeToRefs(store);
+  const store = useReportStore();
+  const { searchInput, searchQuery, filteredRows, canSelect, distinctWorkOrders, loadingRows, loading,
+    loadingMoreRows, hasMoreResults, savedReports, loadingSaved, savedByWorkOrder } = storeToRefs(store);
+  const savedSearch = ref('');
 
-const tableArea = ref(null);
-let scrollEl = null;
+  const tableArea = ref(null);
+  let scrollEl = null;
 
-function onTableScroll() {
-      if (!scrollEl) return;
-      const remaining = scrollEl.scrollHeight - scrollEl.scrollTop - scrollEl.clientHeight;
-  if (remaining < 200) store.loadMoreWorkOrders();
-}
+  function onTableScroll() {
+        if (!scrollEl) return;
+        const remaining = scrollEl.scrollHeight - scrollEl.scrollTop - scrollEl.clientHeight;
+    if (remaining < 200) store.loadMoreWorkOrders();
+  }
 
-async function attachScroll() {
-      await nextTick();
-      scrollEl = tableArea.value?.querySelector('.v-table__wrapper');
-      scrollEl?.addEventListener('scroll', onTableScroll, { passive: true });
-}
+  async function attachScroll() {
+        await nextTick();
+        scrollEl = tableArea.value?.querySelector('.v-table__wrapper');
+        scrollEl?.addEventListener('scroll', onTableScroll, { passive: true });
+  }
 
-const headers = [
-      { title: 'Work Order Number', key: 'workOrderNumber',     width: '110px', sortable: false },
-      { title: 'Assembly Item',  key: 'assemblyItem',  width: '140px', sortable: false },
-      { title: 'Item Desc',      key: 'itemDesc',      width: '320px', sortable: false },
-      { title: 'Qty',            key: 'qty',           width: '70px',  sortable: false },
-      { title: 'Child Part',     key: 'childPart',     width: '140px', sortable: false },
-      { title: 'Component Desc', key: 'componentDesc', width: '280px', sortable: false },
-      { title: 'MRN',            key: 'mrn',           width: '110px', sortable: false },
-      { title: 'MRN Desc',       key: 'mrnDesc',       width: '200px', sortable: false },
-];
+  const headers = [
+        { title: 'Work Order Number', key: 'workOrderNumber',     width: '110px', sortable: false },
+        { title: 'Assembly Item',  key: 'assemblyItem',  width: '140px', sortable: false },
+        { title: 'Item Desc',      key: 'itemDesc',      width: '320px', sortable: false },
+        { title: 'Qty',            key: 'qty',           width: '70px',  sortable: false },
+        { title: 'Child Part',     key: 'childPart',     width: '140px', sortable: false },
+        { title: 'Component Desc', key: 'componentDesc', width: '280px', sortable: false },
+        { title: 'MRN',            key: 'mrn',           width: '110px', sortable: false },
+        { title: 'MRN Desc',       key: 'mrnDesc',       width: '200px', sortable: false },
+  ];
 
-const savedHeaders = [
-      { title: 'Work Order Number', key: 'workOrderNumber',   width: '130px' },
-      { title: 'Part No.',    key: 'partNo',      width: '150px' },
-      { title: 'Description', key: 'description', width: '320px' },
-      { title: 'Joints',      key: 'jointCount',  width: '90px', align: 'center' },
-      { title: 'Status',      key: 'status',      width: '120px' },
-      { title: 'Updated',     key: 'updatedAt',   width: '180px' },
-      { title: '',            key: 'actions',     width: '150px', sortable: false, align: 'end' },
-];
+  const savedHeaders = [
+        { title: 'Work Order Number', key: 'workOrderNumber',   width: '130px' },
+        { title: 'Part No.',    key: 'partNo',      width: '150px' },
+        { title: 'Description', key: 'description', width: '320px' },
+        { title: 'Joints',      key: 'jointCount',  width: '90px', align: 'center' },
+        { title: 'Status',      key: 'status',      width: '120px' },
+        { title: 'Updated',     key: 'updatedAt',   width: '180px' },
+        { title: '',            key: 'actions',     width: '150px', sortable: false, align: 'end' },
+  ];
 
-const statusFilter = ref('all');
-const selectedSaved = ref(null);
-const selectedWorkOrderRow = ref(null);
+  const statusFilter = ref('all');
+  const selectedSaved = ref(null);
+  const selectedWorkOrderRow = ref(null);
 
-const workOrderRowProps = ({ item }) => ({
-  class: selectedWorkOrderRow.value === item._index ? 'bg-blue-grey-lighten-5' : '',
-});
-const savedRowProps = ({ item }) => ({
-  class: selectedSaved.value === item.workOrderNumber ? 'bg-blue-grey-lighten-5' : '',
-});
+  const visibleSaved = computed(() => {
+    const byStatus = statusFilter.value === 'all'
+      ? savedReports.value
+      : savedReports.value.filter((r) => r.status === statusFilter.value)
+    const q = savedSearch.value?.trim().toLowerCase()
+    if (!q) return byStatus
+    return byStatus.filter((r) =>
+      (r.workOrderNumber ?? '').toLowerCase().includes(q) ||
+      (r.partNo ?? '').toLowerCase().includes(q) ||
+      (r.description ?? '').toLowerCase().includes(q))
+  });
+  const workOrderRowProps = ({ item }) => ({
+    class: selectedWorkOrderRow.value === item._index ? 'bg-blue-grey-lighten-5' : '',
+  });
+  const savedRowProps = ({ item }) => ({
+    class: selectedSaved.value === item.workOrderNumber ? 'bg-blue-grey-lighten-5' : '',
+  });
 
-const visibleSaved = computed(() =>
-      statusFilter.value === 'all' ? savedReports.value : savedReports.value.filter((r) => r.status === statusFilter.value));
+  const existingForSelected = computed(() =>
+    canSelect.value ? savedByWorkOrder.value.get(distinctWorkOrders.value[0]) : undefined);
 
-const existingForSelected = computed(() =>
-  canSelect.value ? savedByWorkOrder.value.get(distinctWorkOrders.value[0]) : undefined);
+  const noDataText = computed(() =>
+        searchQuery.value ? 'No work orders match your search.' : 'No work orders found.');
 
-const noDataText = computed(() =>
-      searchQuery.value ? 'No work orders match your search.' : 'No work orders found.');
+  const confirmDialog = ref(false);
+  const pendingDelete = ref(null);
+  const deletingRow = ref(false);
 
-const confirmDialog = ref(false);
-const pendingDelete = ref(null);
-const deletingRow = ref(false);
+  function askDelete(item) { pendingDelete.value = item; confirmDialog.value = true; }
 
-function askDelete(item) { pendingDelete.value = item; confirmDialog.value = true; }
+  async function doDelete() {
+        if (!pendingDelete.value) return;
+        deletingRow.value = true;
+    try { await store.deleteSaved(pendingDelete.value.workOrderNumber); }
+        finally { deletingRow.value = false; confirmDialog.value = false; pendingDelete.value = null; }
+  }
 
-async function doDelete() {
-      if (!pendingDelete.value) return;
-      deletingRow.value = true;
-  try { await store.deleteSaved(pendingDelete.value.workOrderNumber); }
-      finally { deletingRow.value = false; confirmDialog.value = false; pendingDelete.value = null; }
-}
+  function fmt(iso) { return iso ? new Date(iso).toLocaleString() : ''; }
 
-function fmt(iso) { return iso ? new Date(iso).toLocaleString() : ''; }
+  function onRowClick(_event, { item }) {
+    selectedWorkOrderRow.value = item._index;
+    store.setSearchInput(item.workOrderNumber);
+  }
 
-function onRowClick(_event, { item }) {
-  selectedWorkOrderRow.value = item._index;
-  store.setSearchInput(item.workOrderNumber);
-}
+  onMounted(async () => {
+        if (!store.searchResults.length) await store.runSearch(store.searchInput);
+        await attachScroll();
+        if (!store.savedReports.length) store.loadSavedReports().catch(() => {});
+  });
 
-onMounted(async () => {
-      if (!store.searchResults.length) await store.runSearch(store.searchInput);
-      await attachScroll();
-      if (!store.savedReports.length) store.loadSavedReports().catch(() => {});
-});
-
-onBeforeUnmount(() => scrollEl?.removeEventListener('scroll', onTableScroll));
+  onBeforeUnmount(() => scrollEl?.removeEventListener('scroll', onTableScroll));
 </script>

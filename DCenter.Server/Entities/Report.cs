@@ -78,7 +78,7 @@ public class ReportStatusEvent
     public int Id { get; set; }
     public int ReportId { get; set; }
     public Report Report { get; set; } = null!;
-
+    public string? Details { get; set; }
     public string Action { get; set; } = string.Empty; // "Completed" or "Reopened"
     public DateTime OccurredAt { get; set; } = DateTime.Now;
 }

@@ -67,6 +67,7 @@ public class WeldReportContext(DbContextOptions<WeldReportContext> options) : Db
         {
             e.ToTable("DCenter_ReportStatusEvents");
             e.Property(x => x.Action).HasMaxLength(50).IsRequired();
+            e.Property(x => x.Details).HasMaxLength(1000);
             e.HasIndex(x => x.ReportId);
         });
 
@@ -89,7 +90,7 @@ public class WeldReportContext(DbContextOptions<WeldReportContext> options) : Db
             e.Property(x => x.FullSpecification).HasMaxLength(400);
             e.Property(x => x.SpecNo).HasMaxLength(100).IsRequired();
             e.Property(x => x.SpecNoRaw).HasMaxLength(100);
-            e.HasIndex(x => x.Mrn).IsUnique();
+            e.HasIndex(x => x.Mrn);
         });
 
         b.Entity<BpvcMaterial>(e =>
@@ -107,7 +108,7 @@ public class WeldReportContext(DbContextOptions<WeldReportContext> options) : Db
             e.Property(x => x.NominalComposition).HasMaxLength(400);
             e.Property(x => x.TypicalProductForm).HasMaxLength(200);
             e.Property(x => x.NominalThicknessLimits).HasMaxLength(200);
-            e.HasIndex(x => new { x.SpecNo, x.PNo }).IsUnique();
+            e.HasIndex(x => new { x.SpecNo, x.PNo });
         });
 
         b.Entity<ProcessTypeLink>(e =>
