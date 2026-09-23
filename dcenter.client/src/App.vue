@@ -34,7 +34,7 @@
       <v-spacer />
 
       <v-btn v-for="item in navItems" :key="item.to"
-             :variant="route.path === item.to ? 'tonal' : 'text'"
+             :variant="route.path === item.to || (item.to !== '/' && route.path.startsWith(item.to)) ? 'tonal' : 'text'"
              :prepend-icon="item.icon"
              class="me-2"
              @click="onNav(item.to)">
@@ -102,6 +102,7 @@
   const router = useRouter();
   const navItems = [
     { to: '/', label: 'Report', icon: 'mdi-file-document-edit-outline' },
+    { to: '/consumables', label: 'Consumables', icon: 'mdi-package-variant-closed' },
     { to: '/settings', label: 'Settings', icon: 'mdi-cog-outline' },
   ];
 

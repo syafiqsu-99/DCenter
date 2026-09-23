@@ -81,6 +81,7 @@
                         density="comfortable" hide-details />
             </v-col>
           </v-row>
+          <v-alert v-if="dialogError" type="error" variant="tonal" density="compact" class="mt-3">{{ dialogError }}</v-alert>
         </v-card-text>
         <v-divider />
         <v-card-actions class="px-4 py-3">
@@ -115,6 +116,8 @@
   const importing = ref(false);
   const importMsg = ref('');
   const fileInput = ref(null);
+
+  const dialogError = ref('');
 
   const headers = [
     { title: '',       key: 'drag',     width: '10%', sortable: false },
@@ -152,26 +155,32 @@
   }
 
   function openNew() {
-    editing.value = blank();
+    editing.value = blank()
+    dialogError.value = '';
     dialog.value = true;
   }
 
   function openEdit(row) {
-    editing.value = { ...row };
+    editing.value = { ...row }
+    dialogError.value = ''
     dialog.value = true;
   }
 
   async function save() {
-    saving.value = true;
+    saving.value = true
+    dialogError.value = ''
     try {
-      const sortOrder = editing.value.id ? editing.value.sortOrder : items.value.length;
-      const payload = { category: editing.value.category, value: editing.value.value, sortOrder, isActive: editing.value.isActive };
-      if (editing.value.id) await api.put(`/lookups/${editing.value.id}`, payload);
-      else await api.post('/lookups', payload);
-      dialog.value = false;
-      await load();
+      const sortOrder = editing.value.id ? editing.value.sortOrder : items.value.length
+      const payload = { category: editing.value.category, value: editing.value.value, sortOrder, isActive: editing.value.isActive }
+      if (editing.value.id) await api.put(`/lookups/${editing.value.id}`, payload)
+      else await api.post('/lookups', payload)
+      dialog.value = false
+      await load()
+    } catch (e) {
+      const data = e.response?.data
+      dialogError.value = typeof data === 'string' && data.trim() ? data : (data?.title ?? 'Could not save this value.')
     } finally {
-      saving.value = false;
+      saving.value = false
     }
   }
 

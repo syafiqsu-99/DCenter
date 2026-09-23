@@ -1,9 +1,10 @@
 using DCenter.Server.Data;
 using DCenter.Server.Entities;
 using DCenter.Server.Models;
-using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
 using DCenter.Server.Services;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.Data.SqlClient;
+using Microsoft.EntityFrameworkCore;
 
 namespace DCenter.Server.Controllers;
 
@@ -29,31 +30,62 @@ public class LookupsController(WeldReportContext db) : ControllerBase
     [HttpPost]
     public async Task<ActionResult<LookupDto>> Create(LookupUpsert dto, CancellationToken ct)
     {
-        if (!Categories.Contains(dto.Category))
-            return BadRequest($"Category must be one of: {string.Join(", ", Categories)}");
-        var l = new LookupItem
-        {
-            Category = dto.Category,
-            Value = dto.Value,
-            SortOrder = dto.SortOrder,
-            IsActive = dto.IsActive
-        };
+        var (category, value, error) = Validate(dto);
+        if (error is not null) return BadRequest(error);
+        if (await IsDuplicateAsync(category, value, null, ct)) return Conflict(DuplicateMessage(category, value));
+
+        var l = new LookupItem { Category = category, Value = value, SortOrder = dto.SortOrder, IsActive = dto.IsActive };
         db.Lookups.Add(l);
-        await db.SaveChangesAsync(ct);
+        if (!await TrySaveAsync(ct)) return Conflict(DuplicateMessage(category, value));
         return Ok(new LookupDto(l.Id, l.Category, l.Value, l.SortOrder, l.IsActive));
     }
 
     [HttpPut("{id:int}")]
     public async Task<IActionResult> Update(int id, LookupUpsert dto, CancellationToken ct)
     {
+        var (category, value, error) = Validate(dto);
+        if (error is not null) return BadRequest(error);
+
         var l = await db.Lookups.FindAsync([id], ct);
         if (l is null) return NotFound();
-        l.Category = dto.Category;
-        l.Value = dto.Value;
+        if (await IsDuplicateAsync(category, value, id, ct)) return Conflict(DuplicateMessage(category, value));
+
+        l.Category = category;
+        l.Value = value;
         l.SortOrder = dto.SortOrder;
         l.IsActive = dto.IsActive;
-        await db.SaveChangesAsync(ct);
+        if (!await TrySaveAsync(ct)) return Conflict(DuplicateMessage(category, value));
         return NoContent();
+    }
+
+    private static (string Category, string Value, string? Error) Validate(LookupUpsert dto)
+    {
+        var category = (dto.Category ?? string.Empty).Trim();
+        var value = (dto.Value ?? string.Empty).Trim();
+        if (!Categories.Contains(category))
+            return (category, value, $"Category must be one of: {string.Join(", ", Categories)}");
+        if (value.Length == 0) return (category, value, "Value is required.");
+        if (value.Length > 200) return (category, value, "Value is limited to 200 characters.");
+        return (category, value, null);
+    }
+
+    private Task<bool> IsDuplicateAsync(string category, string value, int? excludeId, CancellationToken ct)
+        => db.Lookups.AnyAsync(l => l.Category == category && l.Value == value && l.Id != (excludeId ?? 0), ct);
+
+    private static string DuplicateMessage(string category, string value)
+        => $"'{value}' already exists in {category}.";
+
+    private async Task<bool> TrySaveAsync(CancellationToken ct)
+    {
+        try
+        {
+            await db.SaveChangesAsync(ct);
+            return true;
+        }
+        catch (DbUpdateException ex) when (ex.InnerException is SqlException { Number: 2601 or 2627 })
+        {
+            return false;
+        }
     }
 
     [HttpPut("reorder")]

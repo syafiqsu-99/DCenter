@@ -1,0 +1,10 @@
+.consumable-table table {
+  table-layout: fixed;
+  width: 100%;
+}
+
+.consumable-table th,
+.consumable-table td {
+  overflow: hidden;
+  overflow-wrap: anywhere;
+}

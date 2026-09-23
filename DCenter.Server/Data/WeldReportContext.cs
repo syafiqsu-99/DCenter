@@ -15,9 +15,16 @@ public class WeldReportContext(DbContextOptions<WeldReportContext> options) : Db
     public DbSet<MrnSpec> MrnSpecs => Set<MrnSpec>();
     public DbSet<BpvcMaterial> BpvcMaterials => Set<BpvcMaterial>();
     public DbSet<ProcessTypeLink> ProcessTypeLinks => Set<ProcessTypeLink>();
+    public DbSet<Consumable> Consumables => Set<Consumable>();
+    public DbSet<ConsumableLot> ConsumableLots => Set<ConsumableLot>();
+    public DbSet<ConsumableTransaction> ConsumableTransactions => Set<ConsumableTransaction>();
 
     protected override void OnModelCreating(ModelBuilder b)
     {
+        b.ApplyConfiguration(new ConsumableConfiguration());
+        b.ApplyConfiguration(new ConsumableLotConfiguration());
+        b.ApplyConfiguration(new ConsumableTransactionConfiguration());
+
         b.Entity<Welder>(e =>
         {
             e.ToTable("DCenter_Welders");

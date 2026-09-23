@@ -28,6 +28,7 @@
   import LookupTable from '@/components/LookupTable.vue';
   import ReferenceTable from '@/components/ReferenceTable.vue';
   import ProcessTypeLinkTable from '@/components/ProcessTypeLinkTable.vue';
+  import ConsumableMasterTable from '@/components/consumables/ConsumableMasterTable.vue'
 
   const wpsFields = [
     { key: 'wpsNo',     label: 'WPS No.',     width: '30%' },
@@ -63,6 +64,7 @@
     { value: 'welders', label: 'Welders', icon: 'mdi-account-hard-hat', component: WelderTable },
     { value: 'dropdowns', label: 'Dropdown Lists', icon: 'mdi-format-list-bulleted', component: LookupTable },
     { value: 'processType', label: 'Process → Type', icon: 'mdi-link-variant', component: ProcessTypeLinkTable },
+    { value: 'consumables', label: 'Consumables', icon: 'mdi-package-variant-closed', component: ConsumableMasterTable },
     {
       value: 'wps', label: 'WPS No.', icon: 'mdi-clipboard-text-outline', component: ReferenceTable,
       props: {

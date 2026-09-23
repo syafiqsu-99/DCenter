@@ -23,6 +23,7 @@ builder.Services.AddScoped<ReportService>();
 builder.Services.AddScoped<WpsFilterService>();
 builder.Services.AddScoped<PdfReportService>();
 builder.Services.AddScoped<ExcelReportService>();
+builder.Services.AddScoped<ConsumableInventoryService>();
 
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();

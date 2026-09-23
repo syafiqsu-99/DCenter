@@ -4,6 +4,7 @@ using DCenter.Server.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace DCenter.Server.Migrations
 {
     [DbContext(typeof(WeldReportContext))]
-    partial class WeldReportContextModelSnapshot : ModelSnapshot
+    [Migration("20260923021202_DCenter_5")]
+    partial class DCenter_5
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -95,6 +98,11 @@ namespace DCenter.Server.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
+                    b.Property<string>("Category")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
                     b.Property<string>("ConsumableType")
                         .IsRequired()
                         .HasMaxLength(30)
@@ -132,9 +140,11 @@ namespace DCenter.Server.Migrations
 
                     b.ToTable("DCenter_Consumables", null, t =>
                         {
+                            t.HasCheckConstraint("CK_DCenter_Consumables_Category", "[Category] IN (N'Bare & Powder Filler', N'Electrode')");
+
                             t.HasCheckConstraint("CK_DCenter_Consumables_MinStock", "[MinStockKg] >= 0");
 
-                            t.HasCheckConstraint("CK_DCenter_Consumables_Type", "[ConsumableType] IN (N'Bare & Powder Filler', N'Electrode Filler')");
+                            t.HasCheckConstraint("CK_DCenter_Consumables_Type", "[ConsumableType] IN (N'GTAW Filler', N'GMAW Wire', N'SAW Wire', N'SMAW Electrode')");
                         });
                 });
 
@@ -214,6 +224,10 @@ namespace DCenter.Server.Migrations
                     b.Property<int?>("VoidsTxnId")
                         .HasColumnType("int");
 
+                    b.Property<string>("WorkOrderNumber")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
                     b.HasKey("Id");
 
                     b.HasIndex("CreatedAt");
@@ -236,7 +250,7 @@ namespace DCenter.Server.Migrations
 
                             t.HasCheckConstraint("CK_DCenter_ConsumableTxn_Sign", "[QuantityKg] <> 0 AND ([TxnType] <> N'Receive' OR [QuantityKg] > 0) AND ([TxnType] <> N'Issue' OR [QuantityKg] < 0)");
 
-                            t.HasCheckConstraint("CK_DCenter_ConsumableTxn_Type", "[TxnType] IN (N'Receive', N'Issue', N'Void')");
+                            t.HasCheckConstraint("CK_DCenter_ConsumableTxn_Type", "[TxnType] IN (N'Receive', N'Issue', N'Adjust', N'Void')");
 
                             t.HasCheckConstraint("CK_DCenter_ConsumableTxn_Void", "([TxnType] = N'Void' AND [VoidsTxnId] IS NOT NULL) OR ([TxnType] <> N'Void' AND [VoidsTxnId] IS NULL)");
                         });
