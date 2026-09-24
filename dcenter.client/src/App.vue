@@ -100,7 +100,7 @@
   import logo from '@/assets/DCenter.png'
   import logonobg from '@/assets/DCenter_No_bg.png';
   import { useLeaveGuard } from '@/composables/useLeaveGuard';
-  import SupervisorNavButton from '@/components/SupervisorNavButton.vue';
+  import SupervisorNavButton from '@/components/common/SupervisorNavButton.vue';
 
   const route = useRoute();
   const router = useRouter();

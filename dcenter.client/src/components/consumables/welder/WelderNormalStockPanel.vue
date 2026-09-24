@@ -50,8 +50,8 @@
   import { computed, onMounted, ref } from 'vue'
   import { useConsumableStore } from '@/store/consumableStore'
   import { ELECTRODE, errorText, kg } from '@/utils/consumables'
-  import StickyBar from '@/components/StickyBar.vue'
-  import SendToBakeDialog from '@/components/consumables/SendToBakeDialog.vue'
+  import StickyBar from '@/components/common/StickyBar.vue'
+  import SendToBakeDialog from '@/components/consumables/baking/SendToBakeDialog.vue'
 
   const emit = defineEmits(['sent'])
 

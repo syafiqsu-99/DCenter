@@ -38,8 +38,8 @@
   import { computed, onMounted, ref } from 'vue'
   import { useConsumableStore } from '@/store/consumableStore'
   import { errorText, kg } from '@/utils/consumables'
-  import OvenBoard from '@/components/consumables/OvenBoard.vue'
-  import PlaceDialog from '@/components/consumables/PlaceDialog.vue'
+  import OvenBoard from '@/components/consumables/holding/OvenBoard.vue'
+  import PlaceDialog from '@/components/consumables/baking/PlaceDialog.vue'
 
   const store = useConsumableStore()
   const placeOpen = ref(false)

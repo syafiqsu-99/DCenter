@@ -67,10 +67,10 @@
   import { computed, onMounted, ref, watch } from 'vue'
   import { useConsumableStore } from '@/store/consumableStore'
   import { ALL, ELECTRODE, errorText, kg } from '@/utils/consumables'
-  import StickyBar from '@/components/StickyBar.vue'
-  import CounterDialog from '@/components/consumables/CounterDialog.vue'
-  import FinishPromptDialog from '@/components/consumables/FinishPromptDialog.vue'
-  import WelderActivityList from '@/components/consumables/WelderActivityList.vue'
+  import StickyBar from '@/components/common/StickyBar.vue'
+  import CounterDialog from '@/components/consumables/welder/CounterDialog.vue'
+  import FinishPromptDialog from '@/components/consumables/welder/FinishPromptDialog.vue'
+  import WelderActivityList from '@/components/consumables/welder/WelderActivityList.vue'
 
   const props = defineProps({ mode: { type: String, default: 'use' } })
 
