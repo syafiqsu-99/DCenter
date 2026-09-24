@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia';
 import api from '@/utils/api';
 
-const CATEGORIES = ['Process', 'Size', 'Type', 'Manuf'];
+const CATEGORIES = ['Process', 'Size', 'Type', 'Manuf', 'ConsumablePIC'];
 
 export const useLookupStore = defineStore('lookup', {
   state: () => ({

@@ -101,7 +101,11 @@
   }
 
   async function reload() {
-    await store.loadBalances(true)
+    try {
+      await store.loadBalances(true)
+    } catch {
+      store.stale()
+    }
     refreshKey.value += 1
   }
 </script>

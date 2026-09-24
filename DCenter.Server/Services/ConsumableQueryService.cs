@@ -90,7 +90,7 @@ public class ConsumableQueryService(WeldReportContext db, ConsumableLedger ledge
         var lots = await lotQuery
             .Select(l => new
             {
-                l.Id, l.ItemId, l.Item.Category, l.Brand, l.Item.Diameter, l.Item.Specification, l.LotNumber, l.Item.MinStockKg,
+                l.Id, l.ItemId, l.Item.Category, l.Brand, l.Item.Diameter, l.Item.Specification, l.LotNumber, l.Item.MinStockKg, l.Item.IsActive,
             })
             .ToListAsync(ct);
 
@@ -128,7 +128,7 @@ public class ConsumableQueryService(WeldReportContext db, ConsumableLedger ledge
                 return new LotStockRow(l.Id, l.ItemId, l.Category, l.Brand, l.Diameter, l.Specification, l.LotNumber,
                     Cat.DiaSpec(l.Diameter, l.Specification), r?.Date, r?.Source, r?.ReceivedBy,
                     f?.Received ?? 0m, f?.Taken ?? 0m, t.NormalKg, t.BakingKg, t.ActivatedKg, t.TotalKg,
-                    l.MinStockKg > 0 && itemTotal <= l.MinStockKg);
+                    l.IsActive && l.MinStockKg > 0 && itemTotal <= l.MinStockKg);
             })
             .Where(r => includeZero || r.BalanceKg != 0)
             .OrderByDescending(r => r.Date).ThenByDescending(r => r.LotId)

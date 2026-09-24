@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Text;
 
 namespace DCenter.Server.Services;
@@ -6,14 +7,18 @@ public static class CsvText
 {
     public sealed record Row(int Line, List<string> Fields);
 
-    public static List<Row> Parse(string text)
+    public static List<Row> Parse(string text) => Parse(text, out _);
+
+    public static List<Row> Parse(string text, out string? error)
     {
+        error = null;
         var rows = new List<Row>();
         var fields = new List<string>();
         var field = new StringBuilder();
         var inQuotes = false;
         var line = 1;
         var rowStart = 1;
+        var quoteLine = 1;
 
         void EndField()
         {
@@ -52,8 +57,9 @@ public static class CsvText
 
             switch (c)
             {
-                case '"':
+                case '"' when field.Length == 0:
                     inQuotes = true;
+                    quoteLine = line;
                     break;
                 case ',':
                     EndField();
@@ -71,6 +77,7 @@ public static class CsvText
             }
         }
 
+        if (inQuotes) error = $"A quoted value starting on line {quoteLine} is never closed. Check for a stray \" in that row.";
         if (field.Length > 0 || fields.Count > 0) EndRow();
         return rows;
     }
@@ -85,7 +92,7 @@ public static class CsvText
     private static string Cell(string? value)
     {
         var v = value ?? string.Empty;
-        if (v.Length > 0 && "=+@\t\r".Contains(v[0])) v = "'" + v;
+        if (v.Length > 0 && "=+-@\t\r".Contains(v[0]) && !decimal.TryParse(v, NumberStyles.Number, CultureInfo.InvariantCulture, out _)) v = "'" + v;
         return v.IndexOfAny([',', '"', '\n', '\r']) >= 0 ? $"\"{v.Replace("\"", "\"\"")}\"" : v;
     }
 }

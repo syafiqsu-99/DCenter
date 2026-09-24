@@ -27,6 +27,7 @@ public class LookupsController(WeldReportContext db) : ControllerBase
             .ToListAsync(ct));
     }
 
+    [SupervisorOnly]
     [HttpPost]
     public async Task<ActionResult<LookupDto>> Create(LookupUpsert dto, CancellationToken ct)
     {
@@ -40,6 +41,7 @@ public class LookupsController(WeldReportContext db) : ControllerBase
         return Ok(new LookupDto(l.Id, l.Category, l.Value, l.SortOrder, l.IsActive));
     }
 
+    [SupervisorOnly]
     [HttpPut("{id:int}")]
     public async Task<IActionResult> Update(int id, LookupUpsert dto, CancellationToken ct)
     {
@@ -88,6 +90,7 @@ public class LookupsController(WeldReportContext db) : ControllerBase
         }
     }
 
+    [SupervisorOnly]
     [HttpPut("reorder")]
     public async Task<IActionResult> Reorder(List<int> ids, CancellationToken ct)
     {
@@ -97,6 +100,7 @@ public class LookupsController(WeldReportContext db) : ControllerBase
         return NoContent();
     }
 
+    [SupervisorOnly]
     [HttpDelete("{id:int}")]
     public async Task<IActionResult> Delete(int id, CancellationToken ct)
     {
@@ -118,6 +122,7 @@ public class LookupsController(WeldReportContext db) : ControllerBase
         return File(System.Text.Encoding.UTF8.GetBytes(csv), "text/csv", "dropdown-lists.csv");
     }
 
+    [SupervisorOnly]
     [HttpPost("import")]
     public async Task<ActionResult<object>> Import(IFormFile file, CancellationToken ct)
     {

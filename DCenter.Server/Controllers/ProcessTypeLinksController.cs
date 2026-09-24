@@ -18,6 +18,7 @@ public class ProcessTypeLinksController(WeldReportContext db) : ControllerBase
             .Select(x => new ProcessTypeLinkDto(x.Id, x.Process, x.Type))
             .ToListAsync(ct));
 
+    [SupervisorOnly]
     [HttpPost]
     public async Task<ActionResult<ProcessTypeLinkDto>> Create(ProcessTypeLinkUpsert dto, CancellationToken ct)
     {
@@ -35,6 +36,7 @@ public class ProcessTypeLinksController(WeldReportContext db) : ControllerBase
         return Ok(new ProcessTypeLinkDto(link.Id, link.Process, link.Type));
     }
 
+    [SupervisorOnly]
     [HttpDelete("{id:int}")]
     public async Task<IActionResult> Delete(int id, CancellationToken ct)
     {
@@ -45,6 +47,7 @@ public class ProcessTypeLinksController(WeldReportContext db) : ControllerBase
         return NoContent();
     }
 
+    [SupervisorOnly]
     [HttpPost("batch")]
     public async Task<ActionResult<List<ProcessTypeLinkDto>>> CreateBatch(ProcessTypeLinkBatch dto, CancellationToken ct)
     {

@@ -1,4 +1,6 @@
 using DCenter.Server.Data;
+using DCenter.Server.Entities;
+using Microsoft.AspNetCore.DataProtection;
 using DCenter.Server.Services;
 using Microsoft.EntityFrameworkCore;
 using QuestPDF.Infrastructure;
@@ -32,7 +34,11 @@ builder.Services.AddScoped<ConsumableGuards>();
 builder.Services.AddScoped<BakingService>();
 builder.Services.AddScoped<OvenService>();
 builder.Services.AddScoped<StockCountService>();
-builder.Services.AddDataProtection();
+var keysPath = builder.Configuration["DataProtection:KeysPath"]
+    ?? Path.Combine(builder.Environment.ContentRootPath, "App_Data", "keys");
+builder.Services.AddDataProtection()
+    .SetApplicationName("DCenter")
+    .PersistKeysToFileSystem(new DirectoryInfo(keysPath));
 builder.Services.AddSingleton<SupervisorAuth>();
 builder.Services.AddScoped<ConsumableImportService>();
 builder.Services.AddScoped<SupervisorPasswordService>();
@@ -48,6 +54,22 @@ builder.Services.AddCors(o => o.AddPolicy(DevCors, p => p
     .AllowAnyMethod()));
 
 var app = builder.Build();
+
+try
+{
+    using var scope = app.Services.CreateScope();
+    var changedAt = await scope.ServiceProvider.GetRequiredService<WeldReportContext>().SupervisorCredentials.AsNoTracking()
+        .Where(c => c.Id == SupervisorCredential.SingletonId)
+        .Select(c => (DateTime?)c.UpdatedAt)
+        .FirstOrDefaultAsync();
+    if (changedAt is DateTime changed)
+        app.Services.GetRequiredService<SupervisorAuth>()
+            .RevokeIssuedBefore(new DateTimeOffset(DateTime.SpecifyKind(changed, DateTimeKind.Local)));
+}
+catch (Exception ex)
+{
+    app.Logger.LogWarning(ex, "Could not read the supervisor password date; existing supervisor sessions stay valid until they expire.");
+}
 
 var clientDist = Path.Combine(builder.Environment.ContentRootPath, "..", "dcenter.client", "dist");
 if (Directory.Exists(clientDist))

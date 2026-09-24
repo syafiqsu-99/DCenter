@@ -9,7 +9,7 @@ using T = DCenter.Server.Services.ConsumableText;
 
 namespace DCenter.Server.Services;
 
-public class StockCountService(WeldReportContext db, ConsumableLedger ledger)
+public class StockCountService(WeldReportContext db, ConsumableLedger ledger, ConsumableGuards guards)
 {
     private const int MaxLines = 2000;
 
@@ -73,6 +73,7 @@ public class StockCountService(WeldReportContext db, ConsumableLedger ledger)
         if (input.Count == 0) return Fail("The count has no lines.");
         if (input.Count > MaxLines) return Fail($"A count can have at most {MaxLines} lines.");
         if (input.Any(l => l.CountedKg < 0)) return Fail("Counted quantities cannot be negative.");
+        if (input.Any(l => l.CountedKg > T.MaxKg)) return Fail(T.MaxKgError);
         if (input.GroupBy(l => (l.LotId, l.CompartmentId)).Any(g => g.Count() > 1))
             return Fail("The same lot and location appears more than once in the count.");
         if (stage == Cat.Normal && input.Any(l => l.CompartmentId is not null))
@@ -122,6 +123,21 @@ public class StockCountService(WeldReportContext db, ConsumableLedger ledger)
         if (moved.Count > 0)
             return Fail($"Stock moved since the count sheet was loaded (lot {string.Join(", ", moved.Take(10))}). " +
                         "Reload the sheet and recount those lines.", StatusCodes.Status409Conflict);
+
+        if (stage == Cat.Activated)
+        {
+            foreach (var gainBin in changed
+                         .Where(l => l.Counted > l.System && l.CompartmentId is not null)
+                         .Select(l => new { l.ItemId, CompartmentId = l.CompartmentId!.Value })
+                         .Distinct()
+                         .OrderBy(x => x.CompartmentId))
+            {
+                var item = await guards.ItemAsync(gainBin.ItemId, ct);
+                if (item is null) return Fail("A count line refers to a consumable that no longer exists. Reload the count sheet.");
+                var compartmentError = await guards.CheckCompartmentAsync(item, gainBin.CompartmentId, ct);
+                if (compartmentError is not null) return Fail(compartmentError, StatusCodes.Status409Conflict);
+            }
+        }
 
         var referenceNo = await ledger.NextStockCountNoAsync(ct);
         string? txnNo = changed.Count > 0 ? await ledger.NextTxnNoAsync(ct) : null;

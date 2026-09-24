@@ -78,10 +78,10 @@
     return needed > 0 ? Math.round(Math.min(needed, available.value) * 100) / 100 : 0
   })
 
-  const canSave = computed(() => Number(qty.value) > 0 && Number(qty.value) <= available.value && store.hasEnteredBy)
+  const canSave = computed(() => !!props.item && Number(qty.value) > 0 && Number(qty.value) <= available.value && store.hasEnteredBy)
 
   watch(() => props.modelValue, async (open) => {
-    if (!open) return
+    if (!open || !props.item) return
     lotId.value = null
     qty.value = null
     remarks.value = ''

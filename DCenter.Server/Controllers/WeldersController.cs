@@ -28,6 +28,7 @@ public class WeldersController(WeldReportContext db) : ControllerBase
             .ToListAsync(ct));
     }
 
+    [SupervisorOnly]
     [HttpPost]
     public async Task<ActionResult<WelderDto>> Create(WelderDto dto, CancellationToken ct)
     {
@@ -40,6 +41,7 @@ public class WeldersController(WeldReportContext db) : ControllerBase
         return Ok(new WelderDto(w.Id, w.WelderName, w.WelderNo, w.IsActive, w.UsageScope));
     }
 
+    [SupervisorOnly]
     [HttpPut("{id:int}")]
     public async Task<IActionResult> Update(int id, WelderDto dto, CancellationToken ct)
     {
@@ -56,6 +58,7 @@ public class WeldersController(WeldReportContext db) : ControllerBase
         return NoContent();
     }
 
+    [SupervisorOnly]
     [HttpPut("scope")]
     public async Task<ActionResult<int>> SetScope(WelderScopeUpdate dto, CancellationToken ct)
     {
@@ -70,6 +73,7 @@ public class WeldersController(WeldReportContext db) : ControllerBase
         return Ok(updated);
     }
 
+    [SupervisorOnly]
     [HttpDelete("{id:int}")]
     public async Task<IActionResult> Delete(int id, CancellationToken ct)
     {

@@ -32,6 +32,7 @@ public class WpsController(WeldReportContext db) : ControllerBase
             .ToListAsync(ct));
     }
 
+    [SupervisorOnly]
     [HttpPost]
     public async Task<ActionResult<WpsDto>> Create(WpsUpsert dto, CancellationToken ct)
     {
@@ -41,6 +42,7 @@ public class WpsController(WeldReportContext db) : ControllerBase
         return Ok(new WpsDto(w.Id, w.WpsNo, w.BaseMetal, w.Process, w.PNo));
     }
 
+    [SupervisorOnly]
     [HttpPut("{id:int}")]
     public async Task<IActionResult> Update(int id, WpsUpsert dto, CancellationToken ct)
     {
@@ -51,6 +53,7 @@ public class WpsController(WeldReportContext db) : ControllerBase
         return NoContent();
     }
 
+    [SupervisorOnly]
     [HttpDelete("{id:int}")]
     public async Task<IActionResult> Delete(int id, CancellationToken ct)
     {
@@ -73,6 +76,7 @@ public class WpsController(WeldReportContext db) : ControllerBase
     }
 
     // POST /api/wps/import (multipart file, columns: WpsNo,BaseMetal,Process,PNo) -> upsert by (WpsNo, PNo).
+    [SupervisorOnly]
     [HttpPost("import")]
     public async Task<ActionResult<object>> Import(IFormFile file, CancellationToken ct)
     {

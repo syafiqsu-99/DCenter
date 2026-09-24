@@ -63,6 +63,7 @@
         await store.finish({
           itemId: r.itemId, lotId: r.lotId, stage: 'Activated', reason: 'Used up', remarks: null, compartmentId: r.compartmentId ?? null,
         })
+        selected.value = selected.value.filter((id) => id !== r.lotId)
       }
       emit('done')
       emit('update:modelValue', false)

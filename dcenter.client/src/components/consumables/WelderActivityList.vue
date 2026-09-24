@@ -23,7 +23,7 @@
     </v-list>
   </v-card>
 
-  <VoidDialog v-model="voidOpen" :transaction="voidTarget" @voided="store.loadCounter()" />
+  <VoidDialog v-model="voidOpen" :transaction="voidTarget" @voided="store.loadCounter().catch(() => {})" />
 </template>
 
 <script setup>

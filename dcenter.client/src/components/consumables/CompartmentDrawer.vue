@@ -35,9 +35,10 @@
     </template>
   </v-navigation-drawer>
 
-  <MoveDialog v-model="moveOpen" :lot="selected" :from="bin" @saved="changed" />
-  <FinishDialog v-model="finishOpen" :item="finishItem" :lot="finishLot" :bin="bin" @saved="changed" />
-  <AdjustDialog v-model="adjustOpen" :item="finishItem" :lot="finishLot" :bin="bin" :bin-lots="adjustLots" @saved="changed" />
+  <MoveDialog v-model="moveOpen" :lot="action?.lot ?? null" :from="action?.bin ?? null" @saved="changed" />
+  <FinishDialog v-model="finishOpen" :item="finishItem" :lot="finishLot" :bin="action?.bin ?? null" @saved="changed" />
+  <AdjustDialog v-model="adjustOpen" :item="finishItem" :lot="finishLot" :bin="action?.bin ?? null" :bin-lots="adjustLots"
+                @saved="changed" />
   <LotHistoryDialog v-model="historyOpen" :lot="historyLot" />
 </template>
 
@@ -61,40 +62,48 @@
 
   const store = useConsumableStore()
   const router = useRouter()
-  const selected = ref(null)
+  const action = ref(null)
   const moveOpen = ref(false)
   const finishOpen = ref(false)
   const adjustOpen = ref(false)
   const historyOpen = ref(false)
   const historyLot = ref(null)
 
-  const bin = computed(() => (props.compartment ? { id: props.compartment.id, code: props.compartment.code } : null))
   const finishItem = computed(() => {
-    const lot = selected.value
-    if (!lot) return null
-    const kgInBin = props.compartment.contents.filter((x) => x.itemId === lot.itemId).reduce((s, x) => s + x.kg, 0)
-    return { itemId: lot.itemId, diaSpec: lot.diaSpec, activatedKg: kgInBin }
+    const a = action.value
+    return a ? { itemId: a.lot.itemId, diaSpec: a.lot.diaSpec, activatedKg: a.kgInBin } : null
   })
-  const finishLot = computed(() =>
-    selected.value ? { lotId: selected.value.lotId, lotNumber: selected.value.lotNumber, activatedKg: selected.value.kg } : null)
+  const finishLot = computed(() => {
+    const lot = action.value?.lot
+    return lot ? { lotId: lot.lotId, lotNumber: lot.lotNumber, activatedKg: lot.kg } : null
+  })
   const adjustLots = computed(() =>
-    (props.compartment?.contents ?? [])
-      .filter((x) => x.itemId === selected.value?.itemId)
-      .map((x) => ({ lotId: x.lotId, brand: x.brand, lotNumber: x.lotNumber, activatedKg: x.kg, normalKg: 0 })))
+    (action.value?.binLots ?? []).map((x) => ({ lotId: x.lotId, brand: x.brand, lotNumber: x.lotNumber, activatedKg: x.kg, normalKg: 0 })))
+
+  // The drawer closes on outside clicks while a dialog is open, so each dialog works from a copy taken when it opens.
+  function snapshot(lot) {
+    const c = props.compartment
+    if (!c || !lot) return false
+    const binLots = (c.contents ?? []).filter((x) => x.itemId === lot.itemId)
+    action.value = {
+      lot: { ...lot },
+      bin: { id: c.id, code: c.code },
+      binLots: binLots.map((x) => ({ ...x })),
+      kgInBin: binLots.reduce((s, x) => s + x.kg, 0),
+    }
+    return true
+  }
 
   function openMove(lot) {
-    selected.value = lot
-    moveOpen.value = true
+    if (snapshot(lot)) moveOpen.value = true
   }
 
   function openFinish(lot) {
-    selected.value = lot
-    finishOpen.value = true
+    if (snapshot(lot)) finishOpen.value = true
   }
 
   function openAdjust(lot) {
-    selected.value = lot
-    adjustOpen.value = true
+    if (snapshot(lot)) adjustOpen.value = true
   }
 
   function openHistory(lot) {
@@ -108,6 +117,7 @@
   }
 
   function goHistory() {
+    if (!props.compartment) return
     store.showHistory({ from: '', to: '', compartmentId: props.compartment.id, compartmentCode: props.compartment.code })
     emit('update:modelValue', false)
     router.push({ name: 'consumable-history' })

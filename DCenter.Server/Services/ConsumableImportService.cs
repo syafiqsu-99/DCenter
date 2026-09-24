@@ -9,7 +9,7 @@ using T = DCenter.Server.Services.ConsumableText;
 
 namespace DCenter.Server.Services;
 
-public class ConsumableImportService(WeldReportContext db, ConsumableItemService items)
+public class ConsumableImportService(WeldReportContext db, ConsumableItemService items, ConsumableLedger ledger)
 {
     public const long MaxFileBytes = 2 * 1024 * 1024;
     private const int MaxRows = 5000;
@@ -39,7 +39,7 @@ public class ConsumableImportService(WeldReportContext db, ConsumableItemService
         ["active"] = Col.Active, ["isactive"] = Col.Active,
     };
 
-    private sealed record Existing(ConsumableItem Item, bool HasStock);
+    private sealed record Existing(ConsumableItem Item, bool HasStock, bool InOven);
 
     private sealed record Planned(int Line, string Action, ItemInput? Input, Existing? Target, ImportRowDto Row);
 
@@ -65,11 +65,12 @@ public class ConsumableImportService(WeldReportContext db, ConsumableItemService
 
     public async Task<ServiceResult<ImportResultDto>> ImportAsync(Stream stream, bool commit, bool skipInvalid, CancellationToken ct)
     {
-        string text;
-        using (var reader = new StreamReader(stream, Encoding.UTF8, detectEncodingFromByteOrderMarks: true))
-            text = await reader.ReadToEndAsync(ct);
+        using var buffer = new MemoryStream();
+        await stream.CopyToAsync(buffer, ct);
+        var text = Decode(buffer.ToArray());
 
-        var parsed = CsvText.Parse(text);
+        var parsed = CsvText.Parse(text, out var parseError);
+        if (parseError is not null) return Fail(parseError);
         if (parsed.Count == 0) return Fail("The file is empty.");
         if (parsed.Count - 1 > MaxRows) return Fail($"A file can have at most {MaxRows} rows.");
 
@@ -86,8 +87,12 @@ public class ConsumableImportService(WeldReportContext db, ConsumableItemService
             .Distinct()
             .ToListAsync(ct);
         var stocked = stockedIds.ToHashSet();
+        var inOven = (await ledger.ActivatedBinsAsync(null, ct))
+            .Where(b => b.CompartmentId is not null && b.Kg > 0)
+            .Select(b => b.ItemId)
+            .ToHashSet();
         var existing = (commit ? await db.ConsumableItems.ToListAsync(ct) : await db.ConsumableItems.AsNoTracking().ToListAsync(ct))
-            .ToDictionary(i => Key(i.Specification, i.Diameter), i => new Existing(i, stocked.Contains(i.Id)));
+            .ToDictionary(i => Key(i.Specification, i.Diameter), i => new Existing(i, stocked.Contains(i.Id), inOven.Contains(i.Id)));
 
         var seen = new Dictionary<string, int>();
         var plan = parsed.Skip(1).Select(r => PlanRow(r, columns, existing, seen)).ToList();
@@ -133,7 +138,7 @@ public class ConsumableImportService(WeldReportContext db, ConsumableItemService
     private Planned PlanRow(CsvText.Row r, Dictionary<Col, int> columns, Dictionary<string, Existing> existing, Dictionary<string, int> seen)
     {
         var messages = new List<string>();
-        string? Cell(Col c) => columns.TryGetValue(c, out var i) && i < r.Fields.Count ? r.Fields[i].Trim() : null;
+        string? Cell(Col c) => columns.TryGetValue(c, out var i) && i < r.Fields.Count ? Unguard(r.Fields[i].Trim()) : null;
         bool Has(Col c) => columns.ContainsKey(c);
 
         var rawCategory = Cell(Col.Category);
@@ -148,7 +153,7 @@ public class ConsumableImportService(WeldReportContext db, ConsumableItemService
         {
             if (!Has(c)) return fallback;
             var raw = Cell(c);
-            if (string.IsNullOrEmpty(raw)) return blankIsNull ? null : 0m;
+            if (string.IsNullOrEmpty(raw)) return blankIsNull ? null : current is null ? 0m : fallback;
             if (decimal.TryParse(raw.Replace("kg", "", StringComparison.OrdinalIgnoreCase).Trim(), NumberStyles.Number,
                     CultureInfo.InvariantCulture, out var v))
                 return v;
@@ -211,6 +216,12 @@ public class ConsumableImportService(WeldReportContext db, ConsumableItemService
             messages.Insert(0, $"Already exists as {item.Category}; the type cannot change once stock has been recorded.");
             return new Planned(r.Line, ActionError, null, null, new ImportRowDto(r.Line, ActionError, input.Category, diaSpec, messages));
         }
+        if (match.InOven && item.HoldingOvenType != input.HoldingOvenType)
+        {
+            messages.Insert(0, $"Holding oven type cannot change from {item.HoldingOvenType ?? "none"} while its electrodes are in oven " +
+                               "compartments. Move or finish them first.");
+            return new Planned(r.Line, ActionError, null, null, new ImportRowDto(r.Line, ActionError, input.Category, diaSpec, messages));
+        }
 
         var changes = new List<string>();
         void Compare<TValue>(string label, TValue before, TValue after)
@@ -267,4 +278,19 @@ public class ConsumableImportService(WeldReportContext db, ConsumableItemService
     };
 
     private static ServiceResult<ImportResultDto> Fail(string error) => ServiceResult<ImportResultDto>.Fail(error);
+
+    private static string Decode(byte[] bytes)
+    {
+        try
+        {
+            return new UTF8Encoding(false, true).GetString(bytes).TrimStart('\uFEFF');
+        }
+        catch (DecoderFallbackException)
+        {
+            return Encoding.Latin1.GetString(bytes);
+        }
+    }
+
+    private static string Unguard(string value)
+        => value.Length > 1 && value[0] == '\'' && "=+-@".Contains(value[1]) ? value[1..] : value;
 }

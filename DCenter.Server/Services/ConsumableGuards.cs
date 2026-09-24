@@ -122,9 +122,10 @@ public class ConsumableGuards(WeldReportContext db, ConsumableLedger ledger)
         return $"This compartment also holds lot {string.Join(", ", lotNumbers)} of the same consumable.";
     }
 
-    public async Task<decimal> OutstandingAsync(int welderId, int itemId, DateOnly since, CancellationToken ct)
+    public async Task<decimal> OutstandingAsync(int welderId, int itemId, DateOnly since, DateOnly until, CancellationToken ct)
     {
-        var window = ledger.Live().Where(m => m.WelderId == welderId && m.Lot.ItemId == itemId && m.TxnDate >= since);
+        var window = ledger.Live()
+            .Where(m => m.WelderId == welderId && m.Lot.ItemId == itemId && m.TxnDate >= since && m.TxnDate <= until);
         var picked = await window.Where(m => m.TxnType == Cat.TxnIssue).SumAsync(m => (decimal?)m.QuantityKg, ct) ?? 0m;
         var returned = await window.Where(m => m.TxnType == Cat.TxnReturn).SumAsync(m => (decimal?)m.QuantityKg, ct) ?? 0m;
         return picked - returned;

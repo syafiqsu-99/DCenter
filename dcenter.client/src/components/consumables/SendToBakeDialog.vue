@@ -102,7 +102,7 @@
 
   watch(() => props.modelValue, (open) => {
     if (!open) return
-    lookupStore.load()
+    lookupStore.load().catch(() => {})
     picked.value = null
     lotId.value = null
     qty.value = null

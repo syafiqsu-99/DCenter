@@ -50,7 +50,7 @@
   const store = useConsumableStore()
   const lookupStore = useLookupStore()
   const { options } = storeToRefs(lookupStore)
-  lookupStore.load()
+  lookupStore.load().catch(() => {})
 
   const field = { variant: 'outlined', density: 'comfortable', hideDetails: 'auto' }
   const newHint = 'New value — it will be added to the dropdown lists on save'

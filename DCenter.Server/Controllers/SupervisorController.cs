@@ -63,6 +63,7 @@ public class SupervisorController(SupervisorAuth auth, SupervisorPasswordService
             if (result.Status == StatusCodes.Status403Forbidden) await Task.Delay(FailureDelay, ct);
             return StatusCode(result.Status, result.Error);
         }
+        auth.RevokeIssuedBefore(DateTimeOffset.UtcNow);
         logger.LogInformation("Supervisor password changed by {Name}", user);
         return Ok(result.Value);
     }

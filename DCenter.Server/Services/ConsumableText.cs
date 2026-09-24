@@ -10,6 +10,10 @@ internal static partial class ConsumableText
 
     public static decimal RoundKg(decimal value) => Math.Round(value, 2, MidpointRounding.AwayFromZero);
 
+    public const decimal MaxKg = 99_999.99m;
+
+    public const string MaxKgError = "Quantity cannot exceed 99,999.99 kg.";
+
     public static string? Trimmed(string? value)
     {
         var v = value?.Trim();
@@ -34,9 +38,9 @@ internal static partial class ConsumableText
     {
         var v = Trimmed(raw)?.ToLowerInvariant().Replace("mm", string.Empty).Replace(',', '.').Replace(" ", string.Empty);
         if (v is null) return null;
-        return decimal.TryParse(v, NumberStyles.AllowDecimalPoint, CultureInfo.InvariantCulture, out var d) && d > 0 && d < 100
-            ? d.ToString("0.00", CultureInfo.InvariantCulture)
-            : null;
+        if (!decimal.TryParse(v, NumberStyles.AllowDecimalPoint, CultureInfo.InvariantCulture, out var d)) return null;
+        d = Math.Round(d, 2, MidpointRounding.AwayFromZero);
+        return d > 0 && d < 100 ? d.ToString("0.00", CultureInfo.InvariantCulture) : null;
     }
 
     public static decimal DiameterSortKey(string diameter)

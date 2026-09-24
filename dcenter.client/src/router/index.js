@@ -44,6 +44,7 @@ router.beforeEach((to, from) => {
   if (!needsSupervisor(to)) return true;
   const store = useConsumableStore();
   if (!store.supervisor) store.init();
+  store.tick();
   if (store.isSupervisor) return true;
   const unlock = { unlock: '1', next: to.fullPath };
   if (from.matched.length && !needsSupervisor(from)) return { path: from.path, query: { ...from.query, ...unlock } };

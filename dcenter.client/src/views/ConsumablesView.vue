@@ -24,12 +24,11 @@
 </template>
 
 <script setup>
-  import { onMounted, ref, watch } from 'vue'
-  import { useRoute, useRouter } from 'vue-router'
+  import { onMounted, ref } from 'vue'
+  import { useRoute } from 'vue-router'
   import { useConsumableStore } from '@/store/consumableStore'
 
   const route = useRoute()
-  const router = useRouter()
   const store = useConsumableStore()
   const loadError = ref('')
 
@@ -54,10 +53,6 @@
       loadError.value = 'Could not load consumable settings from the server.'
     }
   }
-
-  watch(() => store.isSupervisor, (supervisor) => {
-    if (!supervisor && route.matched.some((r) => r.meta.supervisor)) router.push({ name: 'consumable-welder' })
-  })
 
   onMounted(() => {
     if (!store.supervisor) store.init()

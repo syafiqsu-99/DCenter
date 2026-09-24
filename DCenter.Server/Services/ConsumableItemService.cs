@@ -51,9 +51,11 @@ public class ConsumableItemService(WeldReportContext db, ConsumableLedger ledger
             .FirstOrDefaultAsync(i => i.Specification == n.Specification && i.Diameter == n.Diameter, ct);
         if (existing is not null)
         {
-            return existing.Category == n.Category
+            if (existing.Category != n.Category)
+                return (null, $"{Cat.DiaSpec(n.Diameter, n.Specification)} already exists as {existing.Category}.");
+            return existing.IsActive
                 ? (existing, null)
-                : (null, $"{Cat.DiaSpec(n.Diameter, n.Specification)} already exists as {existing.Category}.");
+                : (null, $"{Cat.DiaSpec(n.Diameter, n.Specification)} exists but is inactive. Reactivate it under Consumables first.");
         }
 
         var item = new ConsumableItem
@@ -95,6 +97,12 @@ public class ConsumableItemService(WeldReportContext db, ConsumableLedger ledger
             if (changesIdentity && await db.ConsumableMovements.AnyAsync(m => m.Lot.ItemId == existingId, ct))
                 return ServiceResult<ItemDto>.Fail(
                     "Type, specification and diameter cannot change once stock has been recorded. Create a new consumable instead.");
+
+            if (item.HoldingOvenType != n.HoldingOvenType
+                && (await ledger.ActivatedBinsAsync(m => m.Lot.ItemId == existingId, ct)).Any(b => b.CompartmentId is not null && b.Kg > 0))
+                return ServiceResult<ItemDto>.Fail(
+                    "The holding oven type cannot change while this consumable is in oven compartments. Move or finish it first.",
+                    StatusCodes.Status409Conflict);
         }
         else
         {

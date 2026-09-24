@@ -85,7 +85,7 @@ public class ConsumablesController(
 
     [HttpPost("return")]
     public Task<ActionResult<MovementResult>> Return(ReturnRequest request, CancellationToken ct)
-        => Locked(() => movements.ReturnAsync(request, EnteredBy, ct));
+        => Locked(() => movements.ReturnAsync(request, EnteredBy, IsSupervisor, ct));
 
     [HttpPost("move")]
     [SupervisorOnly]
@@ -94,7 +94,7 @@ public class ConsumablesController(
 
     [HttpPost("finish")]
     public Task<ActionResult<MovementResult>> Finish(FinishRequest request, CancellationToken ct)
-        => Locked(() => movements.FinishAsync(request, EnteredBy, ct));
+        => Locked(() => movements.FinishAsync(request, EnteredBy, IsSupervisor, ct));
 
     [HttpPost("adjust")]
     [SupervisorOnly]

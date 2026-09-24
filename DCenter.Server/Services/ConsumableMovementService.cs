@@ -25,6 +25,7 @@ public class ConsumableMovementService(
 
         var qty = T.RoundKg(r.QuantityKg);
         if (qty <= 0) return Fail("Receive Qty (KG) must be greater than 0.");
+        if (qty > T.MaxKg) return Fail(T.MaxKgError);
 
         var brand = T.FreeText(r.Brand, 100);
         if (brand is null) return Fail("Electrode Brand is required.");
@@ -102,6 +103,7 @@ public class ConsumableMovementService(
 
         var qty = T.RoundKg(r.QuantityKg);
         if (qty <= 0) return Fail("Quantity must be greater than 0.");
+        if (qty > T.MaxKg) return Fail(T.MaxKgError);
 
         await using var tx = await db.Database.BeginTransactionAsync(ct);
         await StockLocks.AcquireAsync(db, StockLocks.Item(r.ItemId), ct);
@@ -146,6 +148,7 @@ public class ConsumableMovementService(
 
         var qty = T.RoundKg(r.QuantityKg);
         if (!r.TakeAll && qty <= 0) return Fail("Take/KG must be greater than 0.");
+        if (qty > T.MaxKg) return Fail(T.MaxKgError);
 
         await using var tx = await db.Database.BeginTransactionAsync(ct);
         await StockLocks.AcquireAsync(db, StockLocks.Item(r.ItemId), ct);
@@ -203,13 +206,14 @@ public class ConsumableMovementService(
         return Ok(await ResultAsync(txnNo, item.Id, residuals, null, ct));
     }
 
-    public async Task<ServiceResult<MovementResult>> ReturnAsync(ReturnRequest r, string? enteredBy, CancellationToken ct)
+    public async Task<ServiceResult<MovementResult>> ReturnAsync(ReturnRequest r, string? enteredBy, bool supervisor, CancellationToken ct)
     {
         var (user, date, error) = G.Common(enteredBy, r.TxnDate);
         if (error is not null) return Fail(error);
 
         var qty = T.RoundKg(r.QuantityKg);
         if (qty <= 0) return Fail("Return quantity must be greater than 0.");
+        if (qty > T.MaxKg) return Fail(T.MaxKgError);
 
         await using var tx = await db.Database.BeginTransactionAsync(ct);
         await StockLocks.AcquireAsync(db, StockLocks.Item(r.ItemId), ct);
@@ -268,10 +272,23 @@ public class ConsumableMovementService(
         }
 
         var since = date.AddDays(-(Math.Max(settings.ReturnWindowDays, 1) - 1));
-        var outstanding = await guards.OutstandingAsync(welder.Id, item.Id, since, ct);
-        var warning = qty > outstanding
+        var outstanding = await guards.OutstandingAsync(welder.Id, item.Id, since, date, ct);
+        var overReturn = qty > outstanding;
+        if (overReturn && !supervisor)
+            return Fail($"{welder.WelderName} has only {Math.Max(outstanding, 0m):0.00} kg of {item.DiaSpec} to return from the last " +
+                        $"{settings.ReturnWindowDays} day(s). Ask a supervisor to record a larger return.", StatusCodes.Status409Conflict);
+        if (r.ForRebake && movement.BakingRecordId is int rebakeId)
+        {
+            var issuedFromRecord = await ledger.Live()
+                .Where(m => m.BakingRecordId == rebakeId && m.FromStage == Cat.Baking && m.ToStage == Cat.Activated)
+                .SumAsync(m => (decimal?)m.QuantityKg, ct) ?? 0m;
+            if (qty > issuedFromRecord)
+                return Fail($"Only {issuedFromRecord:0.00} kg came out of this baking record, so no more than that can be re-baked.",
+                    StatusCodes.Status409Conflict);
+        }
+        var warning = overReturn
             ? $"{welder.WelderName} has only {Math.Max(outstanding, 0m):0.00} kg of {item.DiaSpec} outstanding from the last " +
-              $"{settings.ReturnWindowDays} day(s). The return was recorded as entered."
+              $"{settings.ReturnWindowDays} day(s). The return was recorded as entered by the supervisor."
             : null;
 
         var txnNo = await ledger.NextTxnNoAsync(ct);
@@ -297,6 +314,7 @@ public class ConsumableMovementService(
 
         var qty = T.RoundKg(r.QuantityKg);
         if (!r.TakeAll && qty <= 0) return Fail("Quantity must be greater than 0.");
+        if (qty > T.MaxKg) return Fail(T.MaxKgError);
 
         await using var tx = await db.Database.BeginTransactionAsync(ct);
         await StockLocks.AcquireAsync(db, StockLocks.Item(r.ItemId), ct);
@@ -345,12 +363,32 @@ public class ConsumableMovementService(
             });
         }
         await db.SaveChangesAsync(ct);
+
+        if (r.FromCompartmentId is int fromId)
+        {
+            await RelocateHoldingsAsync(item.Id, lines.Select(l => l.LotId), fromId, r.ToCompartmentId, ct);
+            await db.SaveChangesAsync(ct);
+        }
         await tx.CommitAsync(ct);
 
         return Ok(await ResultAsync(txnNo, item.Id, [], null, ct));
     }
 
-    public async Task<ServiceResult<MovementResult>> FinishAsync(FinishRequest r, string? enteredBy, CancellationToken ct)
+    private async Task RelocateHoldingsAsync(int itemId, IEnumerable<int> lotIds, int fromId, int toId, CancellationToken ct)
+    {
+        var remaining = (await guards.BinLotsAsync(itemId, fromId, ct))
+            .GroupBy(l => l.LotId)
+            .ToDictionary(g => g.Key, g => g.Sum(x => x.Available));
+        var emptied = lotIds.Distinct().Where(id => remaining.GetValueOrDefault(id) <= 0).ToList();
+        if (emptied.Count == 0) return;
+
+        var holdings = await db.HoldingRecords
+            .Where(h => !h.IsVoided && !h.IsFinishedAfterBaking && h.CompartmentId == fromId && emptied.Contains(h.BakingRecord.LotId))
+            .ToListAsync(ct);
+        foreach (var holding in holdings) holding.CompartmentId = toId;
+    }
+
+    public async Task<ServiceResult<MovementResult>> FinishAsync(FinishRequest r, string? enteredBy, bool supervisor, CancellationToken ct)
     {
         var (user, date, error) = G.Common(enteredBy, null);
         if (error is not null) return Fail(error);
@@ -360,6 +398,9 @@ public class ConsumableMovementService(
 
         var reason = r.Reason is null ? Cat.ReasonUsedUp : T.Reason(r.Reason);
         if (reason is null) return Fail($"Reason must be one of: {string.Join(", ", Cat.AdjustReasons)}.");
+        if (!supervisor && (r.LotId is null || reason != Cat.ReasonUsedUp))
+            return Fail("Welders can only mark a single lot's leftover as used up. Ask a supervisor for other write-offs.",
+                StatusCodes.Status403Forbidden);
 
         await using var tx = await db.Database.BeginTransactionAsync(ct);
         await StockLocks.AcquireAsync(db, StockLocks.Item(r.ItemId), ct);
@@ -377,6 +418,14 @@ public class ConsumableMovementService(
             .ToList();
         if (lines.Count == 0)
             return Fail($"There is nothing left in {await guards.BinNameAsync(bin, ct)} to mark as finished.", StatusCodes.Status409Conflict);
+        if (!supervisor)
+        {
+            var threshold = item.FinishThresholdKg ?? settings.FinishThresholdKg;
+            var leftover = lines.Sum(l => l.Kg);
+            if (leftover > threshold)
+                return Fail($"{leftover:0.00} kg is more than the {threshold:0.00} kg leftover a welder can mark as used up. " +
+                            "Ask a supervisor to record it.", StatusCodes.Status403Forbidden);
+        }
 
         var txnNo = await ledger.NextTxnNoAsync(ct);
         foreach (var line in lines)
@@ -418,6 +467,7 @@ public class ConsumableMovementService(
 
         var counted = T.RoundKg(r.CountedQtyKg);
         if (counted < 0) return Fail("Counted quantity cannot be negative.");
+        if (counted > T.MaxKg) return Fail(T.MaxKgError);
 
         await using var tx = await db.Database.BeginTransactionAsync(ct);
         await StockLocks.AcquireAsync(db, StockLocks.Item(r.ItemId), ct);
@@ -549,6 +599,36 @@ public class ConsumableMovementService(
                             $"{group.Key.Stage} storage. Void the later entries for this lot first.", StatusCodes.Status409Conflict);
         }
 
+        var bakingGroups = originals
+            .Where(o => o.ToStage == Cat.Baking && o.BakingRecordId is not null)
+            .GroupBy(o => o.BakingRecordId!.Value)
+            .ToList();
+        if (bakingGroups.Count > 0)
+        {
+            var recordBalances = await ledger.BakingBalancesAsync(bakingGroups.Select(g => g.Key).ToList(), ct);
+            foreach (var group in bakingGroups)
+            {
+                var needed = group.Sum(o => o.QuantityKg);
+                var available = recordBalances.GetValueOrDefault(group.Key);
+                if (needed > available)
+                    return Fail($"Voiding {txnNo} would leave its baking record at {available - needed:0.00} kg. " +
+                                "Void the placements from that baking record first.", StatusCodes.Status409Conflict);
+            }
+        }
+
+        foreach (var restore in originals
+                     .Where(o => o.FromStage == Cat.Activated && o.FromCompartmentId is not null)
+                     .Select(o => new { o.Lot.ItemId, CompartmentId = o.FromCompartmentId!.Value })
+                     .Distinct()
+                     .OrderBy(x => x.CompartmentId))
+        {
+            var restoreItem = await guards.ItemAsync(restore.ItemId, ct);
+            if (restoreItem is null) return Fail("Consumable not found.", StatusCodes.Status404NotFound);
+            var compartmentError = await guards.CheckCompartmentAsync(restoreItem, restore.CompartmentId, ct);
+            if (compartmentError is not null)
+                return Fail($"Voiding {txnNo} would put stock back where it no longer fits: {compartmentError}", StatusCodes.Status409Conflict);
+        }
+
         var bins = await ledger.ActivatedBinsAsync(m => itemIds.Contains(m.Lot.ItemId), ct);
         foreach (var group in originals.Where(o => o.ToStage == Cat.Activated).GroupBy(o => new { o.LotId, o.Lot.LotNumber, Bin = o.ToCompartmentId }))
         {
@@ -590,6 +670,28 @@ public class ConsumableMovementService(
         var holdings = await db.HoldingRecords.Where(h => h.TxnNo == txnNo && !h.IsVoided).ToListAsync(ct);
         foreach (var holding in holdings) holding.IsVoided = true;
 
+        var rebakeIds = originals
+            .Where(o => o.TxnType == Cat.TxnReturn && o.ToStage == Cat.Baking && o.BakingRecordId is not null)
+            .Select(o => o.BakingRecordId!.Value)
+            .Distinct()
+            .ToList();
+        if (rebakeIds.Count > 0)
+        {
+            foreach (var record in await db.BakingRecords.Where(b => rebakeIds.Contains(b.Id)).ToListAsync(ct))
+            {
+                record.RebakeStart = null;
+                record.RebakeStop = null;
+            }
+        }
+
+        await db.SaveChangesAsync(ct);
+
+        foreach (var moved in originals
+                     .Where(o => o.TxnType == Cat.TxnMove && o.FromCompartmentId is not null && o.ToCompartmentId is not null)
+                     .GroupBy(o => new { o.Lot.ItemId, From = o.FromCompartmentId!.Value, To = o.ToCompartmentId!.Value }))
+        {
+            await RelocateHoldingsAsync(moved.Key.ItemId, moved.Select(o => o.LotId), moved.Key.To, moved.Key.From, ct);
+        }
         await db.SaveChangesAsync(ct);
 
         var bakingIds = originals.Where(o => o.BakingRecordId is not null).Select(o => o.BakingRecordId!.Value).ToList();
@@ -606,7 +708,8 @@ public class ConsumableMovementService(
     private async Task<(BakingRecord? Record, string? Error)> RebakeRecordAsync(int lotId, int? requestedId, CancellationToken ct)
     {
         var record = requestedId is int id
-            ? await db.BakingRecords.AsNoTracking().FirstOrDefaultAsync(b => b.Id == id && b.LotId == lotId, ct)
+            ? await db.BakingRecords.AsNoTracking()
+                .FirstOrDefaultAsync(b => b.Id == id && b.LotId == lotId && b.Status != Cat.StatusCancelled, ct)
             : await db.BakingRecords.AsNoTracking()
                 .Where(b => b.LotId == lotId && b.BakeStop != null && b.Status != Cat.StatusCancelled)
                 .OrderByDescending(b => b.Id)

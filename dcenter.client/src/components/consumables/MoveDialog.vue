@@ -53,7 +53,8 @@
   const error = ref('')
 
   const canSave = computed(() =>
-    store.hasEnteredBy && !!toId.value && (takeAll.value || (Number(qty.value) > 0 && Number(qty.value) <= props.lot.kg)))
+    store.hasEnteredBy && !!props.lot && !!props.from && !!toId.value
+    && (takeAll.value || (Number(qty.value) > 0 && Number(qty.value) <= props.lot.kg)))
 
   watch(() => props.modelValue, (open) => {
     if (!open) return
@@ -62,12 +63,12 @@
     toId.value = null
     remarks.value = ''
     error.value = ''
-    store.loadOvens(true)
+    store.loadOvens(true).catch(() => {})
   })
 
   function toggleAll() {
     takeAll.value = !takeAll.value
-    qty.value = takeAll.value ? props.lot.kg : null
+    qty.value = takeAll.value ? props.lot?.kg ?? null : null
   }
 
   function close(value) {
@@ -83,7 +84,7 @@
         txnDate: todayIso(),
         itemId: props.lot.itemId,
         lotId: props.lot.lotId,
-        fromCompartmentId: props.from?.id ?? null,
+        fromCompartmentId: props.from.id ?? null,
         toCompartmentId: toId.value,
         quantityKg: takeAll.value ? 0 : Number(qty.value),
         takeAll: takeAll.value,

@@ -7,7 +7,8 @@
       <v-btn variant="text" prepend-icon="mdi-refresh" :loading="store.loadingBaking" @click="load">Refresh</v-btn>
     </v-card-title>
     <v-card-text>
-      <div v-if="!ready.length" class="text-medium-emphasis text-body-1">Nothing is waiting to be placed. Finish baking first.</div>
+      <v-alert v-if="error" type="error" variant="tonal" density="compact">{{ error }}</v-alert>
+      <div v-else-if="!ready.length" class="text-medium-emphasis text-body-1">Nothing is waiting to be placed. Finish baking first.</div>
       <v-row v-else dense>
         <v-col v-for="r in ready" :key="r.id" cols="12" sm="6" xl="4">
           <v-card border flat>
@@ -36,7 +37,7 @@
 <script setup>
   import { computed, onMounted, ref } from 'vue'
   import { useConsumableStore } from '@/store/consumableStore'
-  import { kg } from '@/utils/consumables'
+  import { errorText, kg } from '@/utils/consumables'
   import OvenBoard from '@/components/consumables/OvenBoard.vue'
   import PlaceDialog from '@/components/consumables/PlaceDialog.vue'
 
@@ -47,11 +48,17 @@
   const snackbar = ref(false)
   const snackbarText = ref('')
   const snackbarColor = ref('success')
+  const error = ref('')
 
   const ready = computed(() => store.bakingBoard.filter((r) => ['Baked', 'Rebaked'].includes(r.status) && r.balanceKg > 0))
 
   async function load() {
-    await store.loadBakingBoard()
+    error.value = ''
+    try {
+      await store.loadBakingBoard()
+    } catch (e) {
+      error.value = errorText(e, 'Could not load the baking board.')
+    }
   }
 
   function openPlace(r) {

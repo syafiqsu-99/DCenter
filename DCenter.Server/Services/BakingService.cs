@@ -22,6 +22,7 @@ public class BakingService(WeldReportContext db, ConsumableLedger ledger, Consum
 
         var qty = T.RoundKg(r.QuantityKg);
         if (qty <= 0) return Fail<BakingResult>("Quantity must be greater than 0.");
+        if (qty > T.MaxKg) return Fail<BakingResult>(T.MaxKgError);
 
         await using var tx = await db.Database.BeginTransactionAsync(ct);
         await StockLocks.AcquireAsync(db, StockLocks.Item(r.ItemId), ct);
@@ -93,6 +94,8 @@ public class BakingService(WeldReportContext db, ConsumableLedger ledger, Consum
         if (timeError is not null) return Fail<BakingRecordDto>(timeError);
 
         await using var tx = await db.Database.BeginTransactionAsync(ct);
+        var lockItemId = await db.BakingRecords.Where(b => b.Id == id).Select(b => (int?)b.Lot.ItemId).FirstOrDefaultAsync(ct);
+        if (lockItemId is int itemToLock) await StockLocks.AcquireAsync(db, StockLocks.Item(itemToLock), ct);
         var record = await db.BakingRecords.FirstOrDefaultAsync(b => b.Id == id, ct);
         if (record is null) return Fail<BakingRecordDto>("Baking record not found.", StatusCodes.Status404NotFound);
         if (record.Status == Cat.StatusCancelled) return Fail<BakingRecordDto>("This baking record was cancelled.");
@@ -129,6 +132,7 @@ public class BakingService(WeldReportContext db, ConsumableLedger ledger, Consum
 
         var qty = T.RoundKg(r.QuantityKg);
         if (!r.TakeAll && qty <= 0) return Fail<PlaceResult>("Quantity must be greater than 0.");
+        if (qty > T.MaxKg) return Fail<PlaceResult>(T.MaxKgError);
         if (r.FinishedAfterBaking && r.WelderId is null) return Fail<PlaceResult>("Welder Name is required for Finished After Baking.");
         if (!r.FinishedAfterBaking && r.CompartmentId is null) return Fail<PlaceResult>("Choose a compartment, or select Finished After Baking.");
 
@@ -284,6 +288,8 @@ public class BakingService(WeldReportContext db, ConsumableLedger ledger, Consum
         if (at > DateTime.Now + ClockTolerance) return Fail<BakingResult>("The time cannot be in the future.");
 
         await using var tx = await db.Database.BeginTransactionAsync(ct);
+        var lockItemIds = await db.BakingRecords.Where(b => ids.Contains(b.Id)).Select(b => b.Lot.ItemId).Distinct().ToListAsync(ct);
+        foreach (var itemToLock in lockItemIds.Order()) await StockLocks.AcquireAsync(db, StockLocks.Item(itemToLock), ct);
         var records = await db.BakingRecords.Where(b => ids.Contains(b.Id)).ToListAsync(ct);
         if (records.Count != ids.Count) return Fail<BakingResult>("One or more baking records were not found.", StatusCodes.Status404NotFound);
 

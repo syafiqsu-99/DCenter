@@ -31,6 +31,7 @@ public class BpvcController(WeldReportContext db) : ControllerBase
         => Ok(await db.BpvcMaterials.OrderBy(b => b.SpecNo).ThenBy(b => b.PNo)
             .Select(b => ToDto(b)).ToListAsync(ct));
 
+    [SupervisorOnly]
     [HttpPost]
     public async Task<ActionResult<BpvcMaterialDto>> Create(BpvcMaterialUpsert dto, CancellationToken ct)
     {
@@ -41,6 +42,7 @@ public class BpvcController(WeldReportContext db) : ControllerBase
         return Ok(ToDto(b));
     }
 
+    [SupervisorOnly]
     [HttpPut("{id:int}")]
     public async Task<IActionResult> Update(int id, BpvcMaterialUpsert dto, CancellationToken ct)
     {
@@ -51,6 +53,7 @@ public class BpvcController(WeldReportContext db) : ControllerBase
         return NoContent();
     }
 
+    [SupervisorOnly]
     [HttpDelete("{id:int}")]
     public async Task<IActionResult> Delete(int id, CancellationToken ct)
     {
@@ -85,6 +88,7 @@ public class BpvcController(WeldReportContext db) : ControllerBase
         return File(System.Text.Encoding.UTF8.GetBytes(csv), "text/csv", "bpvc.csv");
     }
 
+    [SupervisorOnly]
     [HttpPost("import")]
     public async Task<ActionResult<object>> Import(IFormFile file, CancellationToken ct)
     {

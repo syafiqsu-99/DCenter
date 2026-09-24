@@ -6,18 +6,14 @@ namespace DCenter.Server.Controllers;
 
 public sealed class SupervisorOnlyAttribute() : TypeFilterAttribute(typeof(SupervisorOnlyFilter));
 
-public sealed class SupervisorOnlyFilter(SupervisorAuth auth) : IAsyncActionFilter
+public sealed class SupervisorOnlyFilter(SupervisorAuth auth) : IAuthorizationFilter
 {
-    public async Task OnActionExecutionAsync(ActionExecutingContext context, ActionExecutionDelegate next)
+    public void OnAuthorization(AuthorizationFilterContext context)
     {
-        if (auth.FromRequest(context.HttpContext.Request) is null)
+        if (auth.FromRequest(context.HttpContext.Request) is not null) return;
+        context.Result = new ObjectResult("Supervisor login is required. Use the Login button at the top of the page and try again.")
         {
-            context.Result = new ObjectResult("Supervisor login is required. Use the Login button at the top of the page and try again.")
-            {
-                StatusCode = StatusCodes.Status401Unauthorized,
-            };
-            return;
-        }
-        await next();
+            StatusCode = StatusCodes.Status401Unauthorized,
+        };
     }
 }

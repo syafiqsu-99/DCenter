@@ -62,7 +62,6 @@
 
   function logout(reason) {
     store.lockSupervisor()
-    if (onSupervisorPage()) router.push({ name: 'consumable-welder' })
     noticeColor.value = 'info'
     noticeText.value = reason === 'idle' ? 'Logged out after 15 minutes of inactivity.' : 'Logged out.'
     notice.value = true
@@ -74,9 +73,22 @@
 
   function checkIdle() {
     const idle = Date.now() - lastActivity
-    if (store.supervisor && (!store.isSupervisor || idle > SUPERVISOR_IDLE_MS)) logout('idle')
+    if (store.supervisor && idle > SUPERVISOR_IDLE_MS) logout('idle')
+    store.tick()
     if (!store.isSupervisor && store.counterWelder && idle > WELDER_IDLE_MS) store.setWelder(null)
   }
+
+  watch(() => store.isSupervisor, (supervisor) => {
+    if (supervisor) return
+    const relogin = store.reloginPrompt
+    store.reloginPrompt = false
+    if (relogin) {
+      noticeColor.value = 'success'
+      noticeText.value = 'Supervisor password changed. Log in again with the new password.'
+      notice.value = true
+    }
+    if (onSupervisorPage()) router.push({ name: 'consumable-welder', query: relogin ? { unlock: '1' } : {} })
+  })
 
   watch(() => route.query.unlock, (value) => {
     if (value === '1' && !store.isSupervisor) open.value = true

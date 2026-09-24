@@ -73,7 +73,7 @@
   const error = ref('')
 
   const canSave = computed(() => {
-    if (!store.hasEnteredBy) return false
+    if (!store.hasEnteredBy || !props.record) return false
     if (!takeAll.value && !(Number(qty.value) > 0 && Number(qty.value) <= props.record.balanceKg)) return false
     return finished.value ? !!welder.value : !!compartmentId.value
   })
@@ -88,12 +88,12 @@
     compartmentId.value = null
     remarks.value = ''
     error.value = ''
-    store.loadOvens(true)
+    store.loadOvens(true).catch(() => {})
   })
 
   function toggleAll() {
     takeAll.value = !takeAll.value
-    qty.value = takeAll.value ? props.record.balanceKg : null
+    qty.value = takeAll.value ? props.record?.balanceKg ?? null : null
   }
 
   function close(value) {
@@ -101,7 +101,7 @@
   }
 
   async function submit() {
-    if (!canSave.value || saving.value) return
+    if (!canSave.value || saving.value || !props.record) return
     saving.value = true
     error.value = ''
     try {

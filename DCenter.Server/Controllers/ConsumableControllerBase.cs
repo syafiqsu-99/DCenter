@@ -28,6 +28,9 @@ public abstract class ConsumableControllerBase : ControllerBase
         }
     }
 
+    protected bool IsSupervisor
+        => HttpContext.RequestServices.GetRequiredService<SupervisorAuth>().FromRequest(Request) is not null;
+
     protected async Task<ActionResult<T>> Locked<T>(Func<Task<ServiceResult<T>>> action)
     {
         try

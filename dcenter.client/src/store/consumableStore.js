@@ -57,6 +57,16 @@ function writeSession(session) {
   }
 }
 
+const requestIds = {}
+let generation = 0
+
+function beginRequest(key) {
+  requestIds[key] = (requestIds[key] ?? 0) + 1
+  return { key, id: requestIds[key], generation }
+}
+
+const isLatest = (ticket) => requestIds[ticket.key] === ticket.id
+
 function matches(terms, values) {
   return terms.every((t) => values.some((v) => (v ?? '').toString().toLowerCase().includes(t)))
 }
@@ -75,6 +85,8 @@ export const useConsumableStore = defineStore('consumables', {
 
     enteredBy: '',
     supervisor: null,
+    clock: Date.now(),
+    reloginPrompt: false,
     receiveHeader: { source: '' },
 
     todayReceipts: [],
@@ -118,7 +130,7 @@ export const useConsumableStore = defineStore('consumables', {
 
   getters: {
     hasEnteredBy: (s) => !!s.enteredBy.trim(),
-    isSupervisor: (s) => !!s.supervisor && new Date(s.supervisor.expiresAt) > new Date(),
+    isSupervisor: (s) => !!s.supervisor && Date.parse(s.supervisor.expiresAt) > s.clock,
 
     filteredBalances(s) {
       const f = s.inventoryFilters
@@ -169,8 +181,17 @@ export const useConsumableStore = defineStore('consumables', {
       this.receiveHeader = { source: '', ...readLocal(HEADER_KEY, {}) }
       this.personInCharge = readLocal(PIC_KEY, '')
       this.supervisor = readSession()
+      this.clock = Date.now()
       applySupervisorToken(this.supervisor?.token)
+      api.defaults.onUnauthorized = () => {
+        if (this.supervisor) this.lockSupervisor()
+      }
       this.syncActor()
+    },
+
+    tick() {
+      this.clock = Date.now()
+      if (this.supervisor && !this.isSupervisor) this.lockSupervisor()
     },
 
     syncActor() {
@@ -186,6 +207,8 @@ export const useConsumableStore = defineStore('consumables', {
     async unlockSupervisor(name, password) {
       const { data } = await api.post('/supervisor/login', { name, password })
       this.supervisor = { name: data.name, token: data.token, expiresAt: data.expiresAt }
+      this.clock = Date.now()
+      this.counterWelder = null
       writeSession(this.supervisor)
       applySupervisorToken(data.token)
       this.syncActor()
@@ -194,6 +217,7 @@ export const useConsumableStore = defineStore('consumables', {
 
     lockSupervisor() {
       this.supervisor = null
+      this.counterWelder = null
       writeSession(null)
       applySupervisorToken(null)
       this.dashboard = null
@@ -223,6 +247,8 @@ export const useConsumableStore = defineStore('consumables', {
 
     async changePassword(currentPassword, newPassword) {
       const { data } = await api.post('/supervisor/password', { currentPassword, newPassword })
+      this.reloginPrompt = true
+      this.lockSupervisor()
       return data
     },
 
@@ -237,7 +263,7 @@ export const useConsumableStore = defineStore('consumables', {
       const { data } = await api.post('/consumables/items/import', form, { params: { commit, skipInvalid } })
       if (data.committed) {
         this.stale()
-        useLookupStore().load(true)
+        useLookupStore().load(true).catch(() => {})
       }
       return data
     },
@@ -255,6 +281,7 @@ export const useConsumableStore = defineStore('consumables', {
     },
 
     stale() {
+      generation += 1
       this.balancesLoaded = false
       this.lotStockLoaded = false
       this.ovenBoardLoaded = false
@@ -289,7 +316,7 @@ export const useConsumableStore = defineStore('consumables', {
         ? await api.put(`/consumables/items/${item.id}`, body)
         : await api.post('/consumables/items', body)
       this.stale()
-      useLookupStore().load(true)
+      useLookupStore().load(true).catch(() => {})
       return data
     },
 
@@ -310,27 +337,31 @@ export const useConsumableStore = defineStore('consumables', {
 
     async loadBalances(force = false) {
       if (this.balancesLoaded && !force) return
+      const ticket = beginRequest('balances')
       this.loadingBalances = true
       try {
         const { data } = await api.get('/consumables/balances', { params: { includeZero: true } })
+        if (!isLatest(ticket)) return
         this.balances = data
-        this.balancesLoaded = true
+        this.balancesLoaded = ticket.generation === generation
       } finally {
-        this.loadingBalances = false
+        if (isLatest(ticket)) this.loadingBalances = false
       }
     },
 
     async loadLotStock(force = false) {
       if (this.lotStockLoaded && !force) return
+      const ticket = beginRequest('lotStock')
       this.loadingLotStock = true
       try {
         const { data } = await api.get('/consumables/lot-stock', {
           params: { includeZero: this.inventoryFilters.includeZero },
         })
+        if (!isLatest(ticket)) return
         this.lotStock = data
-        this.lotStockLoaded = true
+        this.lotStockLoaded = ticket.generation === generation
       } finally {
-        this.loadingLotStock = false
+        if (isLatest(ticket)) this.loadingLotStock = false
       }
     },
 
@@ -350,6 +381,7 @@ export const useConsumableStore = defineStore('consumables', {
     },
 
     async loadCounter() {
+      const ticket = beginRequest('counter')
       this.loadingCounter = true
       try {
         const welderId = this.counterWelder?.id
@@ -357,10 +389,11 @@ export const useConsumableStore = defineStore('consumables', {
           api.get('/consumables/counter', { params: { welderId, category: categoryParam(this.counterCategory) } }),
           welderId ? api.get(`/consumables/counter/welders/${welderId}/today`) : Promise.resolve({ data: [] }),
         ])
+        if (!isLatest(ticket)) return
         this.counterItems = items.data
         this.welderToday = today.data
       } finally {
-        this.loadingCounter = false
+        if (isLatest(ticket)) this.loadingCounter = false
       }
     },
 
@@ -372,8 +405,8 @@ export const useConsumableStore = defineStore('consumables', {
 
     async receive(payload) {
       const data = await this.post('/consumables/receive', payload)
-      if (payload.newItem) useLookupStore().load(true)
-      await this.loadToday()
+      if (payload.newItem) useLookupStore().load(true).catch(() => {})
+      await this.loadToday().catch(() => {})
       return data
     },
 
@@ -419,19 +452,20 @@ export const useConsumableStore = defineStore('consumables', {
     },
 
     async loadBakingBoard() {
+      const ticket = beginRequest('bakingBoard')
       this.loadingBaking = true
       try {
         const { data } = await api.get('/consumables/baking/board')
-        this.bakingBoard = data
+        if (isLatest(ticket)) this.bakingBoard = data
       } finally {
-        this.loadingBaking = false
+        if (isLatest(ticket)) this.loadingBaking = false
       }
     },
 
     async sendToBake(payload) {
       const data = await this.post('/consumables/baking', payload)
       this.rememberPersonInCharge(payload.personInCharge)
-      useLookupStore().load(true)
+      useLookupStore().load(true).catch(() => {})
       return data
     },
 
@@ -445,6 +479,8 @@ export const useConsumableStore = defineStore('consumables', {
 
     async updateBaking(id, body) {
       const { data } = await api.put(`/consumables/baking/${id}`, body)
+      this.stale()
+      this.dashboard = null
       return data
     },
 
@@ -464,13 +500,15 @@ export const useConsumableStore = defineStore('consumables', {
 
     async loadOvens(force = false) {
       if (this.ovenBoardLoaded && !force) return
+      const ticket = beginRequest('ovens')
       this.loadingOvens = true
       try {
         const { data } = await api.get('/consumables/ovens')
+        if (!isLatest(ticket)) return
         this.ovenBoard = data
-        this.ovenBoardLoaded = true
+        this.ovenBoardLoaded = ticket.generation === generation
       } finally {
-        this.loadingOvens = false
+        if (isLatest(ticket)) this.loadingOvens = false
       }
     },
 
@@ -478,8 +516,10 @@ export const useConsumableStore = defineStore('consumables', {
       return this.post('/consumables/adjust', payload)
     },
 
-    voidTransaction(txnNo, remarks) {
-      return this.post(`/consumables/transactions/${encodeURIComponent(txnNo)}/void`, { remarks })
+    async voidTransaction(txnNo, remarks) {
+      const data = await this.post(`/consumables/transactions/${encodeURIComponent(txnNo)}/void`, { remarks })
+      this.dashboard = null
+      return data
     },
 
     async loadTransactions(params) {

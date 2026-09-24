@@ -17,6 +17,7 @@ public class MrnController(WeldReportContext db) : ControllerBase
         .Select(m => new MrnSpecDto(m.Id, m.Mrn, m.Form, m.FullSpecification, m.SpecNo, m.SpecNoRaw))
         .ToListAsync(ct));
 
+    [SupervisorOnly]
     [HttpPost]
     public async Task<ActionResult<MrnSpecDto>> Create(MrnSpecUpsert dto, CancellationToken ct)
     {
@@ -26,6 +27,7 @@ public class MrnController(WeldReportContext db) : ControllerBase
         return Ok(new MrnSpecDto(m.Id, m.Mrn, m.Form, m.FullSpecification, m.SpecNo, m.SpecNoRaw));
     }
 
+    [SupervisorOnly]
     [HttpPut("{id:int}")]
     public async Task<IActionResult> Update(int id, MrnSpecUpsert dto, CancellationToken ct)
     {
@@ -36,6 +38,7 @@ public class MrnController(WeldReportContext db) : ControllerBase
         return NoContent();
     }
 
+    [SupervisorOnly]
     [HttpDelete("{id:int}")]
     public async Task<IActionResult> Delete(int id, CancellationToken ct)
     {
@@ -61,6 +64,7 @@ public class MrnController(WeldReportContext db) : ControllerBase
         return File(System.Text.Encoding.UTF8.GetBytes(csv), "text/csv", "mrn.csv");
     }
 
+    [SupervisorOnly]
     [HttpPost("import")]
     public async Task<ActionResult<object>> Import(IFormFile file, CancellationToken ct)
     {

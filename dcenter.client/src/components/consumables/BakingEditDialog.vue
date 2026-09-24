@@ -53,7 +53,7 @@
 
   watch(() => props.modelValue, (open) => {
     if (!open || !props.record) return
-    lookupStore.load()
+    lookupStore.load().catch(() => {})
     const r = props.record
     Object.assign(form, {
       personInCharge: r.personInCharge,
