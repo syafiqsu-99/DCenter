@@ -40,6 +40,8 @@
              @click="onNav(item.to)">
         {{ item.label }}
       </v-btn>
+
+      <SupervisorNavButton v-if="!booting && !bootError" />
     </v-app-bar>
 
     <v-main>
@@ -94,17 +96,21 @@
   import { useRoute, useRouter } from 'vue-router';
   import { useReportStore } from '@/store/reportStore';
   import { useLookupStore } from '@/store/lookupStore';
+  import { useConsumableStore } from '@/store/consumableStore';
   import logo from '@/assets/DCenter.png'
   import logonobg from '@/assets/DCenter_No_bg.png';
   import { useLeaveGuard } from '@/composables/useLeaveGuard';
+  import SupervisorNavButton from '@/components/SupervisorNavButton.vue';
 
   const route = useRoute();
   const router = useRouter();
-  const navItems = [
+  const consumableStore = useConsumableStore();
+  const allNavItems = [
     { to: '/', label: 'Report', icon: 'mdi-file-document-edit-outline' },
     { to: '/consumables', label: 'Consumables', icon: 'mdi-package-variant-closed' },
-    { to: '/settings', label: 'Settings', icon: 'mdi-cog-outline' },
+    { to: '/settings', label: 'Settings', icon: 'mdi-cog-outline', supervisor: true },
   ];
+  const navItems = computed(() => allNavItems.filter((item) => !item.supervisor || consumableStore.isSupervisor));
 
   const year = computed(() => new Date().getFullYear());
 
@@ -173,6 +179,8 @@
       e.returnValue = ''
     }
   }
+
+  consumableStore.init();
 
   onMounted(() => window.addEventListener('beforeunload', onBeforeUnload))
   onBeforeUnmount(() => {

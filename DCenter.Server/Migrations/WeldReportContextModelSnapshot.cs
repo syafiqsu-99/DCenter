@@ -22,6 +22,91 @@ namespace DCenter.Server.Migrations
 
             SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
 
+            modelBuilder.HasSequence("DCenter_BakingNoSeq");
+
+            modelBuilder.HasSequence("DCenter_ConsumableTxnSeq");
+
+            modelBuilder.HasSequence("DCenter_HoldingNoSeq");
+
+            modelBuilder.HasSequence("DCenter_StockCountSeq");
+
+            modelBuilder.Entity("DCenter.Server.Entities.BakingRecord", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime?>("BakeStart")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("BakeStop")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateOnly>("BakingDate")
+                        .HasColumnType("date");
+
+                    b.Property<string>("BakingNo")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("CreatedBy")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<int>("LotId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("PersonInCharge")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<decimal>("QuantityKg")
+                        .HasPrecision(10, 2)
+                        .HasColumnType("decimal(10,2)");
+
+                    b.Property<DateTime?>("RebakeStart")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("RebakeStop")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Remarks")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("BakingDate");
+
+                    b.HasIndex("BakingNo")
+                        .IsUnique();
+
+                    b.HasIndex("LotId");
+
+                    b.HasIndex("Status");
+
+                    b.ToTable("DCenter_BakingRecords", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_DCenter_BakingRecords_Qty", "[QuantityKg] > 0");
+
+                            t.HasCheckConstraint("CK_DCenter_BakingRecords_Status", "[Status] IN (N'Queued', N'Baking', N'Baked', N'RebakeQueued', N'Rebaking', N'Rebaked', N'Closed', N'Cancelled')");
+
+                            t.HasCheckConstraint("CK_DCenter_BakingRecords_Times", "([BakeStop] IS NULL OR ([BakeStart] IS NOT NULL AND [BakeStop] > [BakeStart])) AND ([RebakeStart] IS NULL OR ([BakeStop] IS NOT NULL AND [RebakeStart] > [BakeStop])) AND ([RebakeStop] IS NULL OR ([RebakeStart] IS NOT NULL AND [RebakeStop] > [RebakeStart]))");
+                        });
+                });
+
             modelBuilder.Entity("DCenter.Server.Entities.BpvcMaterial", b =>
                 {
                     b.Property<int>("Id")
@@ -138,6 +223,98 @@ namespace DCenter.Server.Migrations
                         });
                 });
 
+            modelBuilder.Entity("DCenter.Server.Entities.ConsumableItem", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<decimal>("ActivatedMinKg")
+                        .HasPrecision(10, 2)
+                        .HasColumnType("decimal(10,2)");
+
+                    b.Property<string>("Category")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Diameter")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
+                    b.Property<decimal?>("FinishThresholdKg")
+                        .HasPrecision(10, 2)
+                        .HasColumnType("decimal(10,2)");
+
+                    b.Property<string>("HoldingOvenType")
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<decimal>("MinStockKg")
+                        .HasPrecision(10, 2)
+                        .HasColumnType("decimal(10,2)");
+
+                    b.Property<string>("Specification")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Specification", "Diameter")
+                        .IsUnique();
+
+                    b.ToTable("DCenter_ConsumableItems", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_DCenter_ConsumableItems_Category", "[Category] IN (N'Bare & Powder Filler', N'Electrode Filler')");
+
+                            t.HasCheckConstraint("CK_DCenter_ConsumableItems_Limits", "[MinStockKg] >= 0 AND [ActivatedMinKg] >= 0 AND ([FinishThresholdKg] IS NULL OR [FinishThresholdKg] >= 0)");
+
+                            t.HasCheckConstraint("CK_DCenter_ConsumableItems_OvenType", "[HoldingOvenType] IS NULL OR [HoldingOvenType] IN (N'Alloy Steel', N'Mild Steel', N'Ni Alloy', N'Stainless Steel')");
+                        });
+                });
+
+            modelBuilder.Entity("DCenter.Server.Entities.ConsumableItemLot", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Brand")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("ItemId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("LotNumber")
+                        .IsRequired()
+                        .HasMaxLength(60)
+                        .HasColumnType("nvarchar(60)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ItemId", "Brand", "LotNumber")
+                        .IsUnique();
+
+                    b.ToTable("DCenter_ConsumableItemLots", (string)null);
+                });
+
             modelBuilder.Entity("DCenter.Server.Entities.ConsumableLot", b =>
                 {
                     b.Property<int>("Id")
@@ -163,6 +340,143 @@ namespace DCenter.Server.Migrations
                         .IsUnique();
 
                     b.ToTable("DCenter_ConsumableLots", (string)null);
+                });
+
+            modelBuilder.Entity("DCenter.Server.Entities.ConsumableMovement", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int?>("BakingRecordId")
+                        .HasColumnType("int");
+
+                    b.Property<decimal?>("CountedQtyKg")
+                        .HasPrecision(10, 2)
+                        .HasColumnType("decimal(10,2)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("CreatedBy")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<int?>("FromCompartmentId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("FromStage")
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<bool>("IsVoided")
+                        .HasColumnType("bit");
+
+                    b.Property<int>("LotId")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("QuantityKg")
+                        .HasPrecision(10, 2)
+                        .HasColumnType("decimal(10,2)");
+
+                    b.Property<string>("Reason")
+                        .HasMaxLength(40)
+                        .HasColumnType("nvarchar(40)");
+
+                    b.Property<string>("ReferenceNo")
+                        .HasMaxLength(60)
+                        .HasColumnType("nvarchar(60)");
+
+                    b.Property<string>("Remarks")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<string>("Requestor")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("Source")
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<int?>("ToCompartmentId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("ToStage")
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<DateOnly>("TxnDate")
+                        .HasColumnType("date");
+
+                    b.Property<string>("TxnNo")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<string>("TxnType")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<int?>("VoidsMovementId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("WelderId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("BakingRecordId")
+                        .HasFilter("[BakingRecordId] IS NOT NULL");
+
+                    b.HasIndex("CreatedAt");
+
+                    b.HasIndex("FromCompartmentId")
+                        .HasFilter("[FromCompartmentId] IS NOT NULL");
+
+                    SqlServerIndexBuilderExtensions.IncludeProperties(b.HasIndex("FromCompartmentId"), new[] { "LotId", "QuantityKg", "IsVoided", "TxnType" });
+
+                    b.HasIndex("LotId");
+
+                    SqlServerIndexBuilderExtensions.IncludeProperties(b.HasIndex("LotId"), new[] { "TxnType", "FromStage", "ToStage", "QuantityKg", "IsVoided" });
+
+                    b.HasIndex("ToCompartmentId")
+                        .HasFilter("[ToCompartmentId] IS NOT NULL");
+
+                    SqlServerIndexBuilderExtensions.IncludeProperties(b.HasIndex("ToCompartmentId"), new[] { "LotId", "QuantityKg", "IsVoided", "TxnType" });
+
+                    b.HasIndex("TxnDate");
+
+                    SqlServerIndexBuilderExtensions.IncludeProperties(b.HasIndex("TxnDate"), new[] { "TxnType", "QuantityKg", "IsVoided", "LotId" });
+
+                    b.HasIndex("TxnNo");
+
+                    b.HasIndex("VoidsMovementId")
+                        .IsUnique()
+                        .HasFilter("[VoidsMovementId] IS NOT NULL");
+
+                    b.HasIndex("WelderId", "TxnDate")
+                        .HasFilter("[WelderId] IS NOT NULL");
+
+                    b.ToTable("DCenter_ConsumableMovements", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_DCenter_ConsumableMovements_Bin", "([FromCompartmentId] IS NULL OR [FromStage] = N'Activated') AND ([ToCompartmentId] IS NULL OR [ToStage] = N'Activated')");
+
+                            t.HasCheckConstraint("CK_DCenter_ConsumableMovements_HoldMove", "([TxnType] <> N'Hold' OR [ToCompartmentId] IS NOT NULL) AND ([TxnType] <> N'Move' OR ([FromStage] = N'Activated' AND [ToStage] = N'Activated' AND [ToCompartmentId] IS NOT NULL))");
+
+                            t.HasCheckConstraint("CK_DCenter_ConsumableMovements_Qty", "[QuantityKg] > 0");
+
+                            t.HasCheckConstraint("CK_DCenter_ConsumableMovements_Source", "([Source] IS NULL OR [Source] IN (N'Weld Shop', N'Tool Crib')) AND ([TxnType] <> N'Receive' OR [Source] IS NOT NULL)");
+
+                            t.HasCheckConstraint("CK_DCenter_ConsumableMovements_Stage", "([FromStage] IS NULL OR [FromStage] IN (N'Normal', N'Baking', N'Activated')) AND ([ToStage] IS NULL OR [ToStage] IN (N'Normal', N'Baking', N'Activated')) AND ([FromStage] IS NOT NULL OR [ToStage] IS NOT NULL)");
+
+                            t.HasCheckConstraint("CK_DCenter_ConsumableMovements_Type", "[TxnType] IN (N'Receive', N'Transfer', N'SendToBake', N'Hold', N'Move', N'Issue', N'Return', N'Finish', N'Adjust', N'Dispose', N'Void')");
+
+                            t.HasCheckConstraint("CK_DCenter_ConsumableMovements_Void", "([TxnType] = N'Void' AND [VoidsMovementId] IS NOT NULL) OR ([TxnType] <> N'Void' AND [VoidsMovementId] IS NULL)");
+                        });
                 });
 
             modelBuilder.Entity("DCenter.Server.Entities.ConsumableTransaction", b =>
@@ -239,6 +553,84 @@ namespace DCenter.Server.Migrations
                             t.HasCheckConstraint("CK_DCenter_ConsumableTxn_Type", "[TxnType] IN (N'Receive', N'Issue', N'Void')");
 
                             t.HasCheckConstraint("CK_DCenter_ConsumableTxn_Void", "([TxnType] = N'Void' AND [VoidsTxnId] IS NOT NULL) OR ([TxnType] <> N'Void' AND [VoidsTxnId] IS NULL)");
+                        });
+                });
+
+            modelBuilder.Entity("DCenter.Server.Entities.HoldingRecord", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("BakingRecordId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("CompartmentId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("CreatedBy")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<DateOnly>("HoldingDate")
+                        .HasColumnType("date");
+
+                    b.Property<string>("HoldingNo")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<bool>("IsFinishedAfterBaking")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("IsVoided")
+                        .HasColumnType("bit");
+
+                    b.Property<decimal>("QuantityKg")
+                        .HasPrecision(10, 2)
+                        .HasColumnType("decimal(10,2)");
+
+                    b.Property<string>("Remarks")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<string>("TxnNo")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<int?>("WelderId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("WelderName")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("BakingRecordId");
+
+                    b.HasIndex("CompartmentId");
+
+                    b.HasIndex("HoldingDate");
+
+                    b.HasIndex("HoldingNo")
+                        .IsUnique();
+
+                    b.HasIndex("TxnNo");
+
+                    b.HasIndex("WelderId");
+
+                    b.ToTable("DCenter_HoldingRecords", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_DCenter_HoldingRecords_Qty", "[QuantityKg] > 0");
+
+                            t.HasCheckConstraint("CK_DCenter_HoldingRecords_Target", "([CompartmentId] IS NOT NULL AND [IsFinishedAfterBaking] = 0) OR ([CompartmentId] IS NULL AND [IsFinishedAfterBaking] = 1 AND [WelderId] IS NOT NULL)");
                         });
                 });
 
@@ -398,6 +790,360 @@ namespace DCenter.Server.Migrations
                     b.ToTable("DCenter_MrnSpecs", (string)null);
                 });
 
+            modelBuilder.Entity("DCenter.Server.Entities.Oven", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasMaxLength(10)
+                        .HasColumnType("nvarchar(10)");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<string>("OvenType")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Code")
+                        .IsUnique();
+
+                    b.HasIndex("Name")
+                        .IsUnique();
+
+                    b.HasIndex("OvenType")
+                        .IsUnique();
+
+                    b.ToTable("DCenter_Ovens", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_DCenter_Ovens_Type", "[OvenType] IN (N'Alloy Steel', N'Mild Steel', N'Ni Alloy', N'Stainless Steel')");
+                        });
+
+                    b.HasData(
+                        new
+                        {
+                            Id = 1,
+                            Code = "AS",
+                            Name = "Alloy Steel Oven",
+                            OvenType = "Alloy Steel"
+                        },
+                        new
+                        {
+                            Id = 2,
+                            Code = "MS",
+                            Name = "Mild Steel Oven",
+                            OvenType = "Mild Steel"
+                        },
+                        new
+                        {
+                            Id = 3,
+                            Code = "NI",
+                            Name = "Ni Alloy Oven",
+                            OvenType = "Ni Alloy"
+                        },
+                        new
+                        {
+                            Id = 4,
+                            Code = "SS",
+                            Name = "Stainless Steel Oven",
+                            OvenType = "Stainless Steel"
+                        });
+                });
+
+            modelBuilder.Entity("DCenter.Server.Entities.OvenCompartment", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Label")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<int>("Number")
+                        .HasColumnType("int");
+
+                    b.Property<int>("OvenId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("OvenId", "Number")
+                        .IsUnique();
+
+                    b.ToTable("DCenter_OvenCompartments", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_DCenter_OvenCompartments_Number", "[Number] BETWEEN 1 AND 9");
+                        });
+
+                    b.HasData(
+                        new
+                        {
+                            Id = 1,
+                            Label = "C1",
+                            Number = 1,
+                            OvenId = 1
+                        },
+                        new
+                        {
+                            Id = 2,
+                            Label = "C2",
+                            Number = 2,
+                            OvenId = 1
+                        },
+                        new
+                        {
+                            Id = 3,
+                            Label = "C3",
+                            Number = 3,
+                            OvenId = 1
+                        },
+                        new
+                        {
+                            Id = 4,
+                            Label = "C4",
+                            Number = 4,
+                            OvenId = 1
+                        },
+                        new
+                        {
+                            Id = 5,
+                            Label = "C5",
+                            Number = 5,
+                            OvenId = 1
+                        },
+                        new
+                        {
+                            Id = 6,
+                            Label = "C6",
+                            Number = 6,
+                            OvenId = 1
+                        },
+                        new
+                        {
+                            Id = 7,
+                            Label = "C7",
+                            Number = 7,
+                            OvenId = 1
+                        },
+                        new
+                        {
+                            Id = 8,
+                            Label = "C8",
+                            Number = 8,
+                            OvenId = 1
+                        },
+                        new
+                        {
+                            Id = 9,
+                            Label = "C9",
+                            Number = 9,
+                            OvenId = 1
+                        },
+                        new
+                        {
+                            Id = 10,
+                            Label = "C1",
+                            Number = 1,
+                            OvenId = 2
+                        },
+                        new
+                        {
+                            Id = 11,
+                            Label = "C2",
+                            Number = 2,
+                            OvenId = 2
+                        },
+                        new
+                        {
+                            Id = 12,
+                            Label = "C3",
+                            Number = 3,
+                            OvenId = 2
+                        },
+                        new
+                        {
+                            Id = 13,
+                            Label = "C4",
+                            Number = 4,
+                            OvenId = 2
+                        },
+                        new
+                        {
+                            Id = 14,
+                            Label = "C5",
+                            Number = 5,
+                            OvenId = 2
+                        },
+                        new
+                        {
+                            Id = 15,
+                            Label = "C6",
+                            Number = 6,
+                            OvenId = 2
+                        },
+                        new
+                        {
+                            Id = 16,
+                            Label = "C7",
+                            Number = 7,
+                            OvenId = 2
+                        },
+                        new
+                        {
+                            Id = 17,
+                            Label = "C8",
+                            Number = 8,
+                            OvenId = 2
+                        },
+                        new
+                        {
+                            Id = 18,
+                            Label = "C9",
+                            Number = 9,
+                            OvenId = 2
+                        },
+                        new
+                        {
+                            Id = 19,
+                            Label = "C1",
+                            Number = 1,
+                            OvenId = 3
+                        },
+                        new
+                        {
+                            Id = 20,
+                            Label = "C2",
+                            Number = 2,
+                            OvenId = 3
+                        },
+                        new
+                        {
+                            Id = 21,
+                            Label = "C3",
+                            Number = 3,
+                            OvenId = 3
+                        },
+                        new
+                        {
+                            Id = 22,
+                            Label = "C4",
+                            Number = 4,
+                            OvenId = 3
+                        },
+                        new
+                        {
+                            Id = 23,
+                            Label = "C5",
+                            Number = 5,
+                            OvenId = 3
+                        },
+                        new
+                        {
+                            Id = 24,
+                            Label = "C6",
+                            Number = 6,
+                            OvenId = 3
+                        },
+                        new
+                        {
+                            Id = 25,
+                            Label = "C7",
+                            Number = 7,
+                            OvenId = 3
+                        },
+                        new
+                        {
+                            Id = 26,
+                            Label = "C8",
+                            Number = 8,
+                            OvenId = 3
+                        },
+                        new
+                        {
+                            Id = 27,
+                            Label = "C9",
+                            Number = 9,
+                            OvenId = 3
+                        },
+                        new
+                        {
+                            Id = 28,
+                            Label = "C1",
+                            Number = 1,
+                            OvenId = 4
+                        },
+                        new
+                        {
+                            Id = 29,
+                            Label = "C2",
+                            Number = 2,
+                            OvenId = 4
+                        },
+                        new
+                        {
+                            Id = 30,
+                            Label = "C3",
+                            Number = 3,
+                            OvenId = 4
+                        },
+                        new
+                        {
+                            Id = 31,
+                            Label = "C4",
+                            Number = 4,
+                            OvenId = 4
+                        },
+                        new
+                        {
+                            Id = 32,
+                            Label = "C5",
+                            Number = 5,
+                            OvenId = 4
+                        },
+                        new
+                        {
+                            Id = 33,
+                            Label = "C6",
+                            Number = 6,
+                            OvenId = 4
+                        },
+                        new
+                        {
+                            Id = 34,
+                            Label = "C7",
+                            Number = 7,
+                            OvenId = 4
+                        },
+                        new
+                        {
+                            Id = 35,
+                            Label = "C8",
+                            Number = 8,
+                            OvenId = 4
+                        },
+                        new
+                        {
+                            Id = 36,
+                            Label = "C9",
+                            Number = 9,
+                            OvenId = 4
+                        });
+                });
+
             modelBuilder.Entity("DCenter.Server.Entities.ProcessTypeLink", b =>
                 {
                     b.Property<int>("Id")
@@ -535,6 +1281,100 @@ namespace DCenter.Server.Migrations
                     b.ToTable("DCenter_ReportStatusEvents", (string)null);
                 });
 
+            modelBuilder.Entity("DCenter.Server.Entities.StockCount", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Category")
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
+                    b.Property<DateOnly>("CountDate")
+                        .HasColumnType("date");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("CreatedBy")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<decimal>("GainKg")
+                        .HasPrecision(10, 2)
+                        .HasColumnType("decimal(10,2)");
+
+                    b.Property<int>("LinesAdjusted")
+                        .HasColumnType("int");
+
+                    b.Property<int>("LinesCounted")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("LossKg")
+                        .HasPrecision(10, 2)
+                        .HasColumnType("decimal(10,2)");
+
+                    b.Property<string>("ReferenceNo")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<string>("Remarks")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<string>("Scope")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<string>("TxnNo")
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ReferenceNo")
+                        .IsUnique();
+
+                    b.HasIndex("Scope", "CountDate");
+
+                    b.ToTable("DCenter_StockCounts", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_DCenter_StockCounts_Kg", "[GainKg] >= 0 AND [LossKg] >= 0");
+
+                            t.HasCheckConstraint("CK_DCenter_StockCounts_Scope", "[Scope] IN (N'Normal', N'Activated')");
+                        });
+                });
+
+            modelBuilder.Entity("DCenter.Server.Entities.SupervisorCredential", b =>
+                {
+                    b.Property<int>("Id")
+                        .HasColumnType("int");
+
+                    b.Property<string>("PasswordHash")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("DCenter_SupervisorCredentials", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_DCenter_SupervisorCredentials_Single", "[Id] = 1");
+                        });
+                });
+
             modelBuilder.Entity("DCenter.Server.Entities.Welder", b =>
                 {
                     b.Property<int>("Id")
@@ -545,6 +1385,13 @@ namespace DCenter.Server.Migrations
 
                     b.Property<bool>("IsActive")
                         .HasColumnType("bit");
+
+                    b.Property<string>("UsageScope")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)")
+                        .HasDefaultValue("Report");
 
                     b.Property<string>("WelderName")
                         .IsRequired()
@@ -562,7 +1409,10 @@ namespace DCenter.Server.Migrations
 
                     b.HasIndex("WelderNo");
 
-                    b.ToTable("DCenter_Welders", (string)null);
+                    b.ToTable("DCenter_Welders", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_DCenter_Welders_UsageScope", "[UsageScope] IN (N'Report', N'ReportAndStock')");
+                        });
                 });
 
             modelBuilder.Entity("DCenter.Server.Entities.WpsItem", b =>
@@ -603,6 +1453,28 @@ namespace DCenter.Server.Migrations
                     b.ToTable("DCenter_WpsItems", (string)null);
                 });
 
+            modelBuilder.Entity("DCenter.Server.Entities.BakingRecord", b =>
+                {
+                    b.HasOne("DCenter.Server.Entities.ConsumableItemLot", "Lot")
+                        .WithMany()
+                        .HasForeignKey("LotId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Lot");
+                });
+
+            modelBuilder.Entity("DCenter.Server.Entities.ConsumableItemLot", b =>
+                {
+                    b.HasOne("DCenter.Server.Entities.ConsumableItem", "Item")
+                        .WithMany("Lots")
+                        .HasForeignKey("ItemId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Item");
+                });
+
             modelBuilder.Entity("DCenter.Server.Entities.ConsumableLot", b =>
                 {
                     b.HasOne("DCenter.Server.Entities.Consumable", "Consumable")
@@ -612,6 +1484,50 @@ namespace DCenter.Server.Migrations
                         .IsRequired();
 
                     b.Navigation("Consumable");
+                });
+
+            modelBuilder.Entity("DCenter.Server.Entities.ConsumableMovement", b =>
+                {
+                    b.HasOne("DCenter.Server.Entities.BakingRecord", "BakingRecord")
+                        .WithMany()
+                        .HasForeignKey("BakingRecordId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("DCenter.Server.Entities.OvenCompartment", "FromCompartment")
+                        .WithMany()
+                        .HasForeignKey("FromCompartmentId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("DCenter.Server.Entities.ConsumableItemLot", "Lot")
+                        .WithMany("Movements")
+                        .HasForeignKey("LotId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("DCenter.Server.Entities.OvenCompartment", "ToCompartment")
+                        .WithMany()
+                        .HasForeignKey("ToCompartmentId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("DCenter.Server.Entities.ConsumableMovement", null)
+                        .WithMany()
+                        .HasForeignKey("VoidsMovementId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("DCenter.Server.Entities.Welder", "Welder")
+                        .WithMany()
+                        .HasForeignKey("WelderId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("BakingRecord");
+
+                    b.Navigation("FromCompartment");
+
+                    b.Navigation("Lot");
+
+                    b.Navigation("ToCompartment");
+
+                    b.Navigation("Welder");
                 });
 
             modelBuilder.Entity("DCenter.Server.Entities.ConsumableTransaction", b =>
@@ -628,6 +1544,31 @@ namespace DCenter.Server.Migrations
                         .OnDelete(DeleteBehavior.Restrict);
 
                     b.Navigation("Lot");
+                });
+
+            modelBuilder.Entity("DCenter.Server.Entities.HoldingRecord", b =>
+                {
+                    b.HasOne("DCenter.Server.Entities.BakingRecord", "BakingRecord")
+                        .WithMany()
+                        .HasForeignKey("BakingRecordId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("DCenter.Server.Entities.OvenCompartment", "Compartment")
+                        .WithMany()
+                        .HasForeignKey("CompartmentId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("DCenter.Server.Entities.Welder", "Welder")
+                        .WithMany()
+                        .HasForeignKey("WelderId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("BakingRecord");
+
+                    b.Navigation("Compartment");
+
+                    b.Navigation("Welder");
                 });
 
             modelBuilder.Entity("DCenter.Server.Entities.Joint", b =>
@@ -652,6 +1593,17 @@ namespace DCenter.Server.Migrations
                     b.Navigation("Joint");
                 });
 
+            modelBuilder.Entity("DCenter.Server.Entities.OvenCompartment", b =>
+                {
+                    b.HasOne("DCenter.Server.Entities.Oven", "Oven")
+                        .WithMany("Compartments")
+                        .HasForeignKey("OvenId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Oven");
+                });
+
             modelBuilder.Entity("DCenter.Server.Entities.ReportStatusEvent", b =>
                 {
                     b.HasOne("DCenter.Server.Entities.Report", "Report")
@@ -668,6 +1620,16 @@ namespace DCenter.Server.Migrations
                     b.Navigation("Lots");
                 });
 
+            modelBuilder.Entity("DCenter.Server.Entities.ConsumableItem", b =>
+                {
+                    b.Navigation("Lots");
+                });
+
+            modelBuilder.Entity("DCenter.Server.Entities.ConsumableItemLot", b =>
+                {
+                    b.Navigation("Movements");
+                });
+
             modelBuilder.Entity("DCenter.Server.Entities.ConsumableLot", b =>
                 {
                     b.Navigation("Transactions");
@@ -676,6 +1638,11 @@ namespace DCenter.Server.Migrations
             modelBuilder.Entity("DCenter.Server.Entities.Joint", b =>
                 {
                     b.Navigation("Materials");
+                });
+
+            modelBuilder.Entity("DCenter.Server.Entities.Oven", b =>
+                {
+                    b.Navigation("Compartments");
                 });
 
             modelBuilder.Entity("DCenter.Server.Entities.Report", b =>

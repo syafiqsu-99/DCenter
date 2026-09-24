@@ -7,6 +7,9 @@ export const IN_COLOR = '#2E7D32'
 export const OUT_COLOR = '#1565C0'
 export const BALANCE_COLOR = '#1565C0'
 export const LOW_COLOR = '#EF6C00'
+export const NORMAL_COLOR = '#78909C'
+export const ACTIVATED_COLOR = '#1565C0'
+export const BAKING_COLOR = '#EF6C00'
 
 export const kgTooltip = {
   callbacks: {

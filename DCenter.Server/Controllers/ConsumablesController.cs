@@ -6,91 +6,141 @@ namespace DCenter.Server.Controllers;
 
 [ApiController]
 [Route("api/consumables")]
-public class ConsumablesController(ConsumableInventoryService inventory) : ControllerBase
+public class ConsumablesController(
+    ConsumableItemService items, ConsumableMovementService movements, ConsumableQueryService queries,
+    ConsumableImportService imports) : ConsumableControllerBase
 {
-    private const long MaxImportBytes = 5 * 1024 * 1024;
-
     [HttpGet("catalog")]
-    public ActionResult<ConsumableCatalogDto> Catalog() => Ok(inventory.GetCatalog());
+    public ActionResult<StockCatalogDto> Catalog() => Ok(queries.GetCatalog());
 
-    [HttpGet]
-    public async Task<ActionResult<List<ConsumableDto>>> Search(
-        [FromQuery] string? q, [FromQuery] bool activeOnly = true, [FromQuery] int take = 30, CancellationToken ct = default)
-        => Ok(await inventory.SearchConsumablesAsync(q, activeOnly, take, ct));
+    [HttpGet("items")]
+    public async Task<ActionResult<List<ItemDto>>> SearchItems(
+        [FromQuery] string? q, [FromQuery] string? category, [FromQuery] bool activeOnly = true,
+        [FromQuery] int take = 50, CancellationToken ct = default)
+    {
+        if (!ConsumableText.TryCategoryFilter(category, out var cat)) return BadRequest("Unknown consumable type.");
+        return Ok(await items.SearchAsync(q, cat, activeOnly, take, ct));
+    }
 
-    [HttpPost]
-    public async Task<ActionResult<ConsumableDto>> Create(ConsumableUpsert dto, CancellationToken ct)
-        => ToAction(await inventory.UpsertConsumableAsync(null, dto, ct));
+    [HttpPost("items")]
+    [SupervisorOnly]
+    public Task<ActionResult<ItemDto>> CreateItem(ItemUpsert dto, CancellationToken ct)
+        => Locked(() => items.UpsertAsync(null, dto, ct));
 
-    [HttpPut("{id:int}")]
-    public async Task<ActionResult<ConsumableDto>> Update(int id, ConsumableUpsert dto, CancellationToken ct)
-        => ToAction(await inventory.UpsertConsumableAsync(id, dto, ct));
+    [HttpPut("items/{id:int}")]
+    [SupervisorOnly]
+    public Task<ActionResult<ItemDto>> UpdateItem(int id, ItemUpsert dto, CancellationToken ct)
+        => Locked(() => items.UpsertAsync(id, dto, ct));
 
-    [HttpGet("{id:int}/lots")]
+    [HttpGet("items/{id:int}/lots")]
     public async Task<ActionResult<List<LotOption>>> Lots(int id, CancellationToken ct)
-        => Ok(await inventory.GetLotsAsync(id, ct));
+        => Ok(await queries.GetLotsAsync(id, ct));
 
-    [HttpGet("{id:int}/recent-quantities")]
-    public async Task<ActionResult<List<decimal>>> RecentQuantities(int id, CancellationToken ct)
-        => Ok(await inventory.GetRecentQuantitiesAsync(id, ct));
+    [HttpGet("items/{id:int}/lot-balances")]
+    public async Task<ActionResult<List<LotBalanceDto>>> LotBalances(int id, [FromQuery] bool includeZero = false, CancellationToken ct = default)
+        => Ok(await queries.GetLotBalancesAsync(id, includeZero, ct));
 
-    [HttpGet("stock")]
-    public async Task<ActionResult<List<StockLotOption>>> Stock([FromQuery] string? location, CancellationToken ct)
-        => ToAction(await inventory.GetStockAsync(location, ct));
+    [HttpGet("items/{id:int}/recent-quantities")]
+    public async Task<ActionResult<List<decimal>>> RecentQuantities(int id, [FromQuery] string? type, CancellationToken ct)
+        => Ok(await queries.GetRecentQuantitiesAsync(id, type, ct));
 
-    [HttpGet("stock-card")]
-    public async Task<ActionResult<List<StockCardRow>>> StockCard(
-        [FromQuery] string? location, [FromQuery] bool includeZero = false, CancellationToken ct = default)
-        => ToAction(await inventory.GetStockCardAsync(location, includeZero, ct));
+    [HttpGet("balances")]
+    [SupervisorOnly]
+    public async Task<ActionResult<List<ItemBalanceDto>>> Balances(
+        [FromQuery] string? category, [FromQuery] bool includeZero = false, CancellationToken ct = default)
+        => ToAction(await queries.GetBalancesAsync(category, includeZero, ct));
+
+    [HttpGet("lot-stock")]
+    [SupervisorOnly]
+    public async Task<ActionResult<List<LotStockRow>>> LotStock(
+        [FromQuery] string? category, [FromQuery] bool includeZero = false, CancellationToken ct = default)
+        => ToAction(await queries.GetLotStockAsync(category, includeZero, ct));
+
+    [HttpGet("normal-stock")]
+    public async Task<ActionResult<List<NormalStockDto>>> NormalStock([FromQuery] string? category, CancellationToken ct)
+        => Ok(await queries.GetNormalStockAsync(category, ct));
+
+    [HttpGet("counter")]
+    public async Task<ActionResult<List<CounterItemDto>>> Counter(
+        [FromQuery] int? welderId, [FromQuery] string? category, CancellationToken ct)
+        => ToAction(await queries.GetCounterAsync(welderId, category, ct));
+
+    [HttpGet("counter/welders/{welderId:int}/today")]
+    public async Task<ActionResult<List<TransactionDto>>> WelderToday(int welderId, CancellationToken ct)
+        => Ok(await queries.GetWelderTodayAsync(welderId, ct));
 
     [HttpPost("receive")]
+    [SupervisorOnly]
     public Task<ActionResult<MovementResult>> Receive(ReceiveRequest request, CancellationToken ct)
-        => Locked(() => inventory.ReceiveAsync(request, ct));
+        => Locked(() => movements.ReceiveAsync(request, EnteredBy, ct));
+
+    [HttpPost("transfer")]
+    [SupervisorOnly]
+    public Task<ActionResult<MovementResult>> Transfer(TransferRequest request, CancellationToken ct)
+        => Locked(() => movements.TransferAsync(request, EnteredBy, ct));
 
     [HttpPost("issue")]
     public Task<ActionResult<MovementResult>> Issue(IssueRequest request, CancellationToken ct)
-        => Locked(() => inventory.IssueAsync(request, ct));
+        => Locked(() => movements.IssueAsync(request, EnteredBy, ct));
 
-    [HttpPost("transactions/{id:int}/void")]
-    public Task<ActionResult<MovementResult>> Void(int id, VoidRequest request, CancellationToken ct)
-        => Locked(() => inventory.VoidAsync(id, request, ct));
+    [HttpPost("return")]
+    public Task<ActionResult<MovementResult>> Return(ReturnRequest request, CancellationToken ct)
+        => Locked(() => movements.ReturnAsync(request, EnteredBy, ct));
+
+    [HttpPost("move")]
+    [SupervisorOnly]
+    public Task<ActionResult<MovementResult>> Move(MoveRequest request, CancellationToken ct)
+        => Locked(() => movements.MoveAsync(request, EnteredBy, ct));
+
+    [HttpPost("finish")]
+    public Task<ActionResult<MovementResult>> Finish(FinishRequest request, CancellationToken ct)
+        => Locked(() => movements.FinishAsync(request, EnteredBy, ct));
+
+    [HttpPost("adjust")]
+    [SupervisorOnly]
+    public Task<ActionResult<MovementResult>> Adjust(AdjustRequest request, CancellationToken ct)
+        => Locked(() => movements.AdjustAsync(request, EnteredBy, ct));
+
+    [HttpPost("transactions/{txnNo}/void")]
+    [SupervisorOnly]
+    public Task<ActionResult<MovementResult>> Void(string txnNo, VoidRequest request, CancellationToken ct)
+        => Locked(() => movements.VoidAsync(txnNo, request, EnteredBy, ct));
 
     [HttpGet("transactions")]
+    [SupervisorOnly]
     public async Task<ActionResult<TransactionPage>> Transactions([FromQuery] TransactionQuery query, CancellationToken ct)
-        => ToAction(await inventory.GetTransactionsAsync(query, ct));
+        => ToAction(await queries.GetTransactionsAsync(query, ct));
 
     [HttpGet("transactions/today")]
+    [SupervisorOnly]
     public async Task<ActionResult<List<TransactionDto>>> EnteredToday([FromQuery] string? type, CancellationToken ct)
-        => ToAction(await inventory.GetEnteredTodayAsync(type, ct));
+        => ToAction(await queries.GetEnteredTodayAsync(type, ct));
 
     [HttpGet("dashboard")]
-    public async Task<ActionResult<DashboardDto>> Dashboard([FromQuery] string? location, CancellationToken ct)
-        => ToAction(await inventory.GetDashboardAsync(location, ct));
+    [SupervisorOnly]
+    public async Task<ActionResult<DashboardDto>> Dashboard([FromQuery] string? category, CancellationToken ct)
+        => ToAction(await queries.GetDashboardAsync(category, ct));
 
-    [HttpPost("import")]
-    [RequestSizeLimit(MaxImportBytes)]
-    public async Task<ActionResult<ImportResult>> Import(IFormFile? file, CancellationToken ct)
+    [HttpGet("items/export")]
+    [SupervisorOnly]
+    public async Task<IActionResult> ExportItems([FromQuery] bool template = false, CancellationToken ct = default)
+    {
+        var bytes = await imports.ExportAsync(template, ct);
+        var name = template ? "Consumables template.csv" : $"Consumables {DateTime.Now:yyyy-MM-dd}.csv";
+        return File(bytes, "text/csv; charset=utf-8", name);
+    }
+
+    [HttpPost("items/import")]
+    [SupervisorOnly]
+    [RequestSizeLimit(ConsumableImportService.MaxFileBytes + 64 * 1024)]
+    public async Task<ActionResult<ImportResultDto>> ImportItems(
+        IFormFile? file, [FromQuery] bool commit = false, [FromQuery] bool skipInvalid = false, CancellationToken ct = default)
     {
         if (file is null || file.Length == 0) return BadRequest("Choose a CSV file to import.");
-        if (!Path.GetExtension(file.FileName).Equals(".csv", StringComparison.OrdinalIgnoreCase))
-            return BadRequest("Only .csv files can be imported. In Excel use Save As → CSV UTF-8.");
+        if (file.Length > ConsumableImportService.MaxFileBytes) return BadRequest("The file is larger than 2 MB.");
+        if (!file.FileName.EndsWith(".csv", StringComparison.OrdinalIgnoreCase)) return BadRequest("Only .csv files can be imported.");
 
         await using var stream = file.OpenReadStream();
-        return await Locked(() => inventory.ImportOpeningAsync(stream, ct));
+        return await Locked(() => imports.ImportAsync(stream, commit, skipInvalid, ct));
     }
-
-    private async Task<ActionResult<T>> Locked<T>(Func<Task<ServiceResult<T>>> action)
-    {
-        try
-        {
-            return ToAction(await action());
-        }
-        catch (TimeoutException ex)
-        {
-            return Conflict(ex.Message);
-        }
-    }
-
-    private ActionResult<T> ToAction<T>(ServiceResult<T> result)
-        => result.Succeeded ? Ok(result.Value) : StatusCode(result.Status, result.Error);
 }

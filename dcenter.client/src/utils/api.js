@@ -1,7 +1,7 @@
-const baseURL = '/api';
+const defaults = { baseURL: '/api', headers: {} };
 
 function buildUrl(url, params) {
-  const target = new URL(baseURL + url, window.location.origin);
+  const target = new URL(defaults.baseURL + url, window.location.origin);
   if (params) {
     for (const [key, value] of Object.entries(params)) {
       if (value !== undefined && value !== null && value !== '') {
@@ -23,7 +23,7 @@ async function parseBody(res, responseType) {
 }
 
 async function request(method, url, { params, body, headers, responseType } = {}) {
-  const finalHeaders = { ...(headers ?? {}) };
+  const finalHeaders = { ...defaults.headers, ...(headers ?? {}) };
   const isFormData = body instanceof FormData;
   let payload = body;
 
@@ -50,7 +50,7 @@ const api = {
   post: (url, body, opts = {}) => request('POST', url, { ...opts, body }),
   put: (url, body, opts = {}) => request('PUT', url, { ...opts, body }),
   delete: (url, opts) => request('DELETE', url, opts),
-  defaults: { baseURL },
+  defaults,
 };
 
 export default api;

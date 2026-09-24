@@ -1,26 +1,22 @@
 <template>
-  <v-dialog :model-value="modelValue" max-width="480" persistent
-            @update:model-value="emit('update:modelValue', $event)">
-    <v-card title="Void this entry?" prepend-icon="mdi-cancel">
-      <v-divider />
-      <v-card-text v-if="transaction">
-        <div class="mb-3">
-          <TxnTypeChip :type="transaction.txnType" class="me-2" />
-          <strong>{{ kg(Math.abs(transaction.quantityKg)) }} kg</strong>
-          · {{ transaction.diaSpec }} · Lot {{ transaction.lotNumber }} · {{ transaction.location }}
-          <div class="text-caption text-medium-emphasis">
-            {{ fmtDate(transaction.txnDate) }} · {{ transaction.requestor || '—' }}
-          </div>
-        </div>
-        <v-textarea v-model="remarks" label="Reason (required)" rows="2" auto-grow variant="outlined"
+  <v-dialog :model-value="modelValue" max-width="520" persistent @update:model-value="close">
+    <v-card v-if="transaction" prepend-icon="mdi-cancel" :title="`Void ${transaction.txnNo}?`">
+      <v-card-text>
+        <p class="text-body-2 mb-3">
+          This cancels every line of <strong>{{ transaction.txnNo }}</strong>
+          ({{ TXN_LABELS[transaction.txnType] ?? transaction.txnType }} · {{ transaction.diaSpec }}).
+          Both entries stay in History.
+        </p>
+        <v-textarea v-model="remarks" label="Reason for voiding" rows="2" auto-grow variant="outlined"
                     density="comfortable" hide-details="auto" autofocus />
         <v-alert v-if="error" type="error" variant="tonal" density="compact" class="mt-3">{{ error }}</v-alert>
       </v-card-text>
-      <v-divider />
-      <v-card-actions class="px-4 py-3">
+      <v-card-actions class="px-4 pb-4">
         <v-spacer />
-        <v-btn variant="text" :disabled="saving" @click="close">Cancel</v-btn>
-        <v-btn color="error" variant="flat" :loading="saving" :disabled="!remarks.trim()" @click="confirm">Void</v-btn>
+        <v-btn variant="text" :disabled="saving" @click="close(false)">Keep</v-btn>
+        <v-btn color="error" variant="flat" :loading="saving" :disabled="!remarks.trim() || !store.hasEnteredBy" @click="submit">
+          Void entry
+        </v-btn>
       </v-card-actions>
     </v-card>
   </v-dialog>
@@ -29,8 +25,7 @@
 <script setup>
   import { ref, watch } from 'vue'
   import { useConsumableStore } from '@/store/consumableStore'
-  import { errorText, fmtDate, kg } from '@/utils/consumables'
-  import TxnTypeChip from '@/components/consumables/TxnTypeChip.vue'
+  import { TXN_LABELS, errorText } from '@/utils/consumables'
 
   const props = defineProps({
     modelValue: { type: Boolean, default: false },
@@ -40,27 +35,26 @@
 
   const store = useConsumableStore()
   const remarks = ref('')
-  const error = ref('')
   const saving = ref(false)
+  const error = ref('')
 
   watch(() => props.modelValue, (open) => {
-    if (open) {
-      remarks.value = ''
-      error.value = ''
-    }
+    if (!open) return
+    remarks.value = ''
+    error.value = ''
   })
 
-  function close() {
-    emit('update:modelValue', false)
+  function close(value) {
+    emit('update:modelValue', value)
   }
 
-  async function confirm() {
+  async function submit() {
     saving.value = true
     error.value = ''
     try {
-      const result = await store.voidTransaction(props.transaction.id, remarks.value.trim())
+      const result = await store.voidTransaction(props.transaction.txnNo, remarks.value.trim())
       emit('voided', result)
-      close()
+      close(false)
     } catch (e) {
       error.value = errorText(e, 'Could not void this entry.')
     } finally {

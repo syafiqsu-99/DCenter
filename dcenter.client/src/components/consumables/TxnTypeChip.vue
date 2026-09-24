@@ -1,19 +1,15 @@
 <template>
-  <v-chip :color="TXN_COLORS[type] ?? 'grey'" size="x-small" variant="flat" label
+  <v-chip :color="voided ? 'grey' : (TXN_COLORS[type] ?? 'default')" size="small" variant="tonal" label
           :class="{ 'text-decoration-line-through': voided }">
-    {{ label }}
+    {{ TXN_LABELS[type] ?? type }}
   </v-chip>
 </template>
 
 <script setup>
-  import { computed } from 'vue'
-  import { TXN_COLORS } from '@/utils/consumables'
+  import { TXN_COLORS, TXN_LABELS } from '@/utils/consumables'
 
-  const props = defineProps({
+  defineProps({
     type: { type: String, required: true },
     voided: { type: Boolean, default: false },
   })
-
-  const labels = { Receive: 'Stock In', Issue: 'Stock Out', Void: 'Void' }
-  const label = computed(() => labels[props.type] ?? props.type)
 </script>

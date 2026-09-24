@@ -1,7 +1,6 @@
 namespace DCenter.Server.Models;
 
-public record WelderDto(int Id, string WelderName, string WelderNo, bool IsActive);
-
+public record WelderDto(int Id, string WelderName, string WelderNo, bool IsActive, string? UsageScope = "Report");
 public record LookupDto(int Id, string Category, string Value, int SortOrder, bool IsActive);
 public record LookupUpsert(string Category, string Value, int SortOrder, bool IsActive);
 public record ProcessTypeLinkDto(int Id, string Process, string Type);

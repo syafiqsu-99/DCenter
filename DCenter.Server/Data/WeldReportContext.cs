@@ -18,6 +18,15 @@ public class WeldReportContext(DbContextOptions<WeldReportContext> options) : Db
     public DbSet<Consumable> Consumables => Set<Consumable>();
     public DbSet<ConsumableLot> ConsumableLots => Set<ConsumableLot>();
     public DbSet<ConsumableTransaction> ConsumableTransactions => Set<ConsumableTransaction>();
+    public DbSet<ConsumableItem> ConsumableItems => Set<ConsumableItem>();
+    public DbSet<ConsumableItemLot> ConsumableItemLots => Set<ConsumableItemLot>();
+    public DbSet<ConsumableMovement> ConsumableMovements => Set<ConsumableMovement>();
+    public DbSet<Oven> Ovens => Set<Oven>();
+    public DbSet<OvenCompartment> OvenCompartments => Set<OvenCompartment>();
+    public DbSet<BakingRecord> BakingRecords => Set<BakingRecord>();
+    public DbSet<HoldingRecord> HoldingRecords => Set<HoldingRecord>();
+    public DbSet<StockCount> StockCounts => Set<StockCount>();
+    public DbSet<SupervisorCredential> SupervisorCredentials => Set<SupervisorCredential>();
 
     protected override void OnModelCreating(ModelBuilder b)
     {
@@ -33,6 +42,8 @@ public class WeldReportContext(DbContextOptions<WeldReportContext> options) : Db
             e.HasIndex(x => x.WelderNo);
             e.HasIndex(x => x.WelderName);
         });
+
+        ConsumableStockModel.Apply(b);
 
         b.Entity<LookupItem>(e =>
         {

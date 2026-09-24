@@ -23,12 +23,13 @@
 </template>
 
 <script setup>
-  import { computed, ref } from 'vue';
+  import { computed, ref, watch } from 'vue';
+  import { useRoute } from 'vue-router';
   import WelderTable from '@/components/WelderTable.vue';
   import LookupTable from '@/components/LookupTable.vue';
   import ReferenceTable from '@/components/ReferenceTable.vue';
   import ProcessTypeLinkTable from '@/components/ProcessTypeLinkTable.vue';
-  import ConsumableMasterTable from '@/components/consumables/ConsumableMasterTable.vue'
+  import SupervisorPasswordPanel from '@/components/SupervisorPasswordPanel.vue';
 
   const wpsFields = [
     { key: 'wpsNo',     label: 'WPS No.',     width: '30%' },
@@ -64,7 +65,6 @@
     { value: 'welders', label: 'Welders', icon: 'mdi-account-hard-hat', component: WelderTable },
     { value: 'dropdowns', label: 'Dropdown Lists', icon: 'mdi-format-list-bulleted', component: LookupTable },
     { value: 'processType', label: 'Process → Type', icon: 'mdi-link-variant', component: ProcessTypeLinkTable },
-    { value: 'consumables', label: 'Consumables', icon: 'mdi-package-variant-closed', component: ConsumableMasterTable },
     {
       value: 'wps', label: 'WPS No.', icon: 'mdi-clipboard-text-outline', component: ReferenceTable,
       props: {
@@ -83,8 +83,16 @@
         apiBase: '/bpvc', title: 'BPVC IX', fields: bpvcFields,
       },
     },
+    { value: 'supervisor', label: 'Supervisor Password', icon: 'mdi-key-change', component: SupervisorPasswordPanel },
   ];
 
-  const sub = ref('welders');
+  const route = useRoute();
+  const sectionFromQuery = () => (sections.some((s) => s.value === route.query.section) ? route.query.section : null);
+  const sub = ref(sectionFromQuery() ?? 'welders');
   const active = computed(() => sections.find((s) => s.value === sub.value));
+
+  watch(() => route.query.section, () => {
+    const section = sectionFromQuery();
+    if (section) sub.value = section;
+  });
 </script>

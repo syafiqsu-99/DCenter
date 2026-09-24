@@ -1,6 +1,6 @@
 <template>
-  <v-card border flat>
-    <v-card-title class="text-subtitle-1">Monthly consumption by consumable type (kg issued)</v-card-title>
+  <v-card border flat class="h-100">
+    <v-card-title class="text-subtitle-1">Monthly consumption by consumable type (kg)</v-card-title>
     <v-card-text style="height:300px;">
       <Bar v-if="data" :data="data" :options="options" />
       <v-skeleton-loader v-else type="image" />
@@ -22,10 +22,10 @@
     return {
       labels: d.inOut.map((r) => r.month),
       datasets: d.consumption.map((s, i) => ({
-        label: s.consumableType,
+        label: s.category,
         data: s.values,
         backgroundColor: TYPE_COLORS[i % TYPE_COLORS.length],
-        stack: 'issued',
+        stack: 'consumed',
       })),
     }
   })
@@ -34,9 +34,6 @@
     responsive: true,
     maintainAspectRatio: false,
     plugins: { legend: { position: 'bottom' }, tooltip: kgTooltip },
-    scales: {
-      x: { stacked: true },
-      y: { stacked: true, beginAtZero: true, title: { display: true, text: 'kg' } },
-    },
+    scales: { x: { stacked: true }, y: { stacked: true, beginAtZero: true, title: { display: true, text: 'kg' } } },
   }
 </script>
