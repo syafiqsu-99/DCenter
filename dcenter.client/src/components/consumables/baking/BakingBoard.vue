@@ -33,9 +33,10 @@
             <span class="text-caption text-medium-emphasis">{{ kg(col.records.reduce((s, r) => s + r.balanceKg, 0)) }} kg</span>
           </v-card-title>
           <v-divider />
-          <v-card-text class="d-flex flex-column ga-2 flex-grow-1 overflow-y-auto" style="min-height:200px;">
+          <v-card-text class="d-flex flex-column ga-2 flex-grow-1 overflow-y-auto" style="min-height:0;">
             <div v-if="!col.records.length" class="text-medium-emphasis text-body-2 text-center py-6">{{ col.empty }}</div>
-            <v-card v-for="r in col.records" :key="r.id" border flat :color="selected.includes(r.id) ? 'blue-grey-lighten-5' : undefined">
+            <v-card v-for="r in col.records" :key="r.id" border flat class="flex-shrink-0"
+                    :color="selected.includes(r.id) ? 'blue-grey-lighten-5' : undefined">
               <v-card-text class="pa-3">
                 <div class="d-flex align-start">
                   <v-checkbox-btn v-if="col.key !== 'baked'" v-model="selected" :value="r.id" density="compact" class="flex-grow-0 me-1" />
@@ -194,7 +195,7 @@
 
 <style scoped>
   .baking-board--fixed {
-    height: 460px;
+    height: 560px;
     flex: 0 0 auto;
   }
   @media (max-width: 959px) {
