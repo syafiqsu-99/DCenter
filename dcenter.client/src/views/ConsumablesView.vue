@@ -1,6 +1,6 @@
 <template>
-  <div>
-    <div class="d-flex flex-wrap align-center ga-3 mb-4">
+  <div class="consumables-shell">
+    <div class="d-flex flex-wrap align-center ga-3 mb-3 flex-shrink-0">
       <v-tabs v-if="store.isSupervisor" :model-value="route.name" color="primary" density="comfortable" show-arrows class="flex-grow-1">
         <v-tab v-for="t in supervisorTabs" :key="t.name" :value="t.name" :to="{ name: t.name }" :prepend-icon="t.icon">
           {{ t.label }}
@@ -9,15 +9,17 @@
       <div v-else class="text-h5 font-weight-bold">Welding Consumables</div>
     </div>
 
-    <v-alert v-if="loadError" type="error" variant="tonal" class="mb-4">
+    <v-alert v-if="loadError" type="error" variant="tonal" class="mb-3 flex-shrink-0">
       {{ loadError }}
       <template #append>
         <v-btn variant="text" size="small" @click="load">Retry</v-btn>
       </template>
     </v-alert>
 
-    <router-view v-if="store.catalogLoaded" />
-    <v-skeleton-loader v-else-if="!loadError" type="card, table" />
+    <div class="consumables-content">
+      <router-view v-if="store.catalogLoaded" />
+      <v-skeleton-loader v-else-if="!loadError" type="card, table" />
+    </div>
   </div>
 </template>
 

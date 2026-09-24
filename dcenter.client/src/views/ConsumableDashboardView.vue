@@ -1,8 +1,8 @@
 <template>
-  <div>
+  <div class="consumable-page consumable-page--scroll">
     <StickyBar><DashboardToolbar /></StickyBar>
-    <KpiCards class="mb-4" />
-    <v-row>
+    <KpiCards />
+    <v-row dense>
       <v-col cols="12"><ItemUsageTable /></v-col>
       <v-col cols="12" lg="6"><LowStockTable /></v-col>
       <v-col cols="12" lg="6"><ActivatedRefillTable /></v-col>

@@ -11,14 +11,15 @@
           <th>Classification</th>
           <th>Brand</th>
           <th>Lot / Heat No.</th>
-          <th>Oven / Compartment</th>
+          <th>Oven Type</th>
+          <th>Compartment</th>
           <th class="num">Qty (KG)</th>
           <th>Remarks</th>
           <th>Entered by</th>
         </tr>
       </thead>
       <tbody>
-        <tr v-if="!loading && !rows.length"><td colspan="11">No holding records for this selection.</td></tr>
+        <tr v-if="!loading && !rows.length"><td colspan="12">No holding records for this selection.</td></tr>
         <tr v-for="h in rows" :key="h.id" :style="h.isVoided ? 'text-decoration: line-through; color: #777;' : ''">
           <td>{{ h.holdingNo }}</td>
           <td>{{ fmtDate(h.holdingDate) }}</td>
@@ -27,7 +28,8 @@
           <td>{{ h.diaSpec }}</td>
           <td>{{ h.brand }}</td>
           <td>{{ h.lotNumber }}</td>
-          <td>{{ h.isFinishedAfterBaking ? 'Finished After Baking' : h.compartmentLabel }}</td>
+          <td>{{ h.isFinishedAfterBaking ? 'Finished After Baking' : h.ovenType }}</td>
+          <td>{{ h.compartmentNumber ?? '' }}</td>
           <td class="num">{{ kg(h.quantityKg) }}</td>
           <td>{{ h.isVoided ? 'VOIDED' : '' }} {{ h.remarks }}</td>
           <td>{{ h.createdBy }}</td>

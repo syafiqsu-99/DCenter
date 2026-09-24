@@ -29,7 +29,7 @@ public record BakingPage(List<BakingRecordDto> Items, int Total);
 public record HoldingRecordDto(
     int Id, string HoldingNo, DateOnly HoldingDate, int BakingRecordId, string BakingNo, int ItemId, string DiaSpec,
     int LotId, string Brand, string LotNumber, int? WelderId, string? WelderName, int? CompartmentId, string? CompartmentLabel,
-    bool IsFinishedAfterBaking, decimal QuantityKg, string TxnNo, bool IsVoided, string? Remarks, string? CreatedBy,
+    string? OvenType, int? CompartmentNumber, bool IsFinishedAfterBaking, decimal QuantityKg, string TxnNo, bool IsVoided, string? Remarks, string? CreatedBy,
     DateTime CreatedAt);
 
 public record HoldingQuery(DateOnly? From, DateOnly? To, string? Q, int Skip = 0, int Take = 100);

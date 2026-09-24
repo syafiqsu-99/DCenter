@@ -1,5 +1,7 @@
 <template>
-  <TransferTable />
+  <div class="consumable-page">
+    <TransferTable />
+  </div>
 </template>
 
 <script setup>

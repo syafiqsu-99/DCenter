@@ -1,6 +1,6 @@
 <template>
-  <div>
-    <div class="d-flex flex-wrap align-center ga-2 mb-3">
+  <div class="fill-card">
+    <div class="d-flex flex-wrap align-center ga-2 mb-3 flex-shrink-0">
       <v-btn :size="operator ? 'x-large' : 'default'" color="purple" variant="flat" prepend-icon="mdi-plus" @click="sendOpen = true">Send to baking</v-btn>
       <v-btn :size="operator ? 'x-large' : 'default'" variant="tonal" prepend-icon="mdi-play" :disabled="!startable.length" :loading="stamping === 'start'"
              @click="stamp('start', startable)">
@@ -15,13 +15,13 @@
       <span class="text-caption text-medium-emphasis">Updated {{ fmtTime(now.toISOString()) }}</span>
       <v-btn variant="tonal" prepend-icon="mdi-refresh" :loading="store.loadingBaking" @click="load">Refresh</v-btn>
     </div>
-    <v-alert v-if="error" type="error" variant="tonal" density="compact" class="mb-3" closable @click:close="error = ''">
+    <v-alert v-if="error" type="error" variant="tonal" density="compact" class="mb-3 flex-shrink-0" closable @click:close="error = ''">
       {{ error }}
     </v-alert>
 
-    <v-row>
-      <v-col v-for="col in columns" :key="col.key" cols="12" md="4">
-        <v-card border flat class="h-100">
+    <v-row class="fill board-row">
+      <v-col v-for="col in columns" :key="col.key" cols="12" md="4" class="board-col">
+        <v-card border flat class="h-100 d-flex flex-column">
           <v-card-title class="text-subtitle-1 d-flex align-center">
             <v-icon :color="col.color" class="me-2">{{ col.icon }}</v-icon>
             {{ col.title }}
@@ -30,7 +30,7 @@
             <span class="text-caption text-medium-emphasis">{{ kg(col.records.reduce((s, r) => s + r.balanceKg, 0)) }} kg</span>
           </v-card-title>
           <v-divider />
-          <v-card-text class="d-flex flex-column ga-2" style="min-height:200px;">
+          <v-card-text class="d-flex flex-column ga-2 flex-grow-1 overflow-y-auto" style="min-height:200px;">
             <div v-if="!col.records.length" class="text-medium-emphasis text-body-2 text-center py-6">{{ col.empty }}</div>
             <v-card v-for="r in col.records" :key="r.id" border flat :color="selected.includes(r.id) ? 'blue-grey-lighten-5' : undefined">
               <v-card-text class="pa-3">
@@ -178,3 +178,15 @@
   })
   onBeforeUnmount(() => clearInterval(timer))
 </script>
+
+<style scoped>
+  @media (min-width: 960px) {
+    .board-row {
+      overflow: visible;
+    }
+
+    .board-col {
+      height: 100%;
+    }
+  }
+</style>

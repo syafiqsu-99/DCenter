@@ -1,5 +1,7 @@
 <template>
-  <OvenBoard />
+  <div class="consumable-page">
+    <OvenBoard />
+  </div>
 </template>
 
 <script setup>

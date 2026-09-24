@@ -1,12 +1,11 @@
 <template>
-  <div>
-    <StickyBar><TransactionFilters /></StickyBar>
+  <div class="consumable-page">
+    <TransactionFilters />
     <TransactionTable />
   </div>
 </template>
 
 <script setup>
-  import StickyBar from '@/components/StickyBar.vue'
   import TransactionFilters from '@/components/consumables/TransactionFilters.vue'
   import TransactionTable from '@/components/consumables/TransactionTable.vue'
 </script>

@@ -35,7 +35,7 @@ internal static partial class ConsumableText
         var v = Trimmed(raw)?.ToLowerInvariant().Replace("mm", string.Empty).Replace(',', '.').Replace(" ", string.Empty);
         if (v is null) return null;
         return decimal.TryParse(v, NumberStyles.AllowDecimalPoint, CultureInfo.InvariantCulture, out var d) && d > 0 && d < 100
-            ? d.ToString("0.##", CultureInfo.InvariantCulture)
+            ? d.ToString("0.00", CultureInfo.InvariantCulture)
             : null;
     }
 

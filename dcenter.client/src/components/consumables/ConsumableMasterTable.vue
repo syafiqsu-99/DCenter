@@ -1,5 +1,5 @@
 <template>
-  <v-card flat class="settings-panel-card">
+  <v-card border flat class="fill-card">
     <v-card-title class="d-flex align-center flex-wrap ga-2">
       Welding Consumables
       <v-spacer />
@@ -12,8 +12,8 @@
     <v-alert v-if="error" type="error" variant="tonal" density="compact" class="mx-4 mb-2" closable
              @click:close="error = ''">{{ error }}</v-alert>
 
-    <div class="card-table-area">
-      <v-data-table-virtual :headers="headers" :items="visibleItems" :loading="loading" height="100%"
+    <div ref="tableArea" class="fill">
+      <v-data-table-virtual :headers="headers" :items="visibleItems" :loading="loading" :height="tableHeight"
                             density="comfortable" fixed-header hover item-value="id" class="consumable-table"
                             :row-props="rowProps" no-data-text="No consumables match your search."
                             @click:row="(e, { item }) => selectedId = (selectedId === item.id ? null : item.id)">
@@ -68,10 +68,13 @@
 <script setup>
   import '@/components/consumables/consumableTables.css'
   import { computed, onMounted, ref } from 'vue'
+  import { useFillHeight } from '@/composables/useFillHeight'
   import { useConsumableStore } from '@/store/consumableStore'
   import { COLUMN, ELECTRODE, errorText, kg } from '@/utils/consumables'
   import ItemFields from '@/components/consumables/ItemFields.vue'
 
+  const tableArea = ref(null)
+  const tableHeight = useFillHeight(tableArea)
   const store = useConsumableStore()
   const items = ref([])
   const search = ref('')

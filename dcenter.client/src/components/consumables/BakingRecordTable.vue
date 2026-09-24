@@ -1,5 +1,5 @@
 <template>
-  <v-card border flat>
+  <v-card border flat class="fill-card">
     <v-card-text class="d-flex flex-wrap align-center ga-3">
       <v-text-field v-model="filters.from" type="date" label="From" v-bind="field" style="max-width:170px;" />
       <v-text-field v-model="filters.to" type="date" label="To" v-bind="field" style="max-width:170px;" />
@@ -11,29 +11,31 @@
       <v-btn variant="text" prepend-icon="mdi-file-delimited-outline" :disabled="!items.length" @click="exportCsv">Export</v-btn>
     </v-card-text>
     <v-divider />
-    <v-data-table-virtual :headers="headers" :items="items" :loading="loading" item-value="id" class="consumable-table"
-                          density="compact" fixed-header height="calc(100vh - 400px)" no-data-text="No baking records.">
-      <template #loading><v-skeleton-loader type="table-row@8" /></template>
-      <template #item.bakingDate="{ item }">{{ fmtDate(item.bakingDate) }}</template>
-      <template #item.diaSpec="{ item }">
-        {{ item.diaSpec }}
-        <div class="text-caption text-medium-emphasis">{{ item.brand }} · Lot {{ item.lotNumber }}</div>
-      </template>
-      <template #item.quantityKg="{ item }">{{ kg(item.quantityKg) }}</template>
-      <template #item.balanceKg="{ item }">{{ item.balanceKg ? kg(item.balanceKg) : '—' }}</template>
-      <template #item.bake="{ item }">
-        <span class="text-caption">{{ fmtDateTime(item.bakeStart) || '—' }}<br>{{ fmtDateTime(item.bakeStop) || '—' }}</span>
-      </template>
-      <template #item.rebake="{ item }">
-        <span class="text-caption">{{ fmtDateTime(item.rebakeStart) || '—' }}<br>{{ fmtDateTime(item.rebakeStop) || '—' }}</span>
-      </template>
-      <template #item.status="{ item }">
-        <v-chip size="small" :color="BAKING_COLORS[item.status]" variant="tonal" label>{{ BAKING_LABELS[item.status] }}</v-chip>
-      </template>
-      <template #item.actions="{ item }">
-        <v-btn icon="mdi-history" size="small" variant="text" :aria-label="`Movements of ${item.bakingNo}`" @click="openHistory(item)" />
-      </template>
-    </v-data-table-virtual>
+    <div ref="tableArea" class="fill">
+      <v-data-table-virtual :headers="headers" :items="items" :loading="loading" item-value="id" class="consumable-table"
+                            density="compact" fixed-header :height="tableHeight" no-data-text="No baking records.">
+        <template #loading><v-skeleton-loader type="table-row@8" /></template>
+        <template #item.bakingDate="{ item }">{{ fmtDate(item.bakingDate) }}</template>
+        <template #item.diaSpec="{ item }">
+          {{ item.diaSpec }}
+          <div class="text-caption text-medium-emphasis">{{ item.brand }} · Lot {{ item.lotNumber }}</div>
+        </template>
+        <template #item.quantityKg="{ item }">{{ kg(item.quantityKg) }}</template>
+        <template #item.balanceKg="{ item }">{{ item.balanceKg ? kg(item.balanceKg) : '—' }}</template>
+        <template #item.bake="{ item }">
+          <span class="text-caption">{{ fmtDateTime(item.bakeStart) || '—' }}<br>{{ fmtDateTime(item.bakeStop) || '—' }}</span>
+        </template>
+        <template #item.rebake="{ item }">
+          <span class="text-caption">{{ fmtDateTime(item.rebakeStart) || '—' }}<br>{{ fmtDateTime(item.rebakeStop) || '—' }}</span>
+        </template>
+        <template #item.status="{ item }">
+          <v-chip size="small" :color="BAKING_COLORS[item.status]" variant="tonal" label>{{ BAKING_LABELS[item.status] }}</v-chip>
+        </template>
+        <template #item.actions="{ item }">
+          <v-btn icon="mdi-history" size="small" variant="text" :aria-label="`Movements of ${item.bakingNo}`" @click="openHistory(item)" />
+        </template>
+      </v-data-table-virtual>
+    </div>
     <div v-if="items.length < total" class="d-flex justify-center py-2">
       <v-btn variant="tonal" :loading="loadingMore" @click="loadMore">Load more ({{ total - items.length }} left)</v-btn>
     </div>
@@ -60,11 +62,14 @@
 <script setup>
   import '@/components/consumables/consumableTables.css'
   import { onMounted, reactive, ref, watch } from 'vue'
+  import { useFillHeight } from '@/composables/useFillHeight'
   import { useRouter } from 'vue-router'
   import { useConsumableStore } from '@/store/consumableStore'
   import { BAKING_COLORS, BAKING_LABELS, COLUMN, debounce, downloadCsv, errorText, fmtDate, fmtDateTime, kg, monthStartIso, openPrint, stageFlow, todayIso } from '@/utils/consumables'
   import TxnTypeChip from '@/components/consumables/TxnTypeChip.vue'
 
+  const tableArea = ref(null)
+  const tableHeight = useFillHeight(tableArea)
   const PAGE_SIZE = 100
 
   const store = useConsumableStore()

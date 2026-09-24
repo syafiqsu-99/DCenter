@@ -1,8 +1,7 @@
 <template>
-  <div>
-    <StickyBar class="mb-4">
-    <v-card border flat>
-      <v-card-text class="d-flex flex-wrap align-center ga-3">
+  <div class="fill-card ga-3">
+    <v-card border flat class="flex-shrink-0">
+      <v-card-text class="d-flex flex-wrap align-center ga-3 py-3">
         <v-text-field v-model="search.lot" prepend-inner-icon="mdi-barcode" label="Lot number" clearable v-bind="field"
                       style="max-width:220px;" />
         <v-autocomplete v-model="search.classification" :items="classifications" label="Classification" clearable v-bind="field"
@@ -19,41 +18,47 @@
         <v-btn variant="tonal" prepend-icon="mdi-refresh" :loading="store.loadingOvens" @click="load(true)">Refresh</v-btn>
       </v-card-text>
       <v-divider />
-      <div class="px-4 py-2 text-body-2">
+      <div class="px-4 py-1 text-body-2">
         {{ occupied }} of {{ compartments.length }} compartments in use · {{ kg(totalKg) }} kg in holding
       </div>
     </v-card>
-    </StickyBar>
-    <v-alert v-if="error" type="error" variant="tonal" density="compact" class="mb-3">{{ error }}</v-alert>
+    <v-alert v-if="error" type="error" variant="tonal" density="compact" class="flex-shrink-0">{{ error }}</v-alert>
 
-    <v-card v-if="!readonly && store.ovenBoard.unassigned.length" border flat color="warning" variant="tonal" class="mb-4">
-      <v-card-title class="text-subtitle-1"><v-icon class="me-2">mdi-alert</v-icon>Activated electrodes not in any compartment</v-card-title>
-      <v-card-text>
-        <div v-for="lot in store.ovenBoard.unassigned" :key="lot.lotId" class="d-flex align-center flex-wrap ga-2 py-1">
-          <strong>{{ lot.diaSpec }}</strong>
-          <span class="text-caption">{{ lot.brand }} · Lot {{ lot.lotNumber }} · {{ kg(lot.kg) }} kg</span>
-          <v-spacer />
-          <v-btn size="small" variant="flat" color="indigo" prepend-icon="mdi-archive-arrow-down"
-                 @click="openMove(lot, { id: null, code: UNASSIGNED })">Put in compartment</v-btn>
-        </div>
-      </v-card-text>
-    </v-card>
+    <v-expansion-panels v-if="!readonly && store.ovenBoard.unassigned.length" class="flex-shrink-0">
+      <v-expansion-panel bg-color="orange-lighten-5" elevation="0" class="border">
+        <v-expansion-panel-title class="py-2" style="min-height:40px;">
+          <v-icon class="me-2" color="warning">mdi-alert</v-icon>
+          {{ store.ovenBoard.unassigned.length }} activated electrode lot(s) not in any compartment
+        </v-expansion-panel-title>
+        <v-expansion-panel-text>
+          <div v-for="lot in store.ovenBoard.unassigned" :key="lot.lotId" class="d-flex align-center flex-wrap ga-2 py-1">
+            <strong>{{ lot.diaSpec }}</strong>
+            <span class="text-caption">{{ lot.brand }} · Lot {{ lot.lotNumber }} · {{ kg(lot.kg) }} kg</span>
+            <v-spacer />
+            <v-btn size="small" variant="flat" color="indigo" prepend-icon="mdi-archive-arrow-down"
+                   @click="openMove(lot, { id: null, code: UNASSIGNED })">Put in compartment</v-btn>
+          </div>
+        </v-expansion-panel-text>
+      </v-expansion-panel>
+    </v-expansion-panels>
 
-    <v-row v-if="store.loadingOvens && !store.ovenBoard.ovens.length">
-      <v-col v-for="n in 4" :key="n" cols="12" md="6"><v-skeleton-loader type="image" /></v-col>
-    </v-row>
-    <v-row v-else>
-      <v-col v-for="oven in store.ovenBoard.ovens" :key="oven.id" cols="12" md="6">
-        <div class="d-flex align-baseline mb-2">
-          <span class="text-subtitle-1 font-weight-bold text-decoration-underline">{{ oven.ovenType }}</span>
+    <div class="oven-grid fill">
+      <template v-if="store.loadingOvens && !store.ovenBoard.ovens.length">
+        <v-skeleton-loader v-for="n in 4" :key="n" type="image" class="h-100" />
+      </template>
+      <section v-for="oven in store.ovenBoard.ovens" v-else :key="oven.id" class="oven-panel">
+        <div class="d-flex align-baseline mb-1">
+          <span class="text-subtitle-2 font-weight-bold">{{ oven.ovenType }}</span>
           <v-spacer />
           <span class="text-caption text-medium-emphasis">
             {{ oven.compartments.filter((c) => c.contents.length).length }}/{{ oven.compartments.length }} in use
           </span>
         </div>
-        <OvenLayout :oven="oven" :is-match="searching ? isMatch : null" @select="openDrawer(oven, $event)" />
-      </v-col>
-    </v-row>
+        <OvenLayout :oven="oven" :is-match="searching ? isMatch : null"
+                    :class="readonly ? undefined : 'oven-panel__layout oven-layout--fill'"
+                    @select="openDrawer(oven, $event)" />
+      </section>
+    </div>
   </div>
 
   <CompartmentDrawer v-model="drawerOpen" :oven="drawerOven" :compartment="drawerCompartment" :readonly="readonly"
@@ -65,7 +70,6 @@
   import { computed, onMounted, reactive, ref, watch } from 'vue'
   import { useConsumableStore } from '@/store/consumableStore'
   import { UNASSIGNED, errorText, kg } from '@/utils/consumables'
-  import StickyBar from '@/components/StickyBar.vue'
   import OvenLayout from '@/components/consumables/OvenLayout.vue'
   import CompartmentDrawer from '@/components/consumables/CompartmentDrawer.vue'
   import MoveDialog from '@/components/consumables/MoveDialog.vue'
@@ -135,14 +139,36 @@
     width: 14px;
     height: 14px;
     margin-right: 4px;
-    border: 1px solid rgb(var(--v-theme-on-surface));
+    border: 1px solid #b0bec5;
     vertical-align: middle;
   }
   .legend--occupied {
-    background: rgba(var(--v-theme-primary), 0.14);
-    box-shadow: inset 3px 0 0 rgb(var(--v-theme-primary));
+    background: #fff3e0;
+    box-shadow: inset 3px 0 0 #ef6c00;
   }
   .legend--empty {
-    background: rgb(var(--v-theme-surface));
+    background: #ffffff;
+  }
+  .oven-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-rows: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+  }
+  .oven-panel {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+  }
+  .oven-panel__layout {
+    flex: 1 1 auto;
+    min-height: 0;
+  }
+  @media (max-width: 959px) {
+    .oven-grid {
+      grid-template-columns: minmax(0, 1fr);
+      grid-template-rows: none;
+      overflow: visible;
+    }
   }
 </style>
