@@ -64,3 +64,69 @@ a {
       height: auto;
       table-layout: fixed;
     }
+
+.consumables-shell {
+  height: calc(100vh - var(--viewport-chrome));
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.consumables-content {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+.consumable-page {
+  height: 100%;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+  .consumable-page > :not(.fill-card) {
+    flex-shrink: 0;
+  }
+
+.consumable-page--scroll {
+  height: auto;
+}
+
+.fill {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.fill-card {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+  .fill-card > .v-card-text,
+  .fill-card > .v-card-title,
+  .fill-card > .v-card-item,
+  .fill-card > .v-alert,
+  .fill-card > .v-divider {
+    flex: 0 0 auto;
+  }
+
+  .fill-card > .fill {
+    flex: 1 1 auto;
+  }
+
+@media (max-width: 959px) {
+  .consumable-page {
+    height: auto;
+  }
+
+  .consumable-page .fill {
+    min-height: 360px;
+  }
+}

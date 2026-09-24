@@ -1,5 +1,5 @@
 <template>
-  <v-card border flat class="h-100">
+  <v-card border flat class="fill-card">
     <v-card-title class="text-subtitle-1 d-flex align-center">
       Received today
       <v-spacer />
@@ -7,7 +7,7 @@
     </v-card-title>
     <v-divider />
     <v-alert v-if="error" type="error" variant="tonal" density="compact" class="ma-3">{{ error }}</v-alert>
-    <v-list v-else density="compact" lines="two" class="overflow-y-auto" style="max-height:560px;">
+    <v-list v-else density="compact" lines="two" class="fill overflow-y-auto">
       <v-list-item v-if="!store.todayReceipts.length" class="text-medium-emphasis">Nothing received today yet.</v-list-item>
       <v-list-item v-for="t in store.todayReceipts" :key="t.id" :class="{ 'text-disabled': t.isVoided }">
         <v-list-item-title>

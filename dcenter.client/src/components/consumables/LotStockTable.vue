@@ -1,24 +1,26 @@
 <template>
-  <v-card border flat>
-    <v-data-table-virtual :headers="headers" :items="store.filteredLotStock" :loading="store.loadingLotStock" item-value="lotId"
-                          class="consumable-table stock-card" density="compact" fixed-header height="calc(100vh - 320px)"
-                          no-data-text="No lots match the filters.">
-      <template #loading><v-skeleton-loader type="table-row@10" /></template>
-      <template #item.receivedBy="{ item }">{{ item.receivedBy || '—' }}</template>
-      <template #item.date="{ item }">{{ fmtDate(item.date) }}</template>
-      <template #item.receiveQtyKg="{ item }">{{ kg(item.receiveQtyKg) }}</template>
-      <template #item.takeKg="{ item }">{{ kg(item.takeKg) }}</template>
-      <template #item.normalKg="{ item }">{{ kg(item.normalKg) }}</template>
-      <template #item.bakingKg="{ item }">{{ item.bakingKg ? kg(item.bakingKg) : '—' }}</template>
-      <template #item.activatedKg="{ item }">{{ kg(item.activatedKg) }}</template>
-      <template #item.balanceKg="{ item }">
-        <span :class="item.isLow ? 'text-warning font-weight-bold' : 'font-weight-bold'">{{ kg(item.balanceKg) }}</span>
-      </template>
-      <template #item.actions="{ item }">
-        <v-btn icon="mdi-history" variant="text" size="small" :aria-label="`History of lot ${item.lotNumber}`"
-               @click="openHistory(item)" />
-      </template>
-    </v-data-table-virtual>
+  <v-card border flat class="fill-card">
+    <div ref="tableArea" class="fill">
+      <v-data-table-virtual :headers="headers" :items="store.filteredLotStock" :loading="store.loadingLotStock" item-value="lotId"
+                            class="consumable-table stock-card" density="compact" fixed-header :height="tableHeight"
+                            no-data-text="No lots match the filters.">
+        <template #loading><v-skeleton-loader type="table-row@10" /></template>
+        <template #item.receivedBy="{ item }">{{ item.receivedBy || '—' }}</template>
+        <template #item.date="{ item }">{{ fmtDate(item.date) }}</template>
+        <template #item.receiveQtyKg="{ item }">{{ kg(item.receiveQtyKg) }}</template>
+        <template #item.takeKg="{ item }">{{ kg(item.takeKg) }}</template>
+        <template #item.normalKg="{ item }">{{ kg(item.normalKg) }}</template>
+        <template #item.bakingKg="{ item }">{{ item.bakingKg ? kg(item.bakingKg) : '—' }}</template>
+        <template #item.activatedKg="{ item }">{{ kg(item.activatedKg) }}</template>
+        <template #item.balanceKg="{ item }">
+          <span :class="item.isLow ? 'text-warning font-weight-bold' : 'font-weight-bold'">{{ kg(item.balanceKg) }}</span>
+        </template>
+        <template #item.actions="{ item }">
+          <v-btn icon="mdi-history" variant="text" size="small" :aria-label="`History of lot ${item.lotNumber}`"
+                 @click="openHistory(item)" />
+        </template>
+      </v-data-table-virtual>
+    </div>
   </v-card>
 
   <LotHistoryDialog v-model="historyOpen" :lot="selected" />
@@ -27,10 +29,13 @@
 <script setup>
   import '@/components/consumables/consumableTables.css'
   import { ref } from 'vue'
+  import { useFillHeight } from '@/composables/useFillHeight'
   import { useConsumableStore } from '@/store/consumableStore'
   import { COLUMN, fmtDate, kg } from '@/utils/consumables'
   import LotHistoryDialog from '@/components/consumables/LotHistoryDialog.vue'
 
+  const tableArea = ref(null)
+  const tableHeight = useFillHeight(tableArea)
   const store = useConsumableStore()
   const selected = ref(null)
   const historyOpen = ref(false)

@@ -1,5 +1,5 @@
 <template>
-  <v-card border flat>
+  <v-card border flat class="fill-card">
     <v-card-item>
       <template #prepend><v-avatar color="success" variant="tonal" icon="mdi-tray-arrow-down" /></template>
       <v-card-title>Receive stock</v-card-title>
@@ -7,7 +7,7 @@
     </v-card-item>
     <v-divider />
 
-    <v-card-text>
+    <v-card-text class="fill overflow-y-auto">
       <div class="text-overline text-medium-emphasis">Receipt</div>
       <v-row dense align="start">
         <v-col cols="12" sm="6" md="3">

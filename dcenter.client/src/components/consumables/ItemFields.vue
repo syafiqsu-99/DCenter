@@ -10,7 +10,8 @@
     </v-col>
     <v-col cols="12" sm="4">
       <v-combobox v-model="model.diameter" :items="sizes" :label="COLUMN.diameter" v-bind="field" :disabled="lockIdentity"
-                  hint="Numbers only, e.g. 2.4 or 3.2" persistent-hint />
+                  hint="Numbers only, saved as e.g. 2.40 or 3.20" persistent-hint
+                  @blur="model.diameter = formatDiameter(model.diameter)" />
     </v-col>
     <v-col cols="12" sm="4">
       <v-text-field v-model.number="model.minStockKg" type="number" min="0" step="0.5" :label="COLUMN.minStock"
@@ -41,7 +42,7 @@
   import { storeToRefs } from 'pinia'
   import { useConsumableStore } from '@/store/consumableStore'
   import { useLookupStore } from '@/store/lookupStore'
-  import { COLUMN, ELECTRODE, kg } from '@/utils/consumables'
+  import { COLUMN, ELECTRODE, formatDiameter, kg } from '@/utils/consumables'
 
   const model = defineModel({ type: Object, required: true })
   defineProps({ lockIdentity: { type: Boolean, default: false } })

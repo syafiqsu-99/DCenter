@@ -1,6 +1,6 @@
 <template>
-  <div>
-    <v-btn-toggle v-model="tab" mandatory divided density="compact" variant="outlined" color="primary" class="mb-3">
+  <div class="consumable-page">
+    <v-btn-toggle v-model="tab" mandatory divided density="compact" variant="outlined" color="primary" class="align-self-start flex-shrink-0">
       <v-btn value="board" prepend-icon="mdi-view-column-outline">Board</v-btn>
       <v-btn value="records" prepend-icon="mdi-fire">Baking records</v-btn>
       <v-btn value="holdings" prepend-icon="mdi-archive-arrow-down-outline">Holding records</v-btn>

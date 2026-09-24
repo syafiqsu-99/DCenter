@@ -5,8 +5,7 @@
       <span class="oven-cell__number">{{ c.number }}</span>
       <template v-if="c.contents.length">
         <span class="oven-cell__spec">{{ c.contents[0].specification }}</span>
-        <span class="oven-cell__dia">Ø {{ c.contents[0].diameter }} mm</span>
-        <span class="oven-cell__lot">{{ lotSummary(c.contents) }}</span>
+        <span class="oven-cell__meta">Ø {{ c.contents[0].diameter }} mm · {{ lotSummary(c.contents) }}</span>
         <span class="oven-cell__status">
           <v-icon size="x-small" class="me-1">{{ statusIcon(c) }}</v-icon>{{ statusText(c) }}
         </span>
@@ -73,11 +72,15 @@
 
 <style scoped>
   .oven-layout {
+    --oven-line: #b0bec5;
+    --oven-ink: #1f2933;
+    --oven-occupied: #fff3e0;
+    --oven-accent: #ef6c00;
     display: grid;
-    grid-template-rows: repeat(3, minmax(112px, 1fr));
+    grid-template-rows: repeat(3, minmax(76px, auto));
     gap: 2px;
     padding: 2px;
-    background: rgb(var(--v-theme-on-surface));
+    background: var(--oven-line);
     border-radius: 4px;
   }
   .oven-cell {
@@ -86,15 +89,20 @@
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 2px;
-    padding: 22px 6px 8px;
+    gap: 1px;
+    padding: 16px 6px 4px;
     min-width: 0;
+    min-height: 0;
+    overflow: hidden;
     text-align: center;
-    background: rgb(var(--v-theme-surface));
-    color: rgb(var(--v-theme-on-surface));
+    background: #ffffff;
+    color: var(--oven-ink);
     font: inherit;
     cursor: pointer;
     transition: background-color 0.15s, opacity 0.15s, box-shadow 0.15s;
+  }
+  .oven-cell:hover:not(:disabled) {
+    filter: brightness(0.97);
   }
   .oven-cell:focus-visible {
     outline: 3px solid rgb(var(--v-theme-primary));
@@ -102,49 +110,54 @@
   }
   .oven-cell__number {
     position: absolute;
-    top: 4px;
-    left: 8px;
-    font-size: 1.1rem;
+    top: 2px;
+    left: 6px;
+    font-size: 0.9rem;
     font-weight: 800;
   }
   .oven-cell__spec {
-    font-size: 1rem;
+    font-size: 0.9rem;
     font-weight: 700;
-    line-height: 1.15;
-    word-break: break-word;
+    line-height: 1.1;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
-  .oven-cell__dia,
-  .oven-cell__lot {
-    font-size: 0.8rem;
-    line-height: 1.2;
+  .oven-cell__meta {
+    font-size: 0.72rem;
+    line-height: 1.15;
     max-width: 100%;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
   .oven-cell__status {
-    margin-top: 2px;
-    font-size: 0.72rem;
+    font-size: 0.68rem;
     font-weight: 600;
     white-space: nowrap;
   }
   .oven-cell__empty {
-    font-size: 0.9rem;
-    color: rgba(var(--v-theme-on-surface), 0.45);
+    font-size: 0.8rem;
+    color: #78909c;
   }
   .oven-cell--occupied {
-    background: rgba(var(--v-theme-primary), 0.14);
-    box-shadow: inset 5px 0 0 rgb(var(--v-theme-primary));
+    background: var(--oven-occupied);
+    box-shadow: inset 4px 0 0 var(--oven-accent);
+  }
+  .oven-cell--occupied .oven-cell__status {
+    color: #bf360c;
   }
   .oven-cell--empty {
-    background-image: repeating-linear-gradient(135deg, transparent 0 10px, rgba(var(--v-theme-on-surface), 0.04) 10px 20px);
+    background-image: repeating-linear-gradient(135deg, transparent 0 10px, rgba(0, 0, 0, 0.03) 10px 20px);
   }
   .oven-cell--selected {
     background: rgb(var(--v-theme-primary));
     color: rgb(var(--v-theme-on-primary));
     box-shadow: none;
   }
-  .oven-cell--selected .oven-cell__empty {
+  .oven-cell--selected .oven-cell__empty,
+  .oven-cell--selected .oven-cell__status {
     color: inherit;
   }
   .oven-cell--blocked,
@@ -157,5 +170,21 @@
   }
   .oven-cell--dim {
     opacity: 0.3;
+  }
+  .oven-layout--fill {
+    grid-template-rows: repeat(3, minmax(0, 1fr));
+  }
+  .oven-layout--fill .oven-cell {
+    container-type: size;
+  }
+  @container (max-height: 66px) {
+    .oven-cell__meta {
+      display: none;
+    }
+  }
+  @container (max-height: 46px) {
+    .oven-cell__status {
+      display: none;
+    }
   }
 </style>

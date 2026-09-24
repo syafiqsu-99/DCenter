@@ -368,6 +368,7 @@ public class BakingService(WeldReportContext db, ConsumableLedger ledger, Consum
                 h.BakingRecord.Lot.Item.Diameter + " " + h.BakingRecord.Lot.Item.Specification,
                 h.BakingRecord.LotId, h.BakingRecord.Lot.Brand, h.BakingRecord.Lot.LotNumber, h.WelderId, h.WelderName,
                 h.CompartmentId, h.Compartment != null ? h.Compartment.Oven.Code + "-" + h.Compartment.Label : null,
+                h.Compartment != null ? h.Compartment.Oven.OvenType : null, h.Compartment != null ? h.Compartment.Number : (int?)null,
                 h.IsFinishedAfterBaking, h.QuantityKg, h.TxnNo, h.IsVoided, h.Remarks, h.CreatedBy, h.CreatedAt))
             .ToListAsync(ct);
 

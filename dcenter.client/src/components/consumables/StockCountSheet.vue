@@ -1,5 +1,5 @@
 <template>
-  <v-card border flat>
+  <v-card border flat class="fill-card">
     <v-card-text class="d-flex flex-wrap align-center ga-3">
       <v-btn-toggle v-model="scope" mandatory divided density="compact" variant="outlined" color="primary">
         <v-btn value="Activated" prepend-icon="mdi-view-grid-outline">Racks &amp; ovens</v-btn>
@@ -24,30 +24,32 @@
       Counted values start at the system quantity — change only the lines that differ.
     </div>
     <v-divider />
-    <v-data-table-virtual :headers="headers" :items="visibleLines" :loading="loading" item-value="key" class="consumable-table"
-                          density="compact" fixed-header height="calc(100vh - 460px)"
-                          :no-data-text="differencesOnly ? 'No differences entered.' : 'Nothing in this storage.'">
-      <template #loading><v-skeleton-loader type="table-row@8" /></template>
-      <template #item.location="{ item }">
-        <v-chip size="small" label variant="tonal" :color="item.compartmentId ? 'indigo' : undefined">{{ item.location }}</v-chip>
-      </template>
-      <template #item.diaSpec="{ item }">
-        <strong>{{ item.diaSpec }}</strong>
-        <div class="text-caption text-medium-emphasis">{{ item.category }}</div>
-      </template>
-      <template #item.lotNumber="{ item }">
-        {{ item.lotNumber }}
-        <div class="text-caption text-medium-emphasis">{{ item.brand }}</div>
-      </template>
-      <template #item.systemKg="{ item }">{{ kg(item.systemKg) }}</template>
-      <template #item.counted="{ item }">
-        <v-text-field v-model.number="counted[item.key]" type="number" min="0" step="0.01" variant="outlined" density="compact"
-                      hide-details suffix="kg" style="max-width:140px; margin-left:auto;" :aria-label="`Counted kg for lot ${item.lotNumber}`" />
-      </template>
-      <template #item.difference="{ item }">
-        <span :class="diffClass(item)">{{ diffText(item) }}</span>
-      </template>
-    </v-data-table-virtual>
+    <div ref="tableArea" class="fill">
+      <v-data-table-virtual :headers="headers" :items="visibleLines" :loading="loading" item-value="key" class="consumable-table"
+                            density="compact" fixed-header :height="tableHeight"
+                            :no-data-text="differencesOnly ? 'No differences entered.' : 'Nothing in this storage.'">
+        <template #loading><v-skeleton-loader type="table-row@8" /></template>
+        <template #item.location="{ item }">
+          <v-chip size="small" label variant="tonal" :color="item.compartmentId ? 'indigo' : undefined">{{ item.location }}</v-chip>
+        </template>
+        <template #item.diaSpec="{ item }">
+          <strong>{{ item.diaSpec }}</strong>
+          <div class="text-caption text-medium-emphasis">{{ item.category }}</div>
+        </template>
+        <template #item.lotNumber="{ item }">
+          {{ item.lotNumber }}
+          <div class="text-caption text-medium-emphasis">{{ item.brand }}</div>
+        </template>
+        <template #item.systemKg="{ item }">{{ kg(item.systemKg) }}</template>
+        <template #item.counted="{ item }">
+          <v-text-field v-model.number="counted[item.key]" type="number" min="0" step="0.01" variant="outlined" density="compact"
+                        hide-details suffix="kg" style="max-width:140px; margin-left:auto;" :aria-label="`Counted kg for lot ${item.lotNumber}`" />
+        </template>
+        <template #item.difference="{ item }">
+          <span :class="diffClass(item)">{{ diffText(item) }}</span>
+        </template>
+      </v-data-table-virtual>
+    </div>
     <v-divider />
     <v-card-text class="d-flex flex-wrap align-center ga-3">
       <v-text-field v-model="countDate" type="date" label="Count date" :max="todayIso()" v-bind="field" style="max-width:170px;" />
@@ -100,10 +102,13 @@
 <script setup>
   import '@/components/consumables/consumableTables.css'
   import { computed, onMounted, ref, watch } from 'vue'
+  import { useFillHeight } from '@/composables/useFillHeight'
   import { useRouter } from 'vue-router'
   import { useConsumableStore } from '@/store/consumableStore'
   import { ALL, COLUMN, errorText, fmtDateTime, kg, openPrint, todayIso } from '@/utils/consumables'
 
+  const tableArea = ref(null)
+  const tableHeight = useFillHeight(tableArea)
   const emit = defineEmits(['posted'])
 
   const store = useConsumableStore()

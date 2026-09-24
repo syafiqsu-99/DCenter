@@ -7,7 +7,7 @@
 <style scoped>
   .sticky-bar {
     position: sticky;
-    top: var(--v-layout-top, 64px);
+    top: 0;
     z-index: 5;
     padding-block: 8px;
     margin-block: -8px 4px;

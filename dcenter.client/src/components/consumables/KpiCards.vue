@@ -1,5 +1,5 @@
 <template>
-  <v-row>
+  <v-row dense>
     <v-col v-for="c in cards" :key="c.label" cols="12" sm="6" md="4" xl="2">
       <v-card border flat class="h-100" :color="c.color" :variant="c.color ? 'tonal' : undefined" @click="c.go">
         <v-card-text class="d-flex align-center ga-3">

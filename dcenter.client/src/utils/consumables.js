@@ -85,6 +85,12 @@ export function kg(value) {
   return kgFormat.format(Number(value ?? 0))
 }
 
+export function formatDiameter(value) {
+  const raw = (value ?? '').toString().trim().toLowerCase().replace('mm', '').replace(',', '.').replace(/\s+/g, '')
+  const n = Number(raw)
+  return raw && Number.isFinite(n) && n > 0 && n < 100 ? n.toFixed(2) : value
+}
+
 export function todayIso() {
   const d = new Date()
   const pad = (n) => String(n).padStart(2, '0')

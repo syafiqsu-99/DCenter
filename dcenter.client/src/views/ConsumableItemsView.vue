@@ -1,9 +1,7 @@
 <template>
-  <div class="d-flex flex-column ga-4">
+  <div class="consumable-page">
     <ConsumableCsvPanel @imported="version++" />
-    <div style="height: calc(100vh - 360px); min-height: 420px;">
-      <ConsumableMasterTable :key="version" />
-    </div>
+    <ConsumableMasterTable :key="version" />
   </div>
 </template>
 

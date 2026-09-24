@@ -1,5 +1,5 @@
 <template>
-  <v-card border flat>
+  <v-card border flat class="fill-card">
     <div class="d-flex flex-wrap ga-4 px-4 py-3 text-body-2">
       <span>Normal <strong>{{ kg(store.balanceTotals.normalKg) }} kg</strong></span>
       <span>Baking <strong>{{ kg(store.balanceTotals.bakingKg) }} kg</strong></span>
@@ -10,45 +10,47 @@
       </span>
     </div>
     <v-divider />
-    <v-data-table v-model:expanded="expanded" :headers="headers" :items="store.filteredBalances" item-value="itemId"
-                  :loading="store.loadingBalances" show-expand :items-per-page="-1" hide-default-footer
-                  class="consumable-table" density="comfortable" fixed-header height="calc(100vh - 360px)"
-                  no-data-text="No consumables match the filters.">
-      <template #loading><v-skeleton-loader type="table-row@8" /></template>
-      <template #item.diaSpec="{ item }">
-        <strong>{{ item.diaSpec }}</strong>
-        <v-chip v-if="!item.isActive" size="x-small" variant="tonal" class="ms-1">Inactive</v-chip>
-        <div class="text-caption text-medium-emphasis">{{ item.category }}</div>
-      </template>
-      <template #item.normalKg="{ item }">{{ kg(item.normalKg) }}</template>
-      <template #item.bakingKg="{ item }">{{ item.bakingKg ? kg(item.bakingKg) : '—' }}</template>
-      <template #item.activatedKg="{ item }">
-        <span :class="{ 'text-warning font-weight-bold': item.needsRefill }">{{ kg(item.activatedKg) }}</span>
-      </template>
-      <template #item.totalKg="{ item }">
-        <span :class="item.isLow ? 'text-warning font-weight-bold' : 'font-weight-bold'">{{ kg(item.totalKg) }}</span>
-      </template>
-      <template #item.minStockKg="{ item }">{{ item.minStockKg > 0 ? kg(item.minStockKg) : '—' }}</template>
-      <template #item.lastIssuedOn="{ item }">{{ fmtDate(item.lastIssuedOn) || '—' }}</template>
-      <template #item.status="{ item }">
-        <v-chip v-if="item.isLow" size="x-small" color="warning" variant="tonal" class="me-1">Low</v-chip>
-        <v-chip v-if="item.needsRefill" size="x-small" color="info" variant="tonal">Refill</v-chip>
-      </template>
-      <template #item.actions="{ item }">
-        <div class="d-flex justify-end ga-1">
-          <v-btn v-if="item.category !== ELECTRODE" size="small" variant="text" color="deep-orange" :disabled="item.activatedKg <= 0"
-                 @click="openFinish(item)">Finished</v-btn>
-          <v-btn v-if="item.category !== ELECTRODE" size="small" variant="text" color="warning" @click="openAdjust(item)">Adjust</v-btn>
-        </div>
-      </template>
-      <template #expanded-row="{ columns, item }">
-        <tr>
-          <td :colspan="columns.length" class="bg-grey-lighten-5 pa-2">
-            <LotBalanceTable :item="item" :key="`${item.itemId}-${refreshKey}`" @changed="reload" />
-          </td>
-        </tr>
-      </template>
-    </v-data-table>
+    <div ref="tableArea" class="fill">
+      <v-data-table v-model:expanded="expanded" :headers="headers" :items="store.filteredBalances" item-value="itemId"
+                    :loading="store.loadingBalances" show-expand :items-per-page="-1" hide-default-footer
+                    class="consumable-table" density="comfortable" fixed-header :height="tableHeight"
+                    no-data-text="No consumables match the filters.">
+        <template #loading><v-skeleton-loader type="table-row@8" /></template>
+        <template #item.diaSpec="{ item }">
+          <strong>{{ item.diaSpec }}</strong>
+          <v-chip v-if="!item.isActive" size="x-small" variant="tonal" class="ms-1">Inactive</v-chip>
+          <div class="text-caption text-medium-emphasis">{{ item.category }}</div>
+        </template>
+        <template #item.normalKg="{ item }">{{ kg(item.normalKg) }}</template>
+        <template #item.bakingKg="{ item }">{{ item.bakingKg ? kg(item.bakingKg) : '—' }}</template>
+        <template #item.activatedKg="{ item }">
+          <span :class="{ 'text-warning font-weight-bold': item.needsRefill }">{{ kg(item.activatedKg) }}</span>
+        </template>
+        <template #item.totalKg="{ item }">
+          <span :class="item.isLow ? 'text-warning font-weight-bold' : 'font-weight-bold'">{{ kg(item.totalKg) }}</span>
+        </template>
+        <template #item.minStockKg="{ item }">{{ item.minStockKg > 0 ? kg(item.minStockKg) : '—' }}</template>
+        <template #item.lastIssuedOn="{ item }">{{ fmtDate(item.lastIssuedOn) || '—' }}</template>
+        <template #item.status="{ item }">
+          <v-chip v-if="item.isLow" size="x-small" color="warning" variant="tonal" class="me-1">Low</v-chip>
+          <v-chip v-if="item.needsRefill" size="x-small" color="info" variant="tonal">Refill</v-chip>
+        </template>
+        <template #item.actions="{ item }">
+          <div class="d-flex justify-end ga-1">
+            <v-btn v-if="item.category !== ELECTRODE" size="small" variant="text" color="deep-orange" :disabled="item.activatedKg <= 0"
+                   @click="openFinish(item)">Finished</v-btn>
+            <v-btn v-if="item.category !== ELECTRODE" size="small" variant="text" color="warning" @click="openAdjust(item)">Adjust</v-btn>
+          </div>
+        </template>
+        <template #expanded-row="{ columns, item }">
+          <tr>
+            <td :colspan="columns.length" class="bg-grey-lighten-5 pa-2">
+              <LotBalanceTable :item="item" :key="`${item.itemId}-${refreshKey}`" @changed="reload" />
+            </td>
+          </tr>
+        </template>
+      </v-data-table>
+    </div>
   </v-card>
 
   <FinishDialog v-model="finishOpen" :item="selected" @saved="reload" />
@@ -58,12 +60,15 @@
 <script setup>
   import '@/components/consumables/consumableTables.css'
   import { ref } from 'vue'
+  import { useFillHeight } from '@/composables/useFillHeight'
   import { useConsumableStore } from '@/store/consumableStore'
   import { COLUMN, ELECTRODE, fmtDate, kg } from '@/utils/consumables'
   import LotBalanceTable from '@/components/consumables/LotBalanceTable.vue'
   import FinishDialog from '@/components/consumables/FinishDialog.vue'
   import AdjustDialog from '@/components/consumables/AdjustDialog.vue'
 
+  const tableArea = ref(null)
+  const tableHeight = useFillHeight(tableArea)
   const store = useConsumableStore()
   const expanded = ref([])
   const selected = ref(null)

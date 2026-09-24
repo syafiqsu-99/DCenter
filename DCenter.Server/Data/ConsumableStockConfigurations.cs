@@ -182,7 +182,7 @@ public class OvenCompartmentConfiguration : IEntityTypeConfiguration<OvenCompart
                 Id = FixedOvens.CompartmentId(o.Id, n),
                 OvenId = o.Id,
                 Number = n,
-                Label = $"C{n}",
+                Label = n.ToString(),
             }))
             .ToArray());
     }

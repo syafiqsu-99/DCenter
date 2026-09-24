@@ -1,5 +1,5 @@
 <template>
-  <div class="d-flex flex-column ga-4">
+  <div class="d-flex flex-column ga-3">
     <WelderIdentityBar />
     <WelderActionBar v-model="action" :disabled="!store.counterWelder" />
     <v-alert v-if="!store.counterWelder" type="info" variant="tonal" class="text-body-1">
