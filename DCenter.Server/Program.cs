@@ -22,7 +22,6 @@ builder.Services.AddDbContext<SourceContext>(opt =>
 
 builder.Services.AddScoped<WorkOrderSearchService>();
 builder.Services.AddScoped<ReportService>();
-builder.Services.AddScoped<WpsFilterService>();
 builder.Services.AddScoped<PdfReportService>();
 builder.Services.AddScoped<ExcelReportService>();
 builder.Services.Configure<ConsumableOptions>(builder.Configuration.GetSection(ConsumableOptions.Section));

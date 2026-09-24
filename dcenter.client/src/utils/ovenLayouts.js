@@ -8,14 +8,14 @@ const NI_ALLOY = {
   areas: ['c1 c1 c2 c2', 'c3 c4 c4 c5', 'c6 c7 c8 c9'],
 }
 
-export const OVEN_LAYOUTS = {
+const OVEN_LAYOUTS = {
   'Alloy Steel': STANDARD,
   'Mild Steel': STANDARD,
   'Ni Alloy': NI_ALLOY,
   'Stainless Steel': STANDARD,
 }
 
-export function layoutFor(ovenType) {
+function layoutFor(ovenType) {
   return OVEN_LAYOUTS[ovenType] ?? STANDARD
 }
 

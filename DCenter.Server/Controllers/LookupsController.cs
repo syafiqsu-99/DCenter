@@ -117,7 +117,7 @@ public class LookupsController(WeldReportContext db) : ControllerBase
         var items = await db.Lookups
             .OrderBy(l => l.Category).ThenBy(l => l.SortOrder).ThenBy(l => l.Value)
             .ToListAsync(ct);
-        var csv = CsvHelper.ToCsv(Headers, items.Select(l =>
+        var csv = CsvText.ToCsv(Headers, items.Select(l =>
             new string?[] { l.Category, l.Value, l.SortOrder.ToString(), l.IsActive ? "1" : "0" }));
         return File(System.Text.Encoding.UTF8.GetBytes(csv), "text/csv", "dropdown-lists.csv");
     }
@@ -131,7 +131,7 @@ public class LookupsController(WeldReportContext db) : ControllerBase
         int added = 0, updated = 0, skipped = 0;
         var existing = await db.Lookups.ToDictionaryAsync(l => (l.Category, l.Value), ct);
 
-        foreach (var f in await CsvHelper.ReadRowsAsync(file, ct))
+        foreach (var f in await CsvText.ReadRowsAsync(file, ct))
         {
             var (category, value) = (f.Field(0), f.Field(1));
             if (!Categories.Contains(category) || value.Length == 0) { skipped++; continue; }

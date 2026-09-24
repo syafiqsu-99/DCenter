@@ -18,20 +18,6 @@ public class WpsController(WeldReportContext db) : ControllerBase
             .Select(w => new WpsDto(w.Id, w.WpsNo, w.BaseMetal, w.Process, w.PNo))
             .ToListAsync(ct));
 
-    [HttpGet("search")]
-    public async Task<ActionResult<List<WpsDto>>> Search([FromQuery] string? q, [FromQuery] string? pNo, CancellationToken ct)
-    {
-        q = (q ?? string.Empty).Trim();
-        var query = db.WpsItems.AsQueryable();
-        if (!string.IsNullOrWhiteSpace(pNo))
-            query = query.Where(w => w.PNo == pNo);
-        if (q.Length > 0)
-            query = query.Where(w => w.WpsNo.Contains(q));
-        return Ok(await query.OrderBy(w => w.WpsNo).ThenBy(w => w.PNo).Take(20)
-            .Select(w => new WpsDto(w.Id, w.WpsNo, w.BaseMetal, w.Process, w.PNo))
-            .ToListAsync(ct));
-    }
-
     [SupervisorOnly]
     [HttpPost]
     public async Task<ActionResult<WpsDto>> Create(WpsUpsert dto, CancellationToken ct)
@@ -69,7 +55,7 @@ public class WpsController(WeldReportContext db) : ControllerBase
     public async Task<IActionResult> Export(CancellationToken ct)
     {
         var items = await db.WpsItems.OrderBy(w => w.WpsNo).ThenBy(w => w.PNo).ToListAsync(ct);
-        var csv = CsvHelper.ToCsv(
+        var csv = CsvText.ToCsv(
             ["WpsNo", "BaseMetal", "Process", "PNo"],
             items.Select(w => new string?[] { w.WpsNo, w.BaseMetal, w.Process, w.PNo }));
         return File(System.Text.Encoding.UTF8.GetBytes(csv), "text/csv", "wps.csv");
@@ -85,7 +71,7 @@ public class WpsController(WeldReportContext db) : ControllerBase
         int added = 0, updated = 0, skipped = 0;
         var existing = await db.WpsItems.ToDictionaryAsync(w => (w.WpsNo, w.PNo), ct);
 
-        foreach (var f in await CsvHelper.ReadRowsAsync(file, ct))
+        foreach (var f in await CsvText.ReadRowsAsync(file, ct))
         {
             var (wpsNo, pNo) = (f.Field(0), f.Field(3));
             if (wpsNo.Length == 0 || pNo.Length == 0) { skipped++; continue; }

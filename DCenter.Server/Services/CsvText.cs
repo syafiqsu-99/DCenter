@@ -82,6 +82,28 @@ public static class CsvText
         return rows;
     }
 
+    public static async Task<List<string[]>> ReadRowsAsync(IFormFile file, CancellationToken ct)
+    {
+        using var reader = new StreamReader(file.OpenReadStream());
+        return Parse(await reader.ReadToEndAsync(ct)).Skip(1).Select(r => r.Fields.ToArray()).ToList();
+    }
+
+    public static string Field(this string[] row, int i) => (row.ElementAtOrDefault(i) ?? "").Trim();
+
+    public static string ToCsv(string[] headers, IEnumerable<string?[]> rows)
+    {
+        var sb = new StringBuilder();
+        sb.AppendLine(string.Join(',', headers));
+        foreach (var row in rows) sb.AppendLine(string.Join(',', row.Select(Quote)));
+        return sb.ToString();
+    }
+
+    private static string Quote(string? value)
+    {
+        if (string.IsNullOrEmpty(value)) return "";
+        return value.IndexOfAny([',', '"', '\n', '\r']) >= 0 ? $"\"{value.Replace("\"", "\"\"")}\"" : value;
+    }
+
     public static byte[] Write(IEnumerable<IEnumerable<string?>> rows)
     {
         var sb = new StringBuilder();

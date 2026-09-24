@@ -58,7 +58,7 @@ public class MrnController(WeldReportContext db) : ControllerBase
     public async Task<IActionResult> Export(CancellationToken ct)
     {
         var items = await db.MrnSpecs.OrderBy(m => m.Mrn).ThenBy(m => m.SpecNo).ToListAsync(ct);
-        var csv = CsvHelper.ToCsv(
+        var csv = CsvText.ToCsv(
             ["MRN", "Form", "FullSpecification", "SpecNoRaw", "SpecNo"],
             items.Select(m => new string?[] { m.Mrn, m.Form, m.FullSpecification, m.SpecNoRaw, m.SpecNo }));
         return File(System.Text.Encoding.UTF8.GetBytes(csv), "text/csv", "mrn.csv");
@@ -73,7 +73,7 @@ public class MrnController(WeldReportContext db) : ControllerBase
         int added = 0, skipped = 0;
         var seen = (await db.MrnSpecs.ToListAsync(ct)).Select(RowKey).ToHashSet();
 
-        foreach (var f in await CsvHelper.ReadRowsAsync(file, ct))
+        foreach (var f in await CsvText.ReadRowsAsync(file, ct))
         {
             var mrn = f.Field(0);
             var specNo = f.Field(4);

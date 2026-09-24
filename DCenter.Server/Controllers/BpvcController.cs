@@ -80,7 +80,7 @@ public class BpvcController(WeldReportContext db) : ControllerBase
     public async Task<IActionResult> Export(CancellationToken ct)
     {
         var items = await db.BpvcMaterials.OrderBy(b => b.SpecNo).ThenBy(b => b.PNo).ToListAsync(ct);
-        var csv = CsvHelper.ToCsv(Headers, items.Select(b => new string?[]
+        var csv = CsvText.ToCsv(Headers, items.Select(b => new string?[]
         {
             b.SpecNoRaw, b.SpecNo, b.Designation, b.UnsNo, b.MinTensile, b.PNo,
             b.GroupNo, b.IsoGroup, b.BrazingPNo, b.NominalComposition, b.TypicalProductForm, b.NominalThicknessLimits,
@@ -97,7 +97,7 @@ public class BpvcController(WeldReportContext db) : ControllerBase
         int added = 0, skipped = 0;
         var seen = (await db.BpvcMaterials.ToListAsync(ct)).Select(RowKey).ToHashSet();
 
-        foreach (var f in await CsvHelper.ReadRowsAsync(file, ct))
+        foreach (var f in await CsvText.ReadRowsAsync(file, ct))
         {
             var specNo = f.Field(1);
             var pNo = f.Field(5);

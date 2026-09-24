@@ -10,8 +10,6 @@ namespace DCenter.Server.Controllers;
 [Route("api/[controller]")]
 public class ProcessTypeLinksController(WeldReportContext db) : ControllerBase
 {
-    public record ProcessTypeLinkBatch(string Process, List<string> Types);
-
     [HttpGet]
     public async Task<ActionResult<List<ProcessTypeLinkDto>>> GetAll(CancellationToken ct)
         => Ok(await db.ProcessTypeLinks.OrderBy(x => x.Process).ThenBy(x => x.Type)
@@ -45,31 +43,5 @@ public class ProcessTypeLinksController(WeldReportContext db) : ControllerBase
         db.ProcessTypeLinks.Remove(link);
         await db.SaveChangesAsync(ct);
         return NoContent();
-    }
-
-    [SupervisorOnly]
-    [HttpPost("batch")]
-    public async Task<ActionResult<List<ProcessTypeLinkDto>>> CreateBatch(ProcessTypeLinkBatch dto, CancellationToken ct)
-    {
-        var process = (dto.Process ?? string.Empty).Trim();
-        if (process.Length == 0) return BadRequest("Process is required.");
-
-        var wanted = (dto.Types ?? [])
-            .Select(t => (t ?? string.Empty).Trim())
-            .Where(t => t.Length > 0)
-            .Distinct()
-            .ToList();
-
-        var existing = (await db.ProcessTypeLinks.Where(x => x.Process == process)
-            .Select(x => x.Type).ToListAsync(ct)).ToHashSet();
-
-        var toAdd = wanted.Where(t => !existing.Contains(t))
-            .Select(t => new ProcessTypeLink { Process = process, Type = t })
-            .ToList();
-
-        db.ProcessTypeLinks.AddRange(toAdd);
-        await db.SaveChangesAsync(ct);
-
-        return Ok(toAdd.Select(x => new ProcessTypeLinkDto(x.Id, x.Process, x.Type)).ToList());
     }
 }

@@ -5,6 +5,12 @@ using Cat = DCenter.Server.Entities.StockCatalog;
 
 namespace DCenter.Server.Data;
 
+internal static class SqlLiteral
+{
+    public static string List(IEnumerable<string> values)
+        => string.Join(", ", values.Select(v => $"N'{v.Replace("'", "''")}'"));
+}
+
 public static class ConsumableStockModel
 {
     public const string TxnSequence = "DCenter_ConsumableTxnSeq";

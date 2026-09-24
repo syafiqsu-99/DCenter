@@ -24,7 +24,6 @@ export const COLUMN = {
 
 export const ALL = 'All'
 export const ELECTRODE = 'Electrode Filler'
-export const STAGE = { normal: 'Normal', baking: 'Baking', activated: 'Activated' }
 export const QUICK_QTY = [0.5, 1, 2, 5]
 export const UNASSIGNED = 'Unassigned'
 
@@ -176,14 +175,6 @@ export function downloadCsv(fileName, rows) {
 export function openPrint(router, kind, query = {}) {
   const clean = Object.fromEntries(Object.entries(query).filter(([, v]) => v !== null && v !== undefined && v !== ''))
   window.open(router.resolve({ name: 'consumable-print', params: { kind }, query: clean }).href, '_blank')
-}
-
-export function daysSince(iso) {
-  if (!iso) return null
-  const [y, m, d] = iso.split('-').map(Number)
-  const today = new Date()
-  const start = new Date(today.getFullYear(), today.getMonth(), today.getDate())
-  return Math.round((start - new Date(y, m - 1, d)) / 86400000)
 }
 
 export function saveBlob(blob, fileName) {
