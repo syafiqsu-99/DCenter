@@ -52,7 +52,7 @@
         </v-col>
       </v-row>
     </v-col>
-    <v-col cols="12" lg="4"><WelderActivityList /></v-col>
+    <v-col cols="12" lg="4" class="activity-col"><WelderActivityList /></v-col>
   </v-row>
 
   <CounterDialog v-model="dialogOpen" :mode="isReturn ? 'return' : 'pickup'" :item="selected" :welder="store.counterWelder"
@@ -131,6 +131,16 @@
 </script>
 
 <style scoped>
+  .activity-col {
+    position: relative;
+  }
+
+  @media (min-width: 1280px) {
+    .activity-col {
+      min-height: 384px;
+    }
+  }
+
   .tile {
     cursor: pointer;
   }

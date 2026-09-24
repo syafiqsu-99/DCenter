@@ -1,5 +1,5 @@
 <template>
-  <div class="fill-card">
+  <div class="fill-card" :class="{ 'baking-board--fixed': operator }">
     <div class="d-flex flex-wrap align-center ga-2 mb-3 flex-shrink-0">
       <v-btn :size="operator ? 'x-large' : 'default'" color="purple" variant="flat" prepend-icon="mdi-plus" @click="sendOpen = true">Send to baking</v-btn>
       <v-btn :size="operator ? 'x-large' : 'default'" variant="tonal" prepend-icon="mdi-play" :disabled="!startable.length" :loading="stamping === 'start'"
@@ -23,6 +23,9 @@
       <v-col v-for="col in columns" :key="col.key" cols="12" md="4" class="board-col">
         <v-card border flat class="h-100 d-flex flex-column">
           <v-card-title class="text-subtitle-1 d-flex align-center">
+            <v-checkbox-btn v-if="col.key !== 'baked' && col.records.length" :model-value="allSelected(col)"
+                            :indeterminate="!allSelected(col) && someSelected(col)" density="compact" class="flex-grow-0 me-1"
+                            :aria-label="`Select all ${col.title}`" @update:model-value="toggleColumn(col)" />
             <v-icon :color="col.color" class="me-2">{{ col.icon }}</v-icon>
             {{ col.title }}
             <v-chip size="x-small" class="ms-2" variant="tonal">{{ col.records.length }}</v-chip>
@@ -35,7 +38,7 @@
             <v-card v-for="r in col.records" :key="r.id" border flat :color="selected.includes(r.id) ? 'blue-grey-lighten-5' : undefined">
               <v-card-text class="pa-3">
                 <div class="d-flex align-start">
-                  <v-checkbox-btn v-if="col.key !== 'baked'" v-model="selected" :value="r.id" density="compact" class="me-1" />
+                  <v-checkbox-btn v-if="col.key !== 'baked'" v-model="selected" :value="r.id" density="compact" class="flex-grow-0 me-1" />
                   <div class="flex-grow-1">
                     <div class="d-flex align-center flex-wrap ga-1">
                       <strong>{{ r.diaSpec }}</strong>
@@ -115,6 +118,16 @@
   const startable = computed(() => selected.value.filter((id) => QUEUED.includes(byId.value.get(id)?.status)))
   const stoppable = computed(() => selected.value.filter((id) => BAKING.includes(byId.value.get(id)?.status)))
 
+  const allSelected = (col) => col.records.length > 0 && col.records.every((r) => selected.value.includes(r.id))
+  const someSelected = (col) => col.records.some((r) => selected.value.includes(r.id))
+
+  function toggleColumn(col) {
+    const ids = col.records.map((r) => r.id)
+    selected.value = allSelected(col)
+      ? selected.value.filter((id) => !ids.includes(id))
+      : [...new Set([...selected.value, ...ids])]
+  }
+
   const canStart = (r) => QUEUED.includes(r.status)
   const canStop = (r) => BAKING.includes(r.status)
   const canPlace = (r) => BAKED.includes(r.status) && r.balanceKg > 0
@@ -180,6 +193,16 @@
 </script>
 
 <style scoped>
+  .baking-board--fixed {
+    height: 460px;
+    flex: 0 0 auto;
+  }
+  @media (max-width: 959px) {
+    .baking-board--fixed {
+      height: auto;
+    }
+  }
+
   @media (min-width: 960px) {
     .board-row {
       overflow: visible;

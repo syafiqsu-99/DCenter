@@ -1,10 +1,10 @@
 <template>
-  <v-card border flat class="h-100">
+  <v-card border flat class="activity-card d-flex flex-column">
     <v-card-title class="text-subtitle-1 d-flex align-center">
       {{ store.counterWelder ? `${store.counterWelder.welderName} — today` : 'Welder activity today' }}
     </v-card-title>
     <v-divider />
-    <v-list density="compact" lines="two" class="overflow-y-auto" style="max-height:600px;">
+    <v-list density="compact" lines="two" class="activity-list overflow-y-auto">
       <v-list-item v-if="!store.counterWelder" class="text-medium-emphasis">Choose a welder to see today’s entries.</v-list-item>
       <v-list-item v-else-if="!store.welderToday.length" class="text-medium-emphasis">No pickups or returns today.</v-list-item>
       <v-list-item v-if="store.counterWelder && !store.isSupervisor && store.welderToday.length" class="text-caption text-medium-emphasis">
@@ -42,3 +42,22 @@
     voidOpen.value = true
   }
 </script>
+
+<style scoped>
+  .activity-list {
+    flex: 1 1 auto;
+    min-height: 0;
+    max-height: 480px;
+  }
+
+  @media (min-width: 1280px) {
+    .activity-card {
+      position: absolute;
+      inset: 12px;
+    }
+
+    .activity-list {
+      max-height: none;
+    }
+  }
+</style>

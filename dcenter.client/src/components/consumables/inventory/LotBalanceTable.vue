@@ -38,7 +38,6 @@
           <v-btn v-if="!isElectrode" size="x-small" variant="text" color="deep-orange" :disabled="l.activatedKg <= 0" @click="openFinish(l)">
             Finished
           </v-btn>
-          <v-btn v-if="!isElectrode" size="x-small" variant="text" color="warning" @click="openAdjust(l)">Adjust</v-btn>
         </td>
       </tr>
     </tbody>
@@ -46,7 +45,6 @@
 
   <LotHistoryDialog v-model="historyOpen" :lot="historyLot" />
   <FinishDialog v-model="finishOpen" :item="item" :lot="selected" @saved="onChanged" />
-  <AdjustDialog v-model="adjustOpen" :item="item" :lot="selected" @saved="onChanged" />
 </template>
 
 <script setup>
@@ -55,7 +53,6 @@
   import { COLUMN, ELECTRODE, errorText, fmtDate, kg } from '@/utils/consumables'
   import LotHistoryDialog from '@/components/consumables/shared/LotHistoryDialog.vue'
   import FinishDialog from '@/components/consumables/shared/FinishDialog.vue'
-  import AdjustDialog from '@/components/consumables/shared/AdjustDialog.vue'
 
   const props = defineProps({ item: { type: Object, required: true } })
   const emit = defineEmits(['changed'])
@@ -70,7 +67,6 @@
 
   const isElectrode = computed(() => props.item.category === ELECTRODE)
   const finishOpen = ref(false)
-  const adjustOpen = ref(false)
 
   async function load() {
     loading.value = true
@@ -92,11 +88,6 @@
   function openFinish(l) {
     selected.value = l
     finishOpen.value = true
-  }
-
-  function openAdjust(l) {
-    selected.value = l
-    adjustOpen.value = true
   }
 
   function onChanged() {

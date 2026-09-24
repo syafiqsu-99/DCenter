@@ -8,8 +8,8 @@
     <template v-else>
       <WelderUsePanel v-if="action === 'use' || action === 'return'" :key="action" :mode="action" />
       <template v-else-if="action === 'baking'">
-        <WelderNormalStockPanel ref="normalStock" @sent="bakingKey++" />
         <BakingBoard :key="bakingKey" operator @changed="normalStock?.load()" />
+        <WelderNormalStockPanel ref="normalStock" @sent="bakingKey++" />
       </template>
       <WelderHoldingPanel v-else />
     </template>

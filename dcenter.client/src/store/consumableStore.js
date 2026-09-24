@@ -512,10 +512,6 @@ export const useConsumableStore = defineStore('consumables', {
       }
     },
 
-    adjust(payload) {
-      return this.post('/consumables/adjust', payload)
-    },
-
     async voidTransaction(txnNo, remarks) {
       const data = await this.post(`/consumables/transactions/${encodeURIComponent(txnNo)}/void`, { remarks })
       this.dashboard = null

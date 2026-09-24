@@ -2,14 +2,14 @@
   <div class="consumable-page consumable-page--scroll">
     <StickyBar><DashboardToolbar /></StickyBar>
     <KpiCards />
+    <InventoryByItemChart />
     <v-row dense>
       <v-col cols="12"><ItemUsageTable /></v-col>
       <v-col cols="12" lg="6"><LowStockTable /></v-col>
       <v-col cols="12" lg="6"><ActivatedRefillTable /></v-col>
       <v-col cols="12" lg="6"><MonthlyConsumptionChart /></v-col>
       <v-col cols="12" lg="6"><StockInOutChart /></v-col>
-      <v-col cols="12" lg="6"><InventoryByItemChart /></v-col>
-      <v-col cols="12" lg="6"><InventoryBalanceTable /></v-col>
+      <v-col cols="12"><InventoryBalanceTable /></v-col>
     </v-row>
   </div>
 </template>

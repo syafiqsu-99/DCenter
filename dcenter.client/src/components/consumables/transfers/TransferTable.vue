@@ -44,7 +44,6 @@
             </template>
             <v-btn v-if="item.category !== ELECTRODE" size="small" variant="text" color="deep-orange" :disabled="item.activatedKg <= 0"
                    @click="openFinish(item)">Finished</v-btn>
-            <v-btn v-if="item.category !== ELECTRODE" size="small" variant="text" color="warning" @click="openAdjust(item)">Adjust</v-btn>
           </div>
         </template>
       </v-data-table-virtual>
@@ -53,7 +52,6 @@
 
   <TransferDialog v-model="transferOpen" :item="selected" :direction="direction" @saved="onSaved" />
   <FinishDialog v-model="finishOpen" :item="selected" @saved="onSaved" />
-  <AdjustDialog v-model="adjustOpen" :item="selected" @saved="onSaved" />
   <SendToBakeDialog v-model="bakeOpen" :item="selected" @saved="onBaked" />
   <v-snackbar v-model="snackbar" color="success" timeout="4000">{{ snackbarText }}</v-snackbar>
 </template>
@@ -66,7 +64,6 @@
   import { ALL, ELECTRODE, errorText, kg } from '@/utils/consumables'
   import TransferDialog from '@/components/consumables/transfers/TransferDialog.vue'
   import FinishDialog from '@/components/consumables/shared/FinishDialog.vue'
-  import AdjustDialog from '@/components/consumables/shared/AdjustDialog.vue'
   import SendToBakeDialog from '@/components/consumables/baking/SendToBakeDialog.vue'
 
   const tableArea = ref(null)
@@ -78,7 +75,6 @@
   const direction = ref('in')
   const transferOpen = ref(false)
   const finishOpen = ref(false)
-  const adjustOpen = ref(false)
   const bakeOpen = ref(false)
   const snackbar = ref(false)
   const snackbarText = ref('')
@@ -127,11 +123,6 @@
     snackbarText.value = `${result.txnNo} saved — ${result.records.map((r) => r.bakingNo).join(', ')} queued for baking`
     snackbar.value = true
     await load(true)
-  }
-
-  function openAdjust(row) {
-    selected.value = row
-    adjustOpen.value = true
   }
 
   async function onSaved(result) {

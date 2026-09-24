@@ -1,6 +1,6 @@
-import { BarElement, CategoryScale, Chart, Legend, LinearScale, Tooltip } from 'chart.js'
+import { BarElement, CategoryScale, Chart, Legend, LinearScale, LineController, LineElement, PointElement, Tooltip } from 'chart.js'
 
-Chart.register(BarElement, CategoryScale, LinearScale, Legend, Tooltip)
+Chart.register(BarElement, CategoryScale, LinearScale, Legend, Tooltip, LineController, LineElement, PointElement)
 
 export const TYPE_COLORS = ['#1565C0', '#EF6C00', '#2E7D32', '#6A1B9A']
 export const IN_COLOR = '#2E7D32'
@@ -10,6 +10,7 @@ export const LOW_COLOR = '#EF6C00'
 export const NORMAL_COLOR = '#78909C'
 export const ACTIVATED_COLOR = '#1565C0'
 export const BAKING_COLOR = '#EF6C00'
+export const MIN_STOCK_COLOR = '#C62828'
 
 export const kgTooltip = {
   callbacks: {

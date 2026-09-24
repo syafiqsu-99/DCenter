@@ -39,7 +39,6 @@
           <div class="d-flex justify-end ga-1">
             <v-btn v-if="item.category !== ELECTRODE" size="small" variant="text" color="deep-orange" :disabled="item.activatedKg <= 0"
                    @click="openFinish(item)">Finished</v-btn>
-            <v-btn v-if="item.category !== ELECTRODE" size="small" variant="text" color="warning" @click="openAdjust(item)">Adjust</v-btn>
           </div>
         </template>
         <template #expanded-row="{ columns, item }">
@@ -54,7 +53,6 @@
   </v-card>
 
   <FinishDialog v-model="finishOpen" :item="selected" @saved="reload" />
-  <AdjustDialog v-model="adjustOpen" :item="selected" @saved="reload" />
 </template>
 
 <script setup>
@@ -65,7 +63,6 @@
   import { COLUMN, ELECTRODE, fmtDate, kg } from '@/utils/consumables'
   import LotBalanceTable from '@/components/consumables/inventory/LotBalanceTable.vue'
   import FinishDialog from '@/components/consumables/shared/FinishDialog.vue'
-  import AdjustDialog from '@/components/consumables/shared/AdjustDialog.vue'
 
   const tableArea = ref(null)
   const tableHeight = useFillHeight(tableArea)
@@ -73,7 +70,6 @@
   const expanded = ref([])
   const selected = ref(null)
   const finishOpen = ref(false)
-  const adjustOpen = ref(false)
   const refreshKey = ref(0)
 
   const headers = [
@@ -93,11 +89,6 @@
   function openFinish(row) {
     selected.value = row
     finishOpen.value = true
-  }
-
-  function openAdjust(row) {
-    selected.value = row
-    adjustOpen.value = true
   }
 
   async function reload() {
