@@ -8,7 +8,7 @@ namespace DCenter.Server.Controllers;
 [Route("api/consumables")]
 public class ConsumablesController(
     ConsumableItemService items, ConsumableMovementService movements, ConsumableQueryService queries,
-    ConsumableImportService imports) : ConsumableControllerBase
+    ConsumableImportService imports, StockImportService stockImports) : ConsumableControllerBase
 {
     [HttpGet("catalog")]
     public ActionResult<StockCatalogDto> Catalog() => Ok(queries.GetCatalog());
@@ -31,6 +31,21 @@ public class ConsumablesController(
     [SupervisorOnly]
     public Task<ActionResult<ItemDto>> UpdateItem(int id, ItemUpsert dto, CancellationToken ct)
         => Locked(() => items.UpsertAsync(id, dto, ct));
+
+    [HttpDelete("items/{id:int}")]
+    [SupervisorOnly]
+    public async Task<IActionResult> DeleteItem(int id, CancellationToken ct)
+    {
+        try
+        {
+            var result = await items.DeleteAsync(id, ct);
+            return result.Succeeded ? NoContent() : StatusCode(result.Status, result.Error);
+        }
+        catch (TimeoutException ex)
+        {
+            return Conflict(ex.Message);
+        }
+    }
 
     [HttpGet("items/{id:int}/lots")]
     public async Task<ActionResult<List<LotOption>>> Lots(int id, CancellationToken ct)
@@ -142,5 +157,24 @@ public class ConsumablesController(
 
         await using var stream = file.OpenReadStream();
         return await Locked(() => imports.ImportAsync(stream, commit, skipInvalid, ct));
+    }
+
+    [HttpGet("stock-import/template")]
+    [SupervisorOnly]
+    public IActionResult StockImportTemplate()
+        => File(StockImportService.Template(), "text/csv; charset=utf-8", "Opening stock template.csv");
+
+    [HttpPost("stock-import")]
+    [SupervisorOnly]
+    [RequestSizeLimit(StockImportService.MaxFileBytes + 64 * 1024)]
+    public async Task<ActionResult<StockImportResultDto>> ImportStock(
+        IFormFile? file, [FromQuery] bool commit = false, [FromQuery] bool skipInvalid = false, CancellationToken ct = default)
+    {
+        if (file is null || file.Length == 0) return BadRequest("Choose a CSV file to import.");
+        if (file.Length > StockImportService.MaxFileBytes) return BadRequest("The file is larger than 2 MB.");
+        if (!file.FileName.EndsWith(".csv", StringComparison.OrdinalIgnoreCase)) return BadRequest("Only .csv files can be imported.");
+
+        await using var stream = file.OpenReadStream();
+        return await Locked(() => stockImports.ImportAsync(stream, commit, skipInvalid, EnteredBy, ct));
     }
 }

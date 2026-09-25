@@ -40,6 +40,8 @@
           <div v-if="selectedId === item.id" class="d-flex justify-end">
             <v-btn icon="mdi-pencil" variant="text" size="small" :aria-label="`Edit ${item.diaSpec}`"
                    @click.stop="openEdit(item)" />
+            <v-btn icon="mdi-delete-outline" variant="text" size="small" color="error" :aria-label="`Delete ${item.diaSpec}`"
+                   @click.stop="openDelete(item)" />
           </div>
         </template>
       </v-data-table-virtual>
@@ -56,12 +58,29 @@
         </v-card-text>
         <v-divider />
         <v-card-actions class="px-4 py-3">
+          <v-btn v-if="editing.id" color="error" variant="text" prepend-icon="mdi-delete-outline" :disabled="saving"
+                 @click="openDelete(editing)">Delete</v-btn>
           <v-spacer />
           <v-btn variant="text" :disabled="saving" @click="dialog = false">Cancel</v-btn>
           <v-btn color="primary" variant="flat" :loading="saving" :disabled="!canSave" @click="save">Save</v-btn>
         </v-card-actions>
       </v-card>
     </v-dialog>
+
+    <ConfirmDeleteDialog v-model="deleteOpen" title="Delete consumable?" :loading="deleting"
+                         confirm-text="Delete permanently" :confirm-disabled="!!blockedReason" @confirm="remove">
+      <template v-if="target">
+        This permanently removes <strong>{{ target.diaSpec }}</strong> ({{ target.category }}) from the master list.
+        Only consumables without any stock history can be deleted.
+        <v-alert v-if="blockedReason" type="warning" variant="tonal" density="compact" class="mt-3">
+          {{ blockedReason }}
+          <div v-if="target.isActive" class="mt-2">
+            <v-btn size="small" color="warning" variant="flat" :loading="deactivating" @click="deactivate">Set inactive instead</v-btn>
+          </div>
+        </v-alert>
+        <v-alert v-else-if="deleteError" type="error" variant="tonal" density="compact" class="mt-3">{{ deleteError }}</v-alert>
+      </template>
+    </ConfirmDeleteDialog>
   </v-card>
 </template>
 
@@ -72,6 +91,7 @@
   import { useConsumableStore } from '@/store/consumableStore'
   import { COLUMN, ELECTRODE, errorText, kg } from '@/utils/consumables'
   import ItemFields from '@/components/consumables/shared/ItemFields.vue'
+  import ConfirmDeleteDialog from '@/components/common/ConfirmDeleteDialog.vue'
 
   const tableArea = ref(null)
   const tableHeight = useFillHeight(tableArea)
@@ -86,6 +106,12 @@
   const selectedId = ref(null)
   const error = ref('')
   const dialogError = ref('')
+  const target = ref(null)
+  const deleteOpen = ref(false)
+  const deleting = ref(false)
+  const deactivating = ref(false)
+  const deleteError = ref('')
+  const blockedReason = ref('')
 
   const headers = [
     { title: COLUMN.type, key: 'category', width: '12%' },
@@ -95,10 +121,10 @@
     { title: 'Holding oven', key: 'holdingOvenType', width: '8%' },
     { title: COLUMN.minStock, key: 'minStockKg', align: 'end', width: '9%' },
     { title: COLUMN.activatedMin, key: 'activatedMinKg', align: 'end', width: '9%' },
-    { title: COLUMN.finishThreshold, key: 'finishThresholdKg', align: 'end', width: '11%' },
+    { title: COLUMN.finishThreshold, key: 'finishThresholdKg', align: 'end', width: '9%' },
     { title: 'Stock (KG)', key: 'totalKg', align: 'end', width: '8%' },
     { title: 'Active', key: 'isActive', width: '6%' },
-    { title: '', key: 'actions', sortable: false, align: 'end', width: '6%' },
+    { title: '', key: 'actions', sortable: false, align: 'end', width: '8%' },
   ]
 
   const rowProps = ({ item }) => ({ class: selectedId.value === item.id ? 'bg-blue-grey-lighten-5' : '' })
@@ -160,6 +186,47 @@
       dialogError.value = errorText(e, 'Could not save the consumable.')
     } finally {
       saving.value = false
+    }
+  }
+
+  function openDelete(row) {
+    target.value = { ...row }
+    deleteError.value = ''
+    blockedReason.value = ''
+    deleteOpen.value = true
+  }
+
+  async function remove() {
+    deleting.value = true
+    deleteError.value = ''
+    blockedReason.value = ''
+    try {
+      await store.deleteItem(target.value.id)
+      deleteOpen.value = false
+      dialog.value = false
+      selectedId.value = null
+      await load()
+    } catch (e) {
+      const message = errorText(e, 'Could not delete the consumable.')
+      if (e?.response?.status === 409) blockedReason.value = message
+      else deleteError.value = message
+    } finally {
+      deleting.value = false
+    }
+  }
+
+  async function deactivate() {
+    deactivating.value = true
+    try {
+      await store.saveItem({ ...target.value, isActive: false })
+      deleteOpen.value = false
+      dialog.value = false
+      await load()
+    } catch (e) {
+      blockedReason.value = ''
+      deleteError.value = errorText(e, 'Could not set the consumable inactive.')
+    } finally {
+      deactivating.value = false
     }
   }
 

@@ -10,7 +10,9 @@ public record ServiceResult<T>(T? Value, int Status, string? Error)
 public record StockCatalogDto(
     IReadOnlyList<string> Categories, IReadOnlyList<string> Sources, IReadOnlyList<string> Stages,
     IReadOnlyList<string> AdjustReasons, IReadOnlyList<string> OvenTypes, decimal FinishThresholdKg,
-    bool AllowElectrodeDirectTransfer, int ReturnWindowDays);
+    bool AllowElectrodeDirectTransfer, int ReturnWindowDays, IReadOnlyList<CompartmentCodeDto> Compartments);
+
+public record CompartmentCodeDto(string Code, string OvenType);
 
 public record ItemUpsert(
     string? Category, string? Specification, string? Diameter, decimal MinStockKg, decimal ActivatedMinKg,

@@ -36,13 +36,10 @@
     { name: 'consumable-welder', label: 'Welder View', icon: 'mdi-account-hard-hat' },
     { name: 'consumable-dashboard', label: 'Dashboard', icon: 'mdi-view-dashboard-outline' },
     { name: 'consumable-receive', label: 'Receiving', icon: 'mdi-tray-arrow-down' },
-    { name: 'consumable-inventory', label: 'Inventory', icon: 'mdi-warehouse' },
-    { name: 'consumable-transfer', label: 'Activated & Transfers', icon: 'mdi-swap-horizontal' },
-    { name: 'consumable-baking', label: 'Baking Records', icon: 'mdi-fire' },
-    { name: 'consumable-ovens', label: 'Holding', icon: 'mdi-view-grid-outline' },
+    { name: 'consumable-stock', label: 'Stock', icon: 'mdi-warehouse' },
+    { name: 'consumable-baking', label: 'Baking & Holding', icon: 'mdi-fire' },
+    { name: 'consumable-records', label: 'Audit & History', icon: 'mdi-history' },
     { name: 'consumable-items', label: 'Consumables', icon: 'mdi-database-cog-outline' },
-    { name: 'consumable-count', label: 'Stock Audit', icon: 'mdi-clipboard-check-outline' },
-    { name: 'consumable-history', label: 'History', icon: 'mdi-history' },
   ]
 
   async function load() {

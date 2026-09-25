@@ -101,7 +101,6 @@ export const useConsumableStore = defineStore('consumables', {
     loadingLotStock: false,
 
     inventoryFilters: { search: '', category: ALL, lowOnly: false, refillOnly: false, includeZero: false, view: 'items' },
-    transferFilters: { search: '', category: ALL },
 
     counterWelder: null,
     counterCategory: ALL,
@@ -163,16 +162,6 @@ export const useConsumableStore = defineStore('consumables', {
         (f.category === ALL || r.category === f.category) &&
         (!f.lowOnly || r.isLow) &&
         matches(terms, [r.diaSpec, r.brand, r.lotNumber, r.receivedBy, r.source, r.category]))
-    },
-
-    transferRows(s) {
-      const f = s.transferFilters
-      const terms = searchTerms(f.search)
-      return s.balances.filter((r) =>
-        r.isActive &&
-        (f.category === ALL || r.category === f.category) &&
-        (r.normalKg > 0 || r.activatedKg > 0 || r.needsRefill) &&
-        matches(terms, [r.diaSpec, r.category]))
     },
   },
 
@@ -266,6 +255,27 @@ export const useConsumableStore = defineStore('consumables', {
         useLookupStore().load(true).catch(() => {})
       }
       return data
+    },
+
+    async stockTemplate() {
+      const { data } = await api.get('/consumables/stock-import/template', { responseType: 'blob' })
+      return data
+    },
+
+    async importStock(file, { commit = false, skipInvalid = false } = {}) {
+      const form = new FormData()
+      form.append('file', file)
+      const { data } = await api.post('/consumables/stock-import', form, { params: { commit, skipInvalid } })
+      if (data.committed) {
+        this.stale()
+        useLookupStore().load(true).catch(() => {})
+      }
+      return data
+    },
+
+    async deleteItem(id) {
+      await api.delete(`/consumables/items/${id}`)
+      this.stale()
     },
 
     rememberReceiveHeader(patch) {

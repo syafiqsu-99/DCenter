@@ -13,7 +13,7 @@
       <v-card-actions>
         <v-spacer />
         <v-btn variant="text" @click="$emit('update:modelValue', false)">Cancel</v-btn>
-        <v-btn color="error" variant="flat" :loading="loading" @click="$emit('confirm')">
+        <v-btn color="error" variant="flat" :loading="loading" :disabled="confirmDisabled" @click="$emit('confirm')">
           {{ confirmText }}
         </v-btn>
       </v-card-actions>
@@ -28,6 +28,7 @@
     itemLabel: { type: String, default: 'this item' },
     confirmText: { type: String, default: 'Delete' },
     loading: Boolean,
+    confirmDisabled: Boolean,
   });
 
   defineEmits(['update:modelValue', 'confirm']);

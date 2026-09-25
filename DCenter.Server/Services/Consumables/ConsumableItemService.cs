@@ -22,7 +22,8 @@ public class ConsumableItemService(WeldReportContext db, ConsumableLedger ledger
         if (dto is null) return (null, "Consumable details are required.");
 
         var category = T.Category(dto.Category);
-        if (category is null) return (null, $"Consumable Type must be one of: {string.Join(", ", Cat.Categories)}.");
+        if (category is null)
+            return (null, T.OptionError("Consumable Type", dto.Category, Cat.Categories, T.MatchOption(dto.Category, Cat.Categories).Suggestion));
 
         var specification = T.Specification(dto.Specification);
         if (specification is null || specification.Length > 100)
@@ -37,8 +38,9 @@ public class ConsumableItemService(WeldReportContext db, ConsumableLedger ledger
         string? ovenType = null;
         if (category == Cat.ElectrodeFiller && T.Trimmed(dto.HoldingOvenType) is string rawOven)
         {
-            ovenType = Cat.OvenTypes.FirstOrDefault(o => string.Equals(o, rawOven, StringComparison.OrdinalIgnoreCase));
-            if (ovenType is null) return (null, $"Holding oven type must be one of: {string.Join(", ", Cat.OvenTypes)}.");
+            var (matched, suggestion) = T.MatchOption(rawOven, Cat.OvenTypes);
+            if (matched is null) return (null, T.OptionError("Holding Oven", rawOven, Cat.OvenTypes, suggestion));
+            ovenType = matched;
         }
 
         return (new ItemInput(category, specification, diameter.Value, T.RoundKg(dto.MinStockKg), T.RoundKg(dto.ActivatedMinKg),
@@ -126,6 +128,28 @@ public class ConsumableItemService(WeldReportContext db, ConsumableLedger ledger
         var totals = (await ledger.ItemTotalsAsync([item.Id], ct)).GetValueOrDefault(item.Id) ?? StageTotals.Zero;
         return ServiceResult<ItemDto>.Ok(ToDto(item.Id, item.Category, item.Specification, item.Diameter, item.MinStockKg,
             item.ActivatedMinKg, item.FinishThresholdKg, item.IsActive, item.HoldingOvenType, totals));
+    }
+
+    public async Task<ServiceResult<bool>> DeleteAsync(int id, CancellationToken ct)
+    {
+        await using var tx = await db.Database.BeginTransactionAsync(ct);
+        await StockLocks.AcquireAsync(db, StockLocks.Master, ct);
+
+        var item = await db.ConsumableItems.FirstOrDefaultAsync(i => i.Id == id, ct);
+        if (item is null) return ServiceResult<bool>.Fail("Consumable not found.", StatusCodes.Status404NotFound);
+
+        var movements = await db.ConsumableMovements.CountAsync(m => m.Lot.ItemId == id, ct);
+        var bakings = await db.BakingRecords.CountAsync(b => b.Lot.ItemId == id, ct);
+        if (movements + bakings > 0)
+            return ServiceResult<bool>.Fail(
+                $"{Cat.DiaSpec(item.Diameter, item.Specification)} has stock history ({movements} transaction line(s), {bakings} baking record(s)) " +
+                "and can't be deleted. Set it inactive instead.", StatusCodes.Status409Conflict);
+
+        db.ConsumableItemLots.RemoveRange(await db.ConsumableItemLots.Where(l => l.ItemId == id).ToListAsync(ct));
+        db.ConsumableItems.Remove(item);
+        await db.SaveChangesAsync(ct);
+        await tx.CommitAsync(ct);
+        return ServiceResult<bool>.Ok(true);
     }
 
     public async Task<List<ItemDto>> SearchAsync(string? q, string? category, bool activeOnly, int take, CancellationToken ct)

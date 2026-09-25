@@ -30,12 +30,12 @@
 
   function toHistory(type) {
     store.showHistory({ type, from: kpis.value.monthStart, to: kpis.value.today, category: store.dashboardCategory })
-    router.push({ name: 'consumable-history' })
+    router.push({ name: 'consumable-records' })
   }
 
   function toInventory(patch) {
     store.showInventory({ category: store.dashboardCategory, ...patch })
-    router.push({ name: 'consumable-inventory' })
+    router.push({ name: 'consumable-stock' })
   }
 
   const cards = computed(() => {
@@ -53,12 +53,12 @@
       {
         label: 'Activated storage', value: `${kg(k?.activatedKg)} kg`, sub: `${k?.refillCount ?? 0} rack(s) below minimum`,
         icon: 'mdi-package-variant', iconColor: 'info', color: k?.refillCount ? 'info' : undefined,
-        go: () => router.push({ name: 'consumable-transfer' }),
+        go: () => toInventory({ refillOnly: true }),
       },
       {
         label: 'Holding ovens', value: `${kg(k?.inHoldingKg)} kg`,
         sub: `${k?.occupiedCompartments ?? 0} of ${k?.totalCompartments ?? 0} compartments in use`,
-        icon: 'mdi-view-grid-outline', iconColor: 'indigo', go: () => router.push({ name: 'consumable-ovens' }),
+        icon: 'mdi-view-grid-outline', iconColor: 'indigo', go: () => router.push({ name: 'consumable-baking', query: { view: 'ovens' } }),
       },
       {
         label: 'Low stock items', value: k?.lowStockCount ?? 0, sub: 'At or below minimum — reorder',

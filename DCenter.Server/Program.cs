@@ -40,6 +40,7 @@ builder.Services.AddDataProtection()
     .PersistKeysToFileSystem(new DirectoryInfo(keysPath));
 builder.Services.AddSingleton<SupervisorAuth>();
 builder.Services.AddScoped<ConsumableImportService>();
+builder.Services.AddScoped<StockImportService>();
 builder.Services.AddScoped<SupervisorPasswordService>();
 
 builder.Services.AddControllers();

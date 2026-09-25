@@ -107,6 +107,6 @@
     if (!props.compartment) return
     store.showHistory({ from: '', to: '', compartmentId: props.compartment.id, compartmentCode: props.compartment.code })
     emit('update:modelValue', false)
-    router.push({ name: 'consumable-history' })
+    router.push({ name: 'consumable-records' })
   }
 </script>

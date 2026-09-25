@@ -67,7 +67,7 @@ public class ConsumableImportService(WeldReportContext db, ConsumableItemService
     {
         using var buffer = new MemoryStream();
         await stream.CopyToAsync(buffer, ct);
-        var text = Decode(buffer.ToArray());
+        var text = CsvText.Decode(buffer.ToArray());
 
         var parsed = CsvText.Parse(text, out var parseError);
         if (parseError is not null) return Fail(parseError);
@@ -138,7 +138,7 @@ public class ConsumableImportService(WeldReportContext db, ConsumableItemService
     private Planned PlanRow(CsvText.Row r, Dictionary<Col, int> columns, Dictionary<string, Existing> existing, Dictionary<string, int> seen)
     {
         var messages = new List<string>();
-        string? Cell(Col c) => columns.TryGetValue(c, out var i) && i < r.Fields.Count ? Unguard(r.Fields[i].Trim()) : null;
+        string? Cell(Col c) => columns.TryGetValue(c, out var i) && i < r.Fields.Count ? CsvText.Unguard(r.Fields[i].Trim()) : null;
         bool Has(Col c) => columns.ContainsKey(c);
 
         var rawCategory = Cell(Col.Category);
@@ -181,7 +181,16 @@ public class ConsumableImportService(WeldReportContext db, ConsumableItemService
         {
             var (n, error) = items.Normalize(new ItemUpsert(rawCategory, rawSpec, rawDiameter, min, activatedMin, finish, isActive, ovenType));
             if (n is null) messages.Add(error!);
-            else input = n;
+            else
+            {
+                input = n;
+                messages.AddRange(new[]
+                {
+                    T.Standardized("Type", rawCategory, n.Category),
+                    T.Standardized("Specification", rawSpec, n.Specification),
+                    T.Standardized("Holding Oven", ovenType, n.HoldingOvenType),
+                }.OfType<string>());
+            }
         }
 
         if (input is not null && input.Category == Cat.ElectrodeFiller && input.HoldingOvenType is null)
@@ -202,7 +211,7 @@ public class ConsumableImportService(WeldReportContext db, ConsumableItemService
             }
         }
 
-        var errors = messages.Where(m => !m.StartsWith("Warning:", StringComparison.Ordinal)).ToList();
+        var errors = messages.Where(m => !T.IsNote(m)).ToList();
         var diaSpec = input is not null ? Cat.DiaSpec(input.Diameter, input.Specification) : Cat.DiaSpec(rawDiameter ?? "", rawSpec ?? "");
         if (input is null || errors.Count > 0)
             return new Planned(r.Line, ActionError, null, null, new ImportRowDto(r.Line, ActionError, rawCategory, diaSpec, messages));
@@ -279,18 +288,4 @@ public class ConsumableImportService(WeldReportContext db, ConsumableItemService
 
     private static ServiceResult<ImportResultDto> Fail(string error) => ServiceResult<ImportResultDto>.Fail(error);
 
-    private static string Decode(byte[] bytes)
-    {
-        try
-        {
-            return new UTF8Encoding(false, true).GetString(bytes).TrimStart('\uFEFF');
-        }
-        catch (DecoderFallbackException)
-        {
-            return Encoding.Latin1.GetString(bytes);
-        }
-    }
-
-    private static string Unguard(string value)
-        => value.Length > 1 && value[0] == '\'' && "=+-@".Contains(value[1]) ? value[1..] : value;
 }

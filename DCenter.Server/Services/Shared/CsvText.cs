@@ -117,4 +117,19 @@ public static class CsvText
         if (v.Length > 0 && "=+-@\t\r".Contains(v[0]) && !decimal.TryParse(v, NumberStyles.Number, CultureInfo.InvariantCulture, out _)) v = "'" + v;
         return v.IndexOfAny([',', '"', '\n', '\r']) >= 0 ? $"\"{v.Replace("\"", "\"\"")}\"" : v;
     }
+
+    public static string Decode(byte[] bytes)
+    {
+        try
+        {
+            return new UTF8Encoding(false, true).GetString(bytes).TrimStart('\uFEFF');
+        }
+        catch (DecoderFallbackException)
+        {
+            return Encoding.Latin1.GetString(bytes);
+        }
+    }
+
+    public static string Unguard(string value)
+        => value.Length > 1 && value[0] == '\'' && "=+-@".Contains(value[1]) ? value[1..] : value;
 }

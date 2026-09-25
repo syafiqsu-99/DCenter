@@ -15,6 +15,9 @@
       </v-btn>
       <input ref="fileInput" type="file" accept=".csv,text/csv" hidden @change="onFile">
     </v-card-text>
+    <div class="px-4 pb-4">
+      <CsvColumnGuide :rows="guide" file-name="Consumables guide.csv" />
+    </div>
     <v-alert v-if="error" type="error" variant="tonal" density="compact" class="mx-4 mb-3" closable @click:close="error = ''">
       {{ error }}
     </v-alert>
@@ -44,7 +47,7 @@
           </template>
           <template #item.messages="{ item }">
             <div v-for="m in item.messages" :key="m" class="text-caption"
-                 :class="item.action === 'Error' ? 'text-error' : m.startsWith('Warning:') ? 'text-warning' : ''">{{ m }}</div>
+                 :class="messageClass(item, m)">{{ m }}</div>
           </template>
         </v-data-table-virtual>
       </v-card-text>
@@ -73,6 +76,8 @@
   import { computed, ref } from 'vue'
   import { useConsumableStore } from '@/store/consumableStore'
   import { COLUMN, errorText, saveBlob, todayIso } from '@/utils/consumables'
+  import { itemGuide } from '@/utils/csvGuides'
+  import CsvColumnGuide from '@/components/consumables/shared/CsvColumnGuide.vue'
 
   const ACTION_COLORS = { Create: 'success', Update: 'primary', Unchanged: undefined, Error: 'error' }
 
@@ -87,6 +92,8 @@
   const problemsOnly = ref(false)
   const busy = ref('')
   const error = ref('')
+
+  const guide = computed(() => itemGuide(store.catalog))
 
   const headers = [
     { title: 'Line', key: 'line', width: '7%' },
@@ -106,6 +113,12 @@
       ? 'Invalid rows are not imported. You can fix the file and upload again, or import only the valid rows.'
       : 'Review the changes, then import.'
   })
+
+  function messageClass(row, m) {
+    if (m.startsWith('Standardized:')) return 'text-info'
+    if (m.startsWith('Warning:')) return 'text-warning'
+    return row.action === 'Error' ? 'text-error' : ''
+  }
 
   async function download(template) {
     busy.value = template ? 'template' : 'export'
