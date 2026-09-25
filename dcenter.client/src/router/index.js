@@ -4,7 +4,7 @@ import { useConsumableStore } from '@/store/consumableStore';
 const supervisor = { supervisor: true };
 
 const routes = [
-  { path: '/', name: 'home', meta: { fullBleed: true }, component: () => import('@/views/home/HomeView.vue') },
+  { path: '/', name: 'home', meta: { fullBleed: true, bare: true }, component: () => import('@/views/home/HomeView.vue') },
   { path: '/report', name: 'report', component: () => import('@/views/report/ReportView.vue') },
   {
     path: '/consumables',

@@ -20,6 +20,11 @@ a {
   min-height: 480px;
 }
 
+.full-bleed--bare {
+  height: 100vh;
+  height: 100dvh;
+}
+
 .page-enter-active,
 .page-leave-active {
   transition: opacity 0.18s ease, transform 0.18s ease;

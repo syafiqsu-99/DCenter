@@ -24,7 +24,7 @@
       </div>
     </v-overlay>
 
-    <v-app-bar color="primary" flat>
+    <v-app-bar v-if="!route.meta.bare" color="primary" flat>
       <button type="button" class="brand-home d-flex align-center ms-3"
               aria-label="Go to the home page" @click="onGoHome">
         <v-img :src="logo" width="40" height="40" class="me-3" alt="" />
@@ -47,7 +47,7 @@
     </v-app-bar>
 
     <v-main>
-      <v-container fluid :class="route.meta.fullBleed ? 'pa-0 full-bleed' : 'pa-4'">
+      <v-container fluid :class="route.meta.fullBleed ? ['pa-0 full-bleed', { 'full-bleed--bare': route.meta.bare }] : 'pa-4'">
         <router-view v-if="!booting && !bootError" v-slot="{ Component, route: viewRoute }">
           <transition name="page" mode="out-in">
             <component :is="Component" :key="viewRoute.matched[0]?.path" />
@@ -56,10 +56,12 @@
       </v-container>
     </v-main>
 
-    <v-footer color="primary" app class="text-caption justify-space-between px-4">
+    <v-footer v-if="!route.meta.bare" color="primary" app class="text-caption justify-space-between px-4">
       <span>DCenter Operations Hub</span>
       <span>&copy; {{ year }} Emerson — DCenter</span>
     </v-footer>
+
+    <SupervisorSession v-if="!booting && !bootError" />
 
     <v-dialog v-model="leaveDialog" max-width="500" persistent>
       <v-card title="Unsaved changes" prepend-icon="mdi-content-save-alert">
@@ -107,6 +109,7 @@
   import logonobg from '@/assets/DCenter_No_bg.png';
   import { useLeaveGuard } from '@/composables/useLeaveGuard';
   import SupervisorNavButton from '@/components/common/SupervisorNavButton.vue';
+  import SupervisorSession from '@/components/common/SupervisorSession.vue';
 
   const route = useRoute();
   const router = useRouter();

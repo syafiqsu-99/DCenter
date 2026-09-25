@@ -20,25 +20,24 @@
     overflow-y: auto;
     color: #fff;
     background:
-      linear-gradient(115deg, rgba(0, 40, 85, 0.88) 0%, rgba(0, 40, 85, 0.7) 45%, rgba(0, 40, 85, 0.45) 100%),
+      linear-gradient(115deg, rgba(0, 40, 85, 0.85) 0%, rgba(0, 40, 85, 0.7) 50%, rgba(0, 40, 85, 0.55) 100%),
       var(--home-bg) center / cover no-repeat;
   }
 
   .home__inner {
-    max-width: 1200px;
-    margin: 0 auto;
     min-height: 100%;
     padding: 48px 24px;
     display: flex;
     flex-direction: column;
+    align-items: center;
     justify-content: center;
-    gap: 40px;
+    gap: 48px;
   }
 
   @media (max-width: 600px) {
     .home__inner {
       padding: 32px 16px;
-      gap: 28px;
+      gap: 32px;
     }
   }
 </style>

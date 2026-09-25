@@ -41,8 +41,8 @@ function childParts(nodes) {
   return [...seen.values()]
 }
 
-function newReport(workOrderNumber, rows) {
-  const root = rows.find((r) => r.level === 0) ?? rows[0] ?? {}
+function newReport(workOrderNumber, rows, summary) {
+  const root = rows.find((r) => r.level === 0) ?? summary ?? {}
   const joints = Math.min(50, Math.max(1, childParts(rows).length))
   const today = new Date().toISOString().slice(0, 10)
   return {
@@ -89,6 +89,8 @@ export const useReportStore = defineStore('report', {
     loadingHistory: false,
     savedSnapshot: '',
     reportParts: [],
+    treeByWorkOrder: {},
+    loadingTrees: {},
     mode: 'browse',
     allWorkOrderNumbers: [],
     loadingWorkOrderNumbers: false,
@@ -127,9 +129,6 @@ export const useReportStore = defineStore('report', {
     canSelect() {
       return this.distinctWorkOrders.length === 1
     },
-    selectedRows() {
-      return this.searchResults.filter((r) => r.workOrderNumber === this.resolvedWorkOrder)
-    },
     savedByWorkOrder() {
       return new Map(this.savedReports.map((r) => [r.workOrderNumber, r]))
     },
@@ -160,6 +159,7 @@ export const useReportStore = defineStore('report', {
           params: { q: this.searchQuery, skip: 0, take: PAGE_SIZE },
         })
         if (token !== searchToken) return
+        this.treeByWorkOrder = {}
         this.searchResults = data.items.map((r, i) => ({ ...r, _index: i }))
         this.hasMoreResults = data.hasMore
       } catch (e) {
@@ -188,6 +188,20 @@ export const useReportStore = defineStore('report', {
         // Keep what's loaded
       } finally {
         if (token === searchToken) this.loadingMoreRows = false
+      }
+    },
+
+    async loadTree(workOrderNumber) {
+      const wo = (workOrderNumber ?? '').trim()
+      if (!wo) return []
+      if (this.treeByWorkOrder[wo]) return this.treeByWorkOrder[wo]
+      this.loadingTrees[wo] = true
+      try {
+        const { data } = await api.get(`/workorders/${encodeURIComponent(wo)}/parts`)
+        this.treeByWorkOrder[wo] = data ?? []
+        return this.treeByWorkOrder[wo]
+      } finally {
+        delete this.loadingTrees[wo]
       }
     },
 
@@ -237,14 +251,18 @@ export const useReportStore = defineStore('report', {
       this.loading = true
       this.error = ''
       try {
-        const res = await api.get(`/reports/${encodeURIComponent(this.resolvedWorkOrder)}`)
+        const [res, tree] = await Promise.all([
+          api.get(`/reports/${encodeURIComponent(this.resolvedWorkOrder)}`),
+          this.loadTree(this.resolvedWorkOrder).catch(() => []),
+        ])
         const isNew = res.status === 204 || !res.data
         this.report = isNew
-          ? newReport(this.resolvedWorkOrder, this.selectedRows)
+          ? newReport(this.resolvedWorkOrder, tree,
+            this.searchResults.find((r) => r.workOrderNumber === this.resolvedWorkOrder))
           : normalizeJoints(res.data)
         this.mode = isNew ? 'new' : 'saved'
         this.confirmed = true
-        this.reportParts = this.selectedRows
+        this.reportParts = tree
         this.markPristine()
         this.ensureRefData()
       } catch {

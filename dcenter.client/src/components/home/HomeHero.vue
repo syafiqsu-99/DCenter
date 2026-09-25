@@ -1,26 +1,14 @@
 <template>
   <section class="hero">
-    <div class="d-flex align-center ga-4 mb-4">
-      <div class="hero__logo"><v-img :src="logo" width="48" height="48" alt="" /></div>
-      <div class="text-overline hero__eyebrow">Emerson · Fisher weld shop</div>
-    </div>
+    <div class="hero__logo"><v-img :src="logo" width="56" height="56" alt="" /></div>
     <h1 class="hero__title">DCenter Operations Hub</h1>
-    <p class="hero__subtitle">Weld shop job reports and welding consumables in one place.</p>
 
-    <div class="d-flex flex-wrap align-center ga-3 mt-6">
+    <div class="d-flex flex-wrap justify-center align-center ga-3">
       <template v-if="store.isSupervisor">
-        <v-chip color="white" variant="outlined" prepend-icon="mdi-shield-account" size="large">
-          Signed in as {{ store.supervisor.name }}
-        </v-chip>
-        <v-btn variant="outlined" color="white" prepend-icon="mdi-logout" @click="store.lockSupervisor()">Log out</v-btn>
+        <span class="hero__user"><v-icon size="18" class="me-1">mdi-shield-account</v-icon>{{ store.supervisor.name }}</span>
+        <v-btn variant="outlined" color="white" size="small" prepend-icon="mdi-logout" @click="store.lockSupervisor()">Log out</v-btn>
       </template>
-      <template v-else>
-        <v-btn size="x-large" color="white" variant="flat" class="text-primary" prepend-icon="mdi-shield-lock-outline"
-               @click="login">
-          Supervisor login
-        </v-btn>
-        <span class="text-body-2 hero__note">Welders can open Report and Consumables without logging in.</span>
-      </template>
+      <v-btn v-else variant="outlined" color="white" prepend-icon="mdi-shield-lock-outline" @click="login">Login</v-btn>
     </div>
   </section>
 </template>
@@ -41,37 +29,33 @@
 
 <style scoped>
   .hero {
-    max-width: 720px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 20px;
+    text-align: center;
     animation: rise 0.4s ease both;
   }
 
   .hero__logo {
     background: #fff;
-    border-radius: 14px;
-    padding: 8px;
+    border-radius: 16px;
+    padding: 10px;
     box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
   }
 
-  .hero__eyebrow {
-    letter-spacing: 0.12em !important;
-    opacity: 0.85;
-  }
-
   .hero__title {
-    font-size: clamp(2rem, 4.5vw, 3.25rem);
-    font-weight: 700;
-    line-height: 1.1;
+    font-size: clamp(1.75rem, 4vw, 2.75rem);
+    font-weight: 600;
+    letter-spacing: 0.01em;
+    line-height: 1.15;
     margin: 0;
   }
 
-  .hero__subtitle {
-    font-size: 1.15rem;
+  .hero__user {
+    display: inline-flex;
+    align-items: center;
     opacity: 0.9;
-    margin: 12px 0 0;
-  }
-
-  .hero__note {
-    opacity: 0.8;
   }
 
   @keyframes rise {

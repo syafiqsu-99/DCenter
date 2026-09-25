@@ -42,7 +42,7 @@
         </v-row>
         <div v-if="filteredRows.length" class="text-caption text-medium-emphasis mt-1">
           Showing {{ filteredRows.length }}{{ hasMoreResults ? '+' : '' }}
-          {{ searchQuery ? 'matching rows' : 'rows' }}<span v-if="hasMoreResults"> — scroll for more</span>.
+          {{ searchQuery ? 'matching work orders' : 'work orders' }}<span v-if="hasMoreResults"> — scroll for more</span>.
         </div>
       </v-card-text>
 
@@ -51,40 +51,20 @@
       <div ref="tableArea" class="card-table-area">
         <v-data-table-virtual v-model:expanded="expanded" :headers="headers" :items="filteredRows" :loading="loadingRows"
                               height="100%" density="compact" fixed-header hover show-expand
-                              item-value="_index" :row-props="workOrderRowProps"
+                              item-value="workOrderNumber" :row-props="workOrderRowProps"
                               :no-data-text="noDataText"
                               @click:row="onRowClick">
           <template #loading>
             <v-skeleton-loader type="table-row@8" />
           </template>
           <template #item.workOrderNumber="{ item }">
-            <strong v-if="item.level === 0">{{ item.workOrderNumber }}</strong>
-            <span v-else class="text-disabled">{{ item.workOrderNumber }}</span>
+            <strong>{{ item.workOrderNumber }}</strong>
           </template>
-          <template #item.level="{ item }">
-            <v-chip size="x-small" label :color="item.level === 0 ? 'primary' : undefined"
-                    :variant="item.level === 0 ? 'flat' : 'tonal'">
-              {{ item.level === 0 ? 'Assembly' : `L${item.level}` }}
-            </v-chip>
-          </template>
-          <template #item.item="{ item }">
-            <span class="tree-cell" :style="{ paddingLeft: `${item.level * 18}px` }">
-              <span v-if="item.level > 0" class="tree-branch">└</span>
-              <span :class="item.level === 0 ? 'font-weight-bold' : ''">{{ item.item || '—' }}</span>
-            </span>
-          </template>
-          <template #item.qty="{ item }">{{ item.level === 0 ? item.qty : '' }}</template>
+          <template #item.assemblyItem="{ item }">{{ item.assemblyItem || '—' }}</template>
           <template #expanded-row="{ columns, item }">
             <tr>
-              <td :colspan="columns.length" class="bg-grey-lighten-5 py-2">
-                <div class="detail-grid text-body-2" :style="{ paddingLeft: `${item.level * 18 + 40}px` }">
-                  <span class="text-medium-emphasis">Item description</span><span>{{ item.itemDesc || '—' }}</span>
-                  <template v-if="item.level > 0">
-                    <span class="text-medium-emphasis">Parent item</span><span>{{ item.parentItem || '—' }}</span>
-                  </template>
-                  <span class="text-medium-emphasis">MRN</span><span>{{ item.mrn || '—' }}</span>
-                  <span class="text-medium-emphasis">MRN description</span><span>{{ item.mrnDesc || '—' }}</span>
-                </div>
+              <td :colspan="columns.length" class="bg-grey-lighten-5 pa-0">
+                <WorkOrderTree :work-order-number="item.workOrderNumber" />
               </td>
             </tr>
           </template>
@@ -174,6 +154,7 @@
   import { storeToRefs } from 'pinia';
   import { useReportStore } from '@/store/reportStore';
   import ConfirmDeleteDialog from '@/components/common/ConfirmDeleteDialog.vue';
+  import WorkOrderTree from '@/components/report/WorkOrderTree.vue';
 
   const store = useReportStore();
   const { searchInput, searchQuery, filteredRows, canSelect, distinctWorkOrders, loadingRows, loading,
@@ -197,18 +178,12 @@
 
   const headers = [
         { title: 'Work Order Number', key: 'workOrderNumber', width: '150px', sortable: false },
-        { title: 'Level', key: 'level', width: '100px', sortable: false },
-        { title: 'Assembly Item / Child Part', key: 'item', sortable: false },
-        { title: 'Qty', key: 'qty', width: '80px', sortable: false },
+        { title: 'Assembly Item', key: 'assemblyItem', sortable: false },
+        { title: 'Qty', key: 'qty', width: '100px', sortable: false },
         { title: '', key: 'data-table-expand', width: '48px' },
   ];
   const expanded = ref([]);
   watch(() => store.searchQuery, () => { expanded.value = []; });
-  const bandOf = computed(() => {
-    const bands = new Map();
-    for (const r of filteredRows.value) if (!bands.has(r.workOrderNumber)) bands.set(r.workOrderNumber, bands.size % 2);
-    return bands;
-  });
 
   const savedHeaders = [
         { title: 'Work Order Number', key: 'workOrderNumber',   width: '130px' },
@@ -236,9 +211,7 @@
       (r.description ?? '').toLowerCase().includes(q))
   });
   const workOrderRowProps = ({ item }) => ({
-    class: selectedWorkOrderRow.value === item._index
-      ? 'bg-blue-grey-lighten-5'
-      : bandOf.value.get(item.workOrderNumber) ? 'wo-band' : '',
+    class: selectedWorkOrderRow.value === item.workOrderNumber ? 'bg-blue-grey-lighten-5' : '',
   });
   const savedRowProps = ({ item }) => ({
     class: selectedSaved.value === item.workOrderNumber ? 'bg-blue-grey-lighten-5' : '',
@@ -266,7 +239,7 @@
   function fmt(iso) { return iso ? new Date(iso).toLocaleString() : ''; }
 
   function onRowClick(_event, { item }) {
-    selectedWorkOrderRow.value = item._index;
+    selectedWorkOrderRow.value = item.workOrderNumber;
     store.setSearchInput(item.workOrderNumber);
   }
 
@@ -278,25 +251,3 @@
 
   onBeforeUnmount(() => scrollEl?.removeEventListener('scroll', onTableScroll));
 </script>
-
-<style scoped>
-  .tree-cell {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-  }
-
-  .tree-branch {
-    color: rgba(0, 0, 0, 0.38);
-  }
-
-  .detail-grid {
-    display: grid;
-    grid-template-columns: max-content 1fr;
-    gap: 2px 16px;
-  }
-
-  :deep(.wo-band) {
-    background: rgba(21, 101, 192, 0.04);
-  }
-</style>

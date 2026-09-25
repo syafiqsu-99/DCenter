@@ -1,34 +1,18 @@
 <template>
   <button type="button" class="module-card" :class="{ 'module-card--locked': locked }"
-          :style="{ animationDelay: `${index * 80}ms` }" :aria-label="`${title}${locked ? ' (supervisor login required)' : ''}`"
+          :style="{ animationDelay: `${index * 80}ms` }" :aria-label="`${title}${locked ? ' (login required)' : ''}`"
           @click="$emit('open')">
-    <div class="d-flex align-center ga-3">
-      <v-avatar :color="color" size="52"><v-icon :icon="icon" size="28" color="white" /></v-avatar>
-      <v-spacer />
-      <v-chip v-if="locked" size="small" color="white" variant="outlined" prepend-icon="mdi-lock">Login required</v-chip>
-    </div>
-    <div class="module-card__title">{{ title }}</div>
-    <div class="module-card__text">{{ description }}</div>
-    <div class="d-flex flex-wrap ga-2 mt-auto pt-4 module-card__stats">
-      <template v-if="loading">
-        <v-skeleton-loader v-for="n in 2" :key="n" type="chip" class="stat-skeleton" />
-      </template>
-      <slot v-else />
-    </div>
-    <div class="module-card__cta">
-      {{ locked ? 'Log in to open' : 'Open' }} <v-icon size="small">mdi-arrow-right</v-icon>
-    </div>
+    <v-icon v-if="locked" class="module-card__lock" size="18">mdi-lock</v-icon>
+    <v-icon :icon="icon" size="40" />
+    <span class="module-card__title">{{ title }}</span>
   </button>
 </template>
 
 <script setup>
   defineProps({
     title: { type: String, required: true },
-    description: { type: String, required: true },
     icon: { type: String, required: true },
-    color: { type: String, default: 'primary' },
     locked: { type: Boolean, default: false },
-    loading: { type: Boolean, default: false },
     index: { type: Number, default: 0 },
   })
   defineEmits(['open'])
@@ -36,12 +20,15 @@
 
 <style scoped>
   .module-card {
+    position: relative;
     display: flex;
     flex-direction: column;
-    text-align: left;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    width: 160px;
+    height: 150px;
     color: #fff;
-    min-height: 240px;
-    padding: 24px;
     border-radius: 16px;
     border: 1px solid rgba(255, 255, 255, 0.22);
     background: rgba(255, 255, 255, 0.1);
@@ -53,8 +40,8 @@
 
   .module-card:hover {
     transform: translateY(-4px);
-    background: rgba(255, 255, 255, 0.16);
-    border-color: rgba(255, 255, 255, 0.4);
+    background: rgba(255, 255, 255, 0.18);
+    border-color: rgba(255, 255, 255, 0.45);
   }
 
   .module-card:focus-visible {
@@ -63,40 +50,18 @@
   }
 
   .module-card--locked {
-    background: rgba(255, 255, 255, 0.06);
+    opacity: 0.75;
+  }
+
+  .module-card__lock {
+    position: absolute;
+    top: 10px;
+    right: 10px;
   }
 
   .module-card__title {
-    font-size: 1.35rem;
-    font-weight: 700;
-    margin-top: 16px;
-  }
-
-  .module-card__text {
-    opacity: 0.85;
-    margin-top: 6px;
-  }
-
-  .module-card__stats :deep(.v-chip) {
-    color: #fff;
-  }
-
-  .stat-skeleton {
-    background: transparent;
-  }
-
-  .stat-skeleton :deep(.v-skeleton-loader__chip) {
-    margin: 0;
-    width: 110px;
-    background: rgba(255, 255, 255, 0.18);
-  }
-
-  .module-card__cta {
-    margin-top: 16px;
+    font-size: 1.05rem;
     font-weight: 600;
-    display: flex;
-    align-items: center;
-    gap: 4px;
   }
 
   @keyframes card-in {
