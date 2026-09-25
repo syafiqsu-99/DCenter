@@ -71,6 +71,15 @@ function matches(terms, values) {
   return terms.every((t) => values.some((v) => (v ?? '').toString().toLowerCase().includes(t)))
 }
 
+const HTML_RESPONSE = 'The server returned a web page instead of the expected data. Rebuild and restart the DCenter server, then try again.'
+
+function ensureNotHtml(data) {
+  const isHtml = (typeof Blob !== 'undefined' && data instanceof Blob && (data.type ?? '').includes('text/html'))
+    || (typeof data === 'string' && /^\s*<(!doctype|html)/i.test(data))
+  if (isHtml) throw { response: { data: HTML_RESPONSE } }
+  return data
+}
+
 function searchTerms(text) {
   return (text ?? '').trim().toLowerCase().split(/\s+/).filter(Boolean)
 }
@@ -243,13 +252,14 @@ export const useConsumableStore = defineStore('consumables', {
 
     async exportItems(template = false) {
       const { data } = await api.get('/consumables/items/export', { params: { template }, responseType: 'blob' })
-      return data
+      return ensureNotHtml(data)
     },
 
     async importItems(file, { commit = false, skipInvalid = false } = {}) {
       const form = new FormData()
       form.append('file', file)
       const { data } = await api.post('/consumables/items/import', form, { params: { commit, skipInvalid } })
+      ensureNotHtml(data)
       if (data.committed) {
         this.stale()
         useLookupStore().load(true).catch(() => {})
@@ -259,13 +269,14 @@ export const useConsumableStore = defineStore('consumables', {
 
     async stockTemplate() {
       const { data } = await api.get('/consumables/stock-import/template', { responseType: 'blob' })
-      return data
+      return ensureNotHtml(data)
     },
 
     async importStock(file, { commit = false, skipInvalid = false } = {}) {
       const form = new FormData()
       form.append('file', file)
       const { data } = await api.post('/consumables/stock-import', form, { params: { commit, skipInvalid } })
+      ensureNotHtml(data)
       if (data.committed) {
         this.stale()
         useLookupStore().load(true).catch(() => {})

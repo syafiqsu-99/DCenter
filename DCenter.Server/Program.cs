@@ -93,6 +93,8 @@ if (app.Environment.IsDevelopment())
 app.UseHttpsRedirection();
 app.UseAuthorization();
 app.MapControllers();
+app.Map("api/{**path}", () => Results.NotFound(
+    "This API endpoint does not exist on the server. Rebuild and restart the server so it includes the latest features."));
 
 if (Directory.Exists(clientDist))
 {

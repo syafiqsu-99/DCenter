@@ -36,7 +36,7 @@ async function request(method, url, { params, body, headers, responseType } = {}
   }
 
   const res = await fetch(buildUrl(url, params), { method, headers: finalHeaders, body: payload });
-  const data = res.status === 204 ? null : await parseBody(res, responseType);
+  const data = res.status === 204 ? null : await parseBody(res, res.ok ? responseType : undefined);
 
   if (res.status === 401 && finalHeaders[SUPERVISOR_HEADER] && url !== '/supervisor/login') defaults.onUnauthorized?.();
 
