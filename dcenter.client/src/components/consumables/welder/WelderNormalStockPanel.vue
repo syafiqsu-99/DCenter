@@ -7,7 +7,7 @@
       <v-spacer />
       <v-text-field v-model="search" prepend-inner-icon="mdi-magnify" label="Find electrode" clearable variant="outlined"
                     density="compact" hide-details style="max-width:260px; min-width:200px;" />
-      <v-btn color="purple" variant="flat" prepend-icon="mdi-fire" :disabled="!selectedRows.length" @click="bulkOpen = true">
+      <v-btn color="purple" variant="flat" prepend-icon="mdi-fire" :disabled="!selectedRows.length" @click="openSelected">
         Send selected ({{ selectedRows.length }})
       </v-btn>
       <v-btn variant="text" prepend-icon="mdi-refresh" :loading="loading" @click="load">Refresh</v-btn>
@@ -37,7 +37,8 @@
                         :error="!validQty(item)" :aria-label="`Quantity of ${item.diaSpec} to bake`" />
         </template>
         <template #item.actions="{ item }">
-          <v-btn color="purple" variant="tonal" prepend-icon="mdi-fire" :disabled="item.normalKg <= 0" @click="openBake(item)">
+          <v-btn color="purple" variant="tonal" prepend-icon="mdi-fire" :disabled="item.normalKg <= 0 || !validQty(item)"
+                 @click="openBake(item)">
             Send to baking
           </v-btn>
         </template>
@@ -45,8 +46,7 @@
     </div>
   </v-card>
 
-  <SendToBakeDialog v-model="bakeOpen" :item="single" @saved="onSent" />
-  <BulkSendToBakeDialog v-model="bulkOpen" :items="selectedRows" @saved="onSent" />
+  <BulkSendToBakeDialog v-model="bulkOpen" :items="bulkRows" @saved="onSent" />
 </template>
 
 <script setup>
@@ -55,7 +55,6 @@
   import { useFillHeight } from '@/composables/useFillHeight'
   import { useConsumableStore } from '@/store/consumableStore'
   import { ELECTRODE, errorText, kg } from '@/utils/consumables'
-  import SendToBakeDialog from '@/components/consumables/baking/SendToBakeDialog.vue'
   import BulkSendToBakeDialog from '@/components/consumables/baking/BulkSendToBakeDialog.vue'
 
   const emit = defineEmits(['sent'])
@@ -69,9 +68,8 @@
   const loading = ref(false)
   const error = ref('')
   const search = ref('')
-  const bakeOpen = ref(false)
   const bulkOpen = ref(false)
-  const single = ref(null)
+  const bulkRows = ref([])
 
   const headers = [
     { title: 'Electrode', key: 'diaSpec', width: '34%' },
@@ -109,8 +107,13 @@
   }
 
   function openBake(r) {
-    single.value = { ...r }
-    bakeOpen.value = true
+    bulkRows.value = [{ ...r, qty: Number(qty.value[r.itemId]) }]
+    bulkOpen.value = true
+  }
+
+  function openSelected() {
+    bulkRows.value = selectedRows.value
+    bulkOpen.value = true
   }
 
   async function onSent(result) {

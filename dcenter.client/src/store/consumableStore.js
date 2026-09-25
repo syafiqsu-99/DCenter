@@ -110,6 +110,7 @@ export const useConsumableStore = defineStore('consumables', {
     loadingLotStock: false,
 
     inventoryFilters: { search: '', category: ALL, lowOnly: false, refillOnly: false, includeZero: false, view: 'items' },
+    keepInventoryFilters: false,
 
     counterWelder: null,
     counterCategory: ALL,
@@ -231,6 +232,13 @@ export const useConsumableStore = defineStore('consumables', {
         this.lockSupervisor()
         return false
       }
+    },
+
+    async loadMonthConsumption(month) {
+      const { data } = await api.get('/consumables/dashboard/consumption', {
+        params: { month, category: categoryParam(this.dashboardCategory) },
+      })
+      return data
     },
 
     async loadNormalStock(category) {
@@ -566,6 +574,14 @@ export const useConsumableStore = defineStore('consumables', {
     showInventory(patch) {
       Object.assign(this.inventoryFilters,
         { search: '', category: ALL, lowOnly: false, refillOnly: false, includeZero: false, view: 'items' }, patch)
+      this.keepInventoryFilters = true
+    },
+
+    enterStock() {
+      if (!this.keepInventoryFilters) {
+        Object.assign(this.inventoryFilters, { search: '', category: ALL, lowOnly: false, refillOnly: false })
+      }
+      this.keepInventoryFilters = false
     },
   },
 })

@@ -311,7 +311,7 @@ public class ConsumableQueryService(WeldReportContext db, ConsumableLedger ledge
 
         var months = Enumerable.Range(0, 12).Select(first.AddMonths).ToList();
         var inOut = months
-            .Select(m => new MonthInOut(MonthLabel(m), Sum(m.Year, m.Month, Cat.TxnReceive), NetOut(m.Year, m.Month)))
+            .Select(m => new MonthInOut(MonthLabel(m), Sum(m.Year, m.Month, Cat.TxnReceive), NetOut(m.Year, m.Month), m))
             .ToList();
         string[] categories = cat is null ? Cat.Categories : [cat];
         var consumption = categories
@@ -338,6 +338,39 @@ public class ConsumableQueryService(WeldReportContext db, ConsumableLedger ledge
         var usage = await ItemUsageAsync(cat, monthStart, today, balances, ct);
 
         return ServiceResult<DashboardDto>.Ok(new DashboardDto(kpis, inOut, consumption, balances, usage));
+    }
+
+    public async Task<ServiceResult<List<ItemMonthUsageDto>>> GetMonthConsumptionAsync(
+        DateOnly month, string? category, CancellationToken ct)
+    {
+        if (!T.TryCategoryFilter(category, out var cat))
+            return ServiceResult<List<ItemMonthUsageDto>>.Fail("Unknown consumable type.");
+
+        var start = new DateOnly(month.Year, month.Month, 1);
+        var end = start.AddMonths(1);
+        var q = ledger.Live().Where(m => m.TxnDate >= start && m.TxnDate < end
+            && (m.TxnType == Cat.TxnIssue || m.TxnType == Cat.TxnReturn || m.TxnType == Cat.TxnFinish));
+        if (cat is not null) q = q.Where(m => m.Lot.Item.Category == cat);
+
+        var rows = await q
+            .GroupBy(m => new { m.Lot.ItemId, m.Lot.Item.Category, m.Lot.Item.Diameter, m.Lot.Item.Specification })
+            .Select(g => new
+            {
+                g.Key.ItemId,
+                g.Key.Category,
+                g.Key.Diameter,
+                g.Key.Specification,
+                Picked = g.Sum(m => m.TxnType == Cat.TxnIssue ? m.QuantityKg : 0m),
+                Returned = g.Sum(m => m.TxnType == Cat.TxnReturn ? m.QuantityKg : 0m),
+                Finished = g.Sum(m => m.TxnType == Cat.TxnFinish ? m.QuantityKg : 0m),
+            })
+            .ToListAsync(ct);
+
+        return ServiceResult<List<ItemMonthUsageDto>>.Ok(rows
+            .Select(r => new ItemMonthUsageDto(r.ItemId, r.Category, Cat.DiaSpec(r.Diameter, r.Specification),
+                r.Picked, r.Returned, r.Finished, r.Picked - r.Returned + r.Finished))
+            .OrderByDescending(r => r.NetKg).ThenBy(r => r.DiaSpec)
+            .ToList());
     }
 
     private async Task<List<ItemUsageDto>> ItemUsageAsync(

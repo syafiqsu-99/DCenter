@@ -76,23 +76,19 @@
   const itemId = computed(() => props.item?.itemId ?? picked.value?.id ?? null)
   const picOptions = computed(() => options.value?.ConsumablePIC ?? [])
   const normalLots = computed(() => lots.value.filter((l) => l.normalKg > 0))
-  const lotOptions = computed(() => [
-    { title: 'Auto — oldest lot first (one baking record per lot)', value: null },
-    ...normalLots.value.map((l) => ({ title: `${l.lotNumber} · ${l.brand} · ${kg(l.normalKg)} kg`, value: l.lotId })),
-  ])
-  const available = computed(() =>
-    lotId.value === null
-      ? normalLots.value.reduce((sum, l) => sum + l.normalKg, 0)
-      : normalLots.value.find((l) => l.lotId === lotId.value)?.normalKg ?? 0)
+  const lotOptions = computed(() =>
+    normalLots.value.map((l) => ({ title: `${l.lotNumber} · ${l.brand} · ${kg(l.normalKg)} kg`, value: l.lotId })))
+  const available = computed(() => normalLots.value.find((l) => l.lotId === lotId.value)?.normalKg ?? 0)
   const canSave = computed(() =>
-    !!itemId.value && Number(qty.value) > 0 && Number(qty.value) <= available.value && !!(pic.value ?? '').trim() && store.hasEnteredBy)
+    !!itemId.value && lotId.value !== null && Number(qty.value) > 0 && Number(qty.value) <= available.value && !!(pic.value ?? '').trim() && store.hasEnteredBy)
 
   async function loadLots(id) {
     lots.value = []
     if (!id) return
     loadingLots.value = true
     try {
-      lots.value = await store.lotBalances(id)
+      lots.value = [...await store.lotBalances(id)].sort((a, b) => a.lotId - b.lotId)
+      lotId.value = normalLots.value[0]?.lotId ?? null
     } catch (e) {
       error.value = errorText(e, 'Could not load the lots.')
     } finally {

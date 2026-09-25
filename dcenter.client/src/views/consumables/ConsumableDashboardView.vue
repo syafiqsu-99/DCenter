@@ -6,8 +6,8 @@
     <InventoryByItemChart />
     <v-row dense>
       <v-col cols="12"><ItemUsageTable /></v-col>
-      <v-col cols="12" lg="6"><MonthlyConsumptionChart /></v-col>
-      <v-col cols="12" lg="6"><StockInOutChart /></v-col>
+      <v-col cols="12"><MonthlyConsumptionChart /></v-col>
+      <v-col cols="12"><StockInOutChart /></v-col>
     </v-row>
   </div>
 </template>

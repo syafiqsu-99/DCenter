@@ -35,7 +35,7 @@ async function request(method, url, { params, body, headers, responseType } = {}
     delete finalHeaders['Content-Type'];
   }
 
-  const res = await fetch(buildUrl(url, params), { method, headers: finalHeaders, body: payload });
+  const res = await fetch(buildUrl(url, params), { method, headers: finalHeaders, body: payload, cache: 'no-store' });
   const data = res.status === 204 ? null : await parseBody(res, res.ok ? responseType : undefined);
 
   if (res.status === 401 && finalHeaders[SUPERVISOR_HEADER] && url !== '/supervisor/login') defaults.onUnauthorized?.();

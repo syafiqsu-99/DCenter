@@ -49,7 +49,7 @@
   const shown = computed(() => {
     if (mode.value === 'low') return [...lowRows.value].sort(byCoverage)
     if (mode.value === 'high') return [...rows.value].sort((a, b) => b.totalKg - a.totalKg).slice(0, FIT_COUNT)
-    return [...rows.value].sort(byCoverage)
+    return [...rows.value].sort((a, b) => b.totalKg - a.totalKg)
   })
 
   const chartWidth = computed(() => (shown.value.length > FIT_COUNT ? `${shown.value.length * BAR_SLOT_PX}px` : '100%'))

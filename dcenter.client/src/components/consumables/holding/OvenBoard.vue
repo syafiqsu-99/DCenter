@@ -56,7 +56,7 @@
         </div>
         <OvenLayout :oven="oven" :is-match="searching ? isMatch : null"
                     :class="readonly ? undefined : 'oven-panel__layout oven-layout--fill'"
-                    @select="openDrawer(oven, $event)" />
+                    @select="onSelect(oven, $event)" />
       </section>
     </div>
   </div>
@@ -74,7 +74,11 @@
   import CompartmentDrawer from '@/components/consumables/holding/CompartmentDrawer.vue'
   import MoveDialog from '@/components/consumables/holding/MoveDialog.vue'
 
-  defineProps({ readonly: { type: Boolean, default: false } })
+  const props = defineProps({
+    readonly: { type: Boolean, default: false },
+    useMode: { type: Boolean, default: false },
+  })
+  const emit = defineEmits(['use'])
 
   const store = useConsumableStore()
   const field = { variant: 'outlined', density: 'compact', hideDetails: true }
@@ -112,6 +116,11 @@
     } catch (e) {
       error.value = errorText(e, 'Could not load the holding ovens.')
     }
+  }
+
+  function onSelect(oven, c) {
+    if (!props.useMode) return openDrawer(oven, c)
+    if (c.contents.length) emit('use', { oven, compartment: c })
   }
 
   function openDrawer(oven, c) {

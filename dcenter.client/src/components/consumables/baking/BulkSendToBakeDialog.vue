@@ -1,6 +1,6 @@
 <template>
   <v-dialog :model-value="modelValue" max-width="720" persistent scrollable @update:model-value="close">
-    <v-card prepend-icon="mdi-fire" title="Send selected to baking"
+    <v-card prepend-icon="mdi-fire" title="Confirm send to baking"
             :subtitle="`${lines.length} electrode(s) · ${kg(totalKg)} kg · oldest lot first, one baking record per lot`">
       <v-divider />
       <v-card-text>
@@ -49,7 +49,7 @@
         <v-spacer />
         <v-btn variant="text" :disabled="saving" @click="close(false)">Cancel</v-btn>
         <v-btn color="purple" variant="flat" prepend-icon="mdi-fire" :loading="saving" :disabled="!canSave" @click="submit">
-          {{ error ? 'Retry' : `Send ${lines.length} to baking` }}
+          {{ error ? 'Retry' : `Confirm — send ${lines.length} to baking` }}
         </v-btn>
       </v-card-actions>
     </v-card>

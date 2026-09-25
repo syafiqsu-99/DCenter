@@ -203,6 +203,7 @@
       store.rememberReceiveHeader({ source: form.source })
       snackbarText.value = `${result.txnNo} saved — Normal balance ${kg(result.balance.normalKg)} kg`
       snackbar.value = true
+      picker.value?.reload()
       form.lotNumber = ''
       form.quantityKg = null
       form.remarks = ''

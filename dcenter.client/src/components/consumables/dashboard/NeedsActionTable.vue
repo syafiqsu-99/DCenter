@@ -38,7 +38,7 @@
       <template #item.lastIssuedOn="{ item }">{{ fmtDate(item.lastIssuedOn) || '—' }}</template>
       <template #item.go="{ item }">
         <v-btn size="small" variant="tonal" color="primary" append-icon="mdi-arrow-right" @click="open(item)">
-          {{ item.needsRefill && item.normalKg > 0 ? (item.category === ELECTRODE ? 'Bake' : 'Activate') : 'Open' }}
+          {{ item.needsRefill && item.normalKg > 0 ? 'Activate' : 'Open' }}
         </v-btn>
       </template>
     </v-data-table-virtual>
@@ -57,8 +57,8 @@
 
   const rows = computed(() =>
     (store.dashboard?.balances ?? [])
+      .map((r) => ({ ...r, needsRefill: r.needsRefill && r.category !== ELECTRODE, shortfall: Math.max(r.minStockKg - r.totalKg, 0) }))
       .filter((r) => r.isLow || r.needsRefill)
-      .map((r) => ({ ...r, shortfall: Math.max(r.minStockKg - r.totalKg, 0) }))
       .sort((a, b) => Number(b.isLow) - Number(a.isLow) || b.shortfall - a.shortfall || a.diaSpec.localeCompare(b.diaSpec)))
 
   const reorderCount = computed(() => rows.value.filter((r) => r.isLow).length)

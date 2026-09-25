@@ -8,6 +8,9 @@
       <span v-if="store.balanceTotals.lowCount" class="text-warning">
         <v-icon size="small">mdi-alert</v-icon> {{ store.balanceTotals.lowCount }} low stock
       </span>
+      <span v-if="hiddenCount" class="text-caption text-medium-emphasis">
+        {{ hiddenCount }} consumable(s) hidden by filters
+      </span>
       <v-spacer />
       <span v-if="electrodeNote" class="text-caption text-medium-emphasis">
         Electrodes: send to baking here, then place and manage them in
@@ -107,6 +110,8 @@
     { title: '', key: 'actions', sortable: false, align: 'end', width: '26%' },
     { title: '', key: 'data-table-expand', width: '3%' },
   ]
+
+  const hiddenCount = computed(() => store.balances.length - store.filteredBalances.length)
 
   const electrodeNote = computed(() =>
     !store.catalog.allowElectrodeDirectTransfer && store.filteredBalances.some((r) => r.category === ELECTRODE))

@@ -14,6 +14,8 @@
                 density="compact" hide-details inset />
       <v-switch v-else v-model="filters.includeZero" label="Include empty lots" color="primary" density="compact"
                 hide-details inset @update:model-value="reload" />
+      <v-chip v-if="filtered" color="warning" variant="tonal" closable prepend-icon="mdi-filter-remove-outline"
+              @click="clearFilters" @click:close="clearFilters">Clear filters</v-chip>
       <v-spacer />
       <v-btn variant="tonal" prepend-icon="mdi-refresh" :loading="loading" @click="reload">Refresh</v-btn>
       <v-btn variant="text" prepend-icon="mdi-file-delimited-outline" @click="exportCsv">Export CSV</v-btn>
@@ -31,6 +33,13 @@
   const filters = store.inventoryFilters
   const field = { variant: 'outlined', density: 'compact', hideDetails: true }
   const error = ref('')
+
+  const filtered = computed(() =>
+    !!(filters.search ?? '').trim() || filters.category !== ALL || filters.lowOnly || filters.refillOnly)
+
+  function clearFilters() {
+    Object.assign(filters, { search: '', category: ALL, lowOnly: false, refillOnly: false })
+  }
 
   const loading = computed(() => (filters.view === 'items' ? store.loadingBalances : store.loadingLotStock))
 
@@ -67,5 +76,5 @@
   }
 
   watch(() => filters.view, () => load(false))
-  onMounted(() => load(false))
+  onMounted(() => load(true))
 </script>

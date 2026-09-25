@@ -136,6 +136,12 @@ public class ConsumablesController(
     public async Task<ActionResult<DashboardDto>> Dashboard([FromQuery] string? category, CancellationToken ct)
         => ToAction(await queries.GetDashboardAsync(category, ct));
 
+    [HttpGet("dashboard/consumption")]
+    [SupervisorOnly]
+    public async Task<ActionResult<List<ItemMonthUsageDto>>> MonthConsumption(
+        [FromQuery] DateOnly month, [FromQuery] string? category, CancellationToken ct)
+        => ToAction(await queries.GetMonthConsumptionAsync(month, category, ct));
+
     [HttpGet("items/export")]
     [SupervisorOnly]
     public async Task<IActionResult> ExportItems([FromQuery] bool template = false, CancellationToken ct = default)

@@ -108,7 +108,10 @@ public record DashboardKpis(
     int OccupiedCompartments, int TotalCompartments, decimal ReceivedThisMonthKg, decimal NetConsumedThisMonthKg,
     int LowStockCount, int RefillCount, string MonthLabel, DateOnly MonthStart, DateOnly Today);
 
-public record MonthInOut(string Month, decimal InKg, decimal OutKg);
+public record MonthInOut(string Month, decimal InKg, decimal OutKg, DateOnly Start);
+
+public record ItemMonthUsageDto(
+    int ItemId, string Category, string DiaSpec, decimal PickedKg, decimal ReturnedKg, decimal FinishedKg, decimal NetKg);
 
 public record CategorySeries(string Category, List<decimal> Values);
 

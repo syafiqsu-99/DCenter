@@ -52,7 +52,7 @@
             </v-chip>
             <v-chip v-if="isPickup" size="small" :color="takeAll ? 'info' : undefined" :variant="takeAll ? 'flat' : 'tonal'"
                     :disabled="available <= 0" prepend-icon="mdi-select-all" @click="toggleTakeAll">
-              Take all ({{ kg(available) }})
+              Take all of lot {{ selectedLotNumber }} ({{ kg(available) }})
             </v-chip>
           </v-col>
 
@@ -119,25 +119,24 @@
 
   const lotOptions = computed(() => {
     if (isPickup.value) {
-      return [
-        { title: 'Auto — oldest lot first', value: null },
-        ...pickupLots.value.map((l) => ({ title: `${l.lotNumber} · ${l.brand} · ${kg(l.activatedKg)} kg`, value: l.lotId })),
-      ]
+      return pickupLots.value.map((l) => ({ title: `${l.lotNumber} · ${l.brand} · ${kg(l.activatedKg)} kg`, value: l.lotId }))
     }
-    return [
-      { title: 'Auto — last lot this welder picked', value: null },
-      ...returnLots.value.map((l) => ({ title: `${l.lotNumber} · ${l.brand}`, value: l.id })),
-    ]
+    return returnLots.value.map((l) => ({ title: `${l.lotNumber} · ${l.brand}`, value: l.id }))
   })
 
   const available = computed(() => {
     if (!isPickup.value || !props.item) return 0
-    if (lotId.value === null) return pickupLots.value.reduce((sum, l) => sum + l.activatedKg, 0)
     return pickupLots.value.find((l) => l.lotId === lotId.value)?.activatedKg ?? 0
   })
 
+  const selectedLotNumber = computed(() => pickupLots.value.find((l) => l.lotId === lotId.value)?.lotNumber ?? '')
+
+  watch(lotId, () => {
+    if (takeAll.value) qty.value = available.value
+  })
+
   const canSave = computed(() => {
-    if (!props.welder || !itemId.value || !store.hasEnteredBy) return false
+    if (!props.welder || !itemId.value || !store.hasEnteredBy || lotId.value === null) return false
     if (isPickup.value && isElectrode.value && !bin.value) return false
     if (!isPickup.value && isElectrode.value && returnTarget.value === 'compartment' && !compartmentId.value) return false
     if (isPickup.value && takeAll.value) return available.value > 0
@@ -159,11 +158,13 @@
     const bins = props.item?.bins ?? []
     const preferred = bins.find((b) => b.compartmentId === props.item?.lastCompartmentId) ?? bins[0]
     binKey.value = preferred ? preferred.compartmentId ?? 0 : 0
-    if (!isPickup.value) {
+    if (isPickup.value) {
+      lotId.value = firstLot()
+    } else {
       store.loadOvens(true)
       if (props.item) {
         await loadReturnLots(props.item.itemId)
-        lotId.value = props.item.lastLotId ?? null
+        lotId.value = returnLots.value.some((l) => l.id === props.item.lastLotId) ? props.item.lastLotId : returnLots.value[0]?.id ?? null
       }
     }
     await nextTick()
@@ -174,8 +175,15 @@
     lotId.value = null
     compartmentId.value = null
     returnLots.value = []
-    if (value && !isPickup.value) await loadReturnLots(value.id)
+    if (value && !isPickup.value) {
+      await loadReturnLots(value.id)
+      lotId.value = returnLots.value[0]?.id ?? null
+    }
   })
+
+  function firstLot() {
+    return pickupLots.value[0]?.lotId ?? null
+  }
 
   async function loadReturnLots(id) {
     loadingLots.value = true
@@ -190,7 +198,7 @@
 
   function selectBin(b) {
     binKey.value = b.compartmentId ?? 0
-    lotId.value = null
+    lotId.value = firstLot()
     if (takeAll.value) qty.value = available.value
   }
 

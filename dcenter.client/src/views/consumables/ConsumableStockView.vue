@@ -13,4 +13,5 @@
   import LotStockTable from '@/components/consumables/inventory/LotStockTable.vue'
 
   const store = useConsumableStore()
+  store.enterStock()
 </script>

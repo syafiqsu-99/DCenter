@@ -53,5 +53,5 @@
   watch(() => props.category, () => load(''))
   onMounted(() => load(''))
 
-  defineExpose({ focus: () => field.value?.focus() })
+  defineExpose({ focus: () => field.value?.focus(), reload: () => load('') })
 </script>
