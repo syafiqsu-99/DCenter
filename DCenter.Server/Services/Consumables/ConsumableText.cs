@@ -32,8 +32,6 @@ internal static partial class ConsumableText
         return v is null ? null : v.Length <= maxLength ? v : v[..maxLength];
     }
 
-    public static string? Specification(string? raw) => Collapse(raw)?.ToUpperInvariant();
-
     private static readonly Regex MeshPattern = new(@"^(\d{1,4})/(\d{1,4})$", RegexOptions.CultureInvariant);
 
     public static string? Diameter(string? raw, string? category)

@@ -17,7 +17,21 @@ public class ConsumableItemService(WeldReportContext db, ConsumableLedger ledger
     public const string LookupSize = "Size";
     public const string LookupType = "Type";
 
-    public (ItemInput? Value, string? Error) Normalize(ItemUpsert? dto)
+    public async Task<Dictionary<string, string>> SpecificationNamesAsync(CancellationToken ct)
+    {
+        var fromLookups = await db.Lookups.AsNoTracking()
+            .Where(l => l.Category == LookupType)
+            .OrderBy(l => l.SortOrder).ThenBy(l => l.Id)
+            .Select(l => l.Value)
+            .ToListAsync(ct);
+        var fromItems = await db.ConsumableItems.AsNoTracking().Select(i => i.Specification).ToListAsync(ct);
+        var names = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var value in fromLookups.Concat(fromItems))
+            if (T.Collapse(value) is string collapsed) names.TryAdd(collapsed, collapsed);
+        return names;
+    }
+
+    public (ItemInput? Value, string? Error) Normalize(ItemUpsert? dto, IReadOnlyDictionary<string, string> specifications)
     {
         if (dto is null) return (null, "Consumable details are required.");
 
@@ -25,7 +39,7 @@ public class ConsumableItemService(WeldReportContext db, ConsumableLedger ledger
         if (category is null)
             return (null, T.OptionError("Consumable Type", dto.Category, Cat.Categories, T.MatchOption(dto.Category, Cat.Categories).Suggestion));
 
-        var specification = T.Specification(dto.Specification);
+        var specification = T.Collapse(dto.Specification) is string typed ? specifications.GetValueOrDefault(typed, typed) : null;
         if (specification is null || specification.Length > 100)
             return (null, "Electrode Specification is required (max 100 characters).");
 
@@ -80,7 +94,7 @@ public class ConsumableItemService(WeldReportContext db, ConsumableLedger ledger
 
     public async Task<ServiceResult<ItemDto>> UpsertAsync(int? id, ItemUpsert dto, CancellationToken ct)
     {
-        var (n, error) = Normalize(dto);
+        var (n, error) = Normalize(dto, await SpecificationNamesAsync(ct));
         if (n is null) return ServiceResult<ItemDto>.Fail(error!);
 
         await using var tx = await db.Database.BeginTransactionAsync(ct);
@@ -98,7 +112,8 @@ public class ConsumableItemService(WeldReportContext db, ConsumableLedger ledger
             item = await db.ConsumableItems.FirstOrDefaultAsync(i => i.Id == existingId, ct);
             if (item is null) return ServiceResult<ItemDto>.Fail("Consumable not found.", StatusCodes.Status404NotFound);
 
-            var changesIdentity = item.Category != n.Category || item.Specification != n.Specification || item.Diameter != n.Diameter;
+            var changesIdentity = item.Category != n.Category || item.Diameter != n.Diameter
+                || !string.Equals(item.Specification, n.Specification, StringComparison.OrdinalIgnoreCase);
             if (changesIdentity && await db.ConsumableMovements.AnyAsync(m => m.Lot.ItemId == existingId, ct))
                 return ServiceResult<ItemDto>.Fail(
                     "Type, specification and diameter cannot change once stock has been recorded. Create a new consumable instead.");

@@ -105,9 +105,10 @@ public class StockImportService(WeldReportContext db, ConsumableItemService item
             .GroupBy(b => b.CompartmentId!.Value)
             .ToDictionary(g => g.Key, g => g.Select(b => keyById.GetValueOrDefault(b.ItemId, $"#{b.ItemId}")).ToHashSet());
         var newItems = new Dictionary<string, ItemInput>();
+        var specifications = await items.SpecificationNamesAsync(ct);
 
         var plan = parsed.Skip(1)
-            .Select(r => PlanRow(r, columns, existing, brands, occupants, newItems))
+            .Select(r => PlanRow(r, columns, existing, brands, occupants, newItems, specifications))
             .ToList();
 
         var ready = plan.Count(p => p.Row.Status is StatusReady or StatusNew);
@@ -199,7 +200,8 @@ public class StockImportService(WeldReportContext db, ConsumableItemService item
 
     private Planned PlanRow(
         CsvText.Row r, Dictionary<Col, int> columns, Dictionary<string, ConsumableItem> existing, Dictionary<string, string> brands,
-        Dictionary<int, HashSet<string>> occupants, Dictionary<string, ItemInput> newItems)
+        Dictionary<int, HashSet<string>> occupants, Dictionary<string, ItemInput> newItems,
+        IReadOnlyDictionary<string, string> specifications)
     {
         var messages = new List<string>();
         string? Cell(Col c) => columns.TryGetValue(c, out var i) && i < r.Fields.Count
@@ -228,7 +230,7 @@ public class StockImportService(WeldReportContext db, ConsumableItemService item
         var rawSpec = Cell(Col.Specification);
         var rawDiameter = Cell(Col.Diameter);
         var rawOven = Cell(Col.OvenType);
-        var (input, itemError) = items.Normalize(new ItemUpsert(rawCategory, rawSpec, rawDiameter, 0m, 0m, null, true, rawOven));
+        var (input, itemError) = items.Normalize(new ItemUpsert(rawCategory, rawSpec, rawDiameter, 0m, 0m, null, true, rawOven), specifications);
         string? itemKey = null;
         ConsumableItem? current = null;
         if (input is null) messages.Add(itemError!);

@@ -94,7 +94,8 @@ public class ConsumableImportService(WeldReportContext db, ConsumableItemService
             .ToDictionary(i => Key(i.Specification, i.Diameter), i => new Existing(i, stocked.Contains(i.Id), inOven.Contains(i.Id)));
 
         var seen = new Dictionary<string, int>();
-        var plan = parsed.Skip(1).Select(r => PlanRow(r, columns, existing, seen)).ToList();
+        var specifications = await items.SpecificationNamesAsync(ct);
+        var plan = parsed.Skip(1).Select(r => PlanRow(r, columns, existing, seen, specifications)).ToList();
 
         var created = plan.Count(p => p.Action == ActionCreate);
         var updated = plan.Count(p => p.Action == ActionUpdate);
@@ -134,7 +135,9 @@ public class ConsumableImportService(WeldReportContext db, ConsumableItemService
         return ServiceResult<ImportResultDto>.Ok(new ImportResultDto(true, plan.Count, created, updated, unchanged, rejected, rows, []));
     }
 
-    private Planned PlanRow(CsvText.Row r, Dictionary<Col, int> columns, Dictionary<string, Existing> existing, Dictionary<string, int> seen)
+    private Planned PlanRow(
+        CsvText.Row r, Dictionary<Col, int> columns, Dictionary<string, Existing> existing, Dictionary<string, int> seen,
+        IReadOnlyDictionary<string, string> specifications)
     {
         var messages = new List<string>();
         string? Cell(Col c) => columns.TryGetValue(c, out var i) && i < r.Fields.Count ? CsvText.Unguard(r.Fields[i].Trim()) : null;
@@ -143,7 +146,7 @@ public class ConsumableImportService(WeldReportContext db, ConsumableItemService
         var rawCategory = Cell(Col.Category);
         var rawSpec = Cell(Col.Specification);
         var rawDiameter = Cell(Col.Diameter);
-        var provisional = T.Specification(rawSpec);
+        var provisional = T.Collapse(rawSpec);
         var provisionalDia = T.Diameter(rawDiameter, null);
         existing.TryGetValue(Key(provisional ?? string.Empty, provisionalDia ?? string.Empty), out var match);
         var current = match?.Item;
@@ -178,7 +181,7 @@ public class ConsumableImportService(WeldReportContext db, ConsumableItemService
         ItemInput? input = null;
         if (messages.Count == 0)
         {
-            var (n, error) = items.Normalize(new ItemUpsert(rawCategory, rawSpec, rawDiameter, min, activatedMin, finish, isActive, ovenType));
+            var (n, error) = items.Normalize(new ItemUpsert(rawCategory, rawSpec, rawDiameter, min, activatedMin, finish, isActive, ovenType), specifications);
             if (n is null) messages.Add(error!);
             else
             {

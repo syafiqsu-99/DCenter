@@ -37,7 +37,7 @@ public class ConsumableMovementService(
         ItemInput? newItem = null;
         if (r.ItemId is null)
         {
-            var (n, itemError) = items.Normalize(r.NewItem);
+            var (n, itemError) = items.Normalize(r.NewItem, await items.SpecificationNamesAsync(ct));
             if (n is null) return Fail(itemError!);
             newItem = n;
         }

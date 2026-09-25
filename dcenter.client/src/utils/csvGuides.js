@@ -16,7 +16,7 @@ export function stockGuide(catalog) {
   return [
     { column: 'Date', required: 'No', format: 'YYYY-MM-DD or DD/MM/YYYY. Blank = today. Not in the future.', allowed: '', example: '2026-01-15' },
     { column: 'Type', required: 'Yes', format: 'Consumable type', allowed: list(catalog.categories), example: ELECTRODE },
-    { column: 'Specification', required: 'Yes', format: 'AWS classification. Saved in UPPERCASE.', allowed: '', example: 'E7018' },
+    { column: 'Specification', required: 'Yes', format: 'AWS classification. If it matches the Type list ignoring case, that spelling is used; otherwise saved as typed.', allowed: '', example: 'E7018' },
     { column: 'Diameter', required: 'Yes', format: 'mm with 2 decimals, or a mesh size A/B for bare & powder fillers', allowed: 'Number above 0 and below 100, or mesh like 80/325 (bare & powder only)', example: '3.20' },
     { column: 'Brand', required: 'Yes', format: 'Matched to the Brand list ignoring case, otherwise Title Case', allowed: '', example: 'Kobelco' },
     { column: 'Lot / Heat No.', required: 'Yes', format: 'Saved in UPPERCASE, max 60 characters', allowed: '', example: 'L12345' },
@@ -39,7 +39,7 @@ export function stockGuide(catalog) {
 export function itemGuide(catalog) {
   return [
     { column: 'Type', required: 'Yes', format: 'Consumable type', allowed: list(catalog.categories), example: ELECTRODE },
-    { column: 'Specification', required: 'Yes', format: 'AWS classification. Saved in UPPERCASE.', allowed: '', example: 'E7018' },
+    { column: 'Specification', required: 'Yes', format: 'AWS classification. If it matches the Type list ignoring case, that spelling is used; otherwise saved as typed.', allowed: '', example: 'E7018' },
     { column: 'Diameter', required: 'Yes', format: 'mm with 2 decimals, or a mesh size A/B for bare & powder fillers', allowed: 'Number above 0 and below 100, or mesh like 80/325 (bare & powder only)', example: '3.20' },
     { column: 'Min Stock (KG)', required: 'No', format: 'kg. Blank = 0 for new rows, unchanged for existing ones.', allowed: '0 or more', example: '20' },
     { column: 'Activated Min (KG)', required: 'No', format: 'kg. Blank = 0 for new rows, unchanged for existing ones.', allowed: '0 or more', example: '5' },

@@ -6,7 +6,8 @@
     </v-col>
     <v-col cols="12" sm="6">
       <v-combobox v-model="model.specification" :items="specs" :label="COLUMN.spec" v-bind="field" :disabled="lockIdentity"
-                  :hint="isNew(specs, model.specification) ? newHint : ''" persistent-hint />
+                  :hint="isNew(specs, model.specification) ? newHint : ''" persistent-hint
+                  @blur="model.specification = canonicalSpec(model.specification)" />
     </v-col>
     <v-col cols="12" sm="4">
       <v-combobox v-model="model.diameter" :items="sizes" :label="COLUMN.diameter" v-bind="field" :disabled="lockIdentity"
@@ -61,5 +62,9 @@
 
   const text = (v) => (v ?? '').toString().trim()
   const isNew = (list, value) => !!text(value) && !list.some((x) => text(x).toLowerCase() === text(value).toLowerCase())
-  const diaSpec = computed(() => `${text(model.value.diameter)} ${text(model.value.specification).toUpperCase()}`.trim())
+  const canonicalSpec = (value) => {
+    const typed = text(value).replace(/\s+/g, ' ')
+    return specs.value.find((x) => text(x).toLowerCase() === typed.toLowerCase()) ?? typed
+  }
+  const diaSpec = computed(() => `${text(model.value.diameter)} ${canonicalSpec(model.value.specification)}`.trim())
 </script>
