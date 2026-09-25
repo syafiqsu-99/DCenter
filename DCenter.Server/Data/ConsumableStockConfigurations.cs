@@ -56,10 +56,11 @@ public class ConsumableItemConfiguration : IEntityTypeConfiguration<ConsumableIt
                 "[MinStockKg] >= 0 AND [ActivatedMinKg] >= 0 AND ([FinishThresholdKg] IS NULL OR [FinishThresholdKg] >= 0)");
             t.HasCheckConstraint("CK_DCenter_ConsumableItems_OvenType",
                 $"[HoldingOvenType] IS NULL OR [HoldingOvenType] IN ({SqlLiteral.List(Cat.OvenTypes)})");
+            t.HasCheckConstraint("CK_DCenter_ConsumableItems_Diameter", "[Diameter] > 0 AND [Diameter] < 100");
         });
         e.Property(x => x.Category).HasMaxLength(30).IsRequired();
         e.Property(x => x.Specification).HasMaxLength(100).IsRequired();
-        e.Property(x => x.Diameter).HasMaxLength(30).IsRequired();
+        e.Property(x => x.Diameter).HasPrecision(5, 2);
         e.Property(x => x.HoldingOvenType).HasMaxLength(30);
         e.Property(x => x.MinStockKg).HasPrecision(10, 2);
         e.Property(x => x.ActivatedMinKg).HasPrecision(10, 2);

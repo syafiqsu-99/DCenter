@@ -34,14 +34,16 @@ internal static partial class ConsumableText
 
     public static string? Specification(string? raw) => Collapse(raw)?.ToUpperInvariant();
 
-    public static string? Diameter(string? raw)
+    public static decimal? Diameter(string? raw)
     {
         var v = Trimmed(raw)?.ToLowerInvariant().Replace("mm", string.Empty).Replace(',', '.').Replace(" ", string.Empty);
         if (v is null) return null;
         if (!decimal.TryParse(v, NumberStyles.AllowDecimalPoint, CultureInfo.InvariantCulture, out var d)) return null;
         d = Math.Round(d, 2, MidpointRounding.AwayFromZero);
-        return d > 0 && d < 100 ? d.ToString("0.00", CultureInfo.InvariantCulture) : null;
+        return d > 0 && d < 100 ? d : null;
     }
+
+    public static string FormatDiameter(decimal diameter) => StockCatalog.FormatDiameter(diameter);
 
     public static decimal DiameterSortKey(string diameter)
         => decimal.TryParse(diameter, NumberStyles.AllowDecimalPoint, CultureInfo.InvariantCulture, out var d) ? d : 0m;

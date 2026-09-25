@@ -46,7 +46,7 @@ public class StockCountService(WeldReportContext db, ConsumableLedger ledger, Co
                     : r.CompartmentId is int c ? labels.GetValueOrDefault(c, c.ToString())
                     : m.Category == Cat.ElectrodeFiller ? Cat.UnassignedBin : "Rack";
                 return new CountLineDto($"{r.LotId}:{r.CompartmentId?.ToString() ?? "-"}", m.ItemId, m.Category, m.Specification,
-                    m.Diameter, Cat.DiaSpec(m.Diameter, m.Specification), r.LotId, m.Brand, m.LotNumber, stage, r.CompartmentId,
+                    T.FormatDiameter(m.Diameter), Cat.DiaSpec(m.Diameter, m.Specification), r.LotId, m.Brand, m.LotNumber, stage, r.CompartmentId,
                     location, r.Kg);
             })
             .OrderBy(l => l.Category)

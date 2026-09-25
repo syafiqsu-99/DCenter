@@ -246,7 +246,7 @@ public class BakingService(WeldReportContext db, ConsumableLedger ledger, Consum
         {
             q = q.Where(b => b.BakingNo.Contains(term) || b.PersonInCharge.Contains(term) || b.Lot.LotNumber.Contains(term)
                              || b.Lot.Brand.Contains(term) || b.Lot.Item.Specification.Contains(term)
-                             || b.Lot.Item.Diameter.Contains(term));
+                             || b.Lot.Item.Diameter.ToString().Contains(term));
         }
 
         var total = await q.CountAsync(ct);
@@ -371,7 +371,7 @@ public class BakingService(WeldReportContext db, ConsumableLedger ledger, Consum
     private static Task<List<HoldingRecordDto>> HoldingsAsync(IQueryable<HoldingRecord> q, CancellationToken ct)
         => q.Select(h => new HoldingRecordDto(
                 h.Id, h.HoldingNo, h.HoldingDate, h.BakingRecordId, h.BakingRecord.BakingNo, h.BakingRecord.Lot.ItemId,
-                h.BakingRecord.Lot.Item.Diameter + " " + h.BakingRecord.Lot.Item.Specification,
+                h.BakingRecord.Lot.Item.Diameter.ToString() + " " + h.BakingRecord.Lot.Item.Specification,
                 h.BakingRecord.LotId, h.BakingRecord.Lot.Brand, h.BakingRecord.Lot.LotNumber, h.WelderId, h.WelderName,
                 h.CompartmentId, h.Compartment != null ? h.Compartment.Oven.Code + "-" + h.Compartment.Label : null,
                 h.Compartment != null ? h.Compartment.Oven.OvenType : null, h.Compartment != null ? h.Compartment.Number : (int?)null,

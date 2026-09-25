@@ -62,7 +62,7 @@ public class ConsumableMovementService(
         await items.EnsureLookupsAsync(
         [
             (ConsumableItemService.LookupBrand, brand),
-            (ConsumableItemService.LookupSize, item.Diameter),
+            (ConsumableItemService.LookupSize, T.FormatDiameter(item.Diameter)),
             (ConsumableItemService.LookupType, item.Specification),
         ], ct);
 

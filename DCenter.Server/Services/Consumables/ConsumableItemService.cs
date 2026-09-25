@@ -8,7 +8,7 @@ using T = DCenter.Server.Services.ConsumableText;
 namespace DCenter.Server.Services;
 
 public sealed record ItemInput(
-    string Category, string Specification, string Diameter, decimal MinStockKg, decimal ActivatedMinKg,
+    string Category, string Specification, decimal Diameter, decimal MinStockKg, decimal ActivatedMinKg,
     decimal? FinishThresholdKg, bool IsActive, string? HoldingOvenType);
 
 public class ConsumableItemService(WeldReportContext db, ConsumableLedger ledger)
@@ -41,7 +41,7 @@ public class ConsumableItemService(WeldReportContext db, ConsumableLedger ledger
             if (ovenType is null) return (null, $"Holding oven type must be one of: {string.Join(", ", Cat.OvenTypes)}.");
         }
 
-        return (new ItemInput(category, specification, diameter, T.RoundKg(dto.MinStockKg), T.RoundKg(dto.ActivatedMinKg),
+        return (new ItemInput(category, specification, diameter.Value, T.RoundKg(dto.MinStockKg), T.RoundKg(dto.ActivatedMinKg),
             dto.FinishThresholdKg is decimal f ? T.RoundKg(f) : null, dto.IsActive, ovenType), null);
     }
 
@@ -119,7 +119,7 @@ public class ConsumableItemService(WeldReportContext db, ConsumableLedger ledger
         item.HoldingOvenType = n.HoldingOvenType;
         item.IsActive = n.IsActive;
 
-        await EnsureLookupsAsync([(LookupSize, item.Diameter), (LookupType, item.Specification)], ct);
+        await EnsureLookupsAsync([(LookupSize, T.FormatDiameter(item.Diameter)), (LookupType, item.Specification)], ct);
         await db.SaveChangesAsync(ct);
         await tx.CommitAsync(ct);
 
@@ -134,7 +134,7 @@ public class ConsumableItemService(WeldReportContext db, ConsumableLedger ledger
         if (activeOnly) query = query.Where(i => i.IsActive);
         if (category is not null) query = query.Where(i => i.Category == category);
         foreach (var term in T.Terms(q))
-            query = query.Where(i => i.Specification.Contains(term) || i.Diameter.Contains(term) || i.Category.Contains(term));
+            query = query.Where(i => i.Specification.Contains(term) || i.Diameter.ToString().Contains(term) || i.Category.Contains(term));
 
         var items = await query
             .OrderBy(i => i.Category).ThenBy(i => i.Specification).ThenBy(i => i.Diameter).ThenBy(i => i.Id)
@@ -148,7 +148,7 @@ public class ConsumableItemService(WeldReportContext db, ConsumableLedger ledger
 
         var totals = await ledger.ItemTotalsAsync(items.Select(i => i.Id).ToList(), ct);
         return items
-            .OrderBy(i => i.Category).ThenBy(i => i.Specification).ThenBy(i => T.DiameterSortKey(i.Diameter))
+            .OrderBy(i => i.Category).ThenBy(i => i.Specification).ThenBy(i => i.Diameter)
             .Select(i => ToDto(i.Id, i.Category, i.Specification, i.Diameter, i.MinStockKg, i.ActivatedMinKg,
                 i.FinishThresholdKg, i.IsActive, i.HoldingOvenType, totals.GetValueOrDefault(i.Id) ?? StageTotals.Zero))
             .ToList();
@@ -187,8 +187,8 @@ public class ConsumableItemService(WeldReportContext db, ConsumableLedger ledger
     }
 
     private static ItemDto ToDto(
-        int id, string category, string specification, string diameter, decimal minStockKg, decimal activatedMinKg,
+        int id, string category, string specification, decimal diameter, decimal minStockKg, decimal activatedMinKg,
         decimal? finishThresholdKg, bool isActive, string? holdingOvenType, StageTotals totals)
-        => new(id, category, specification, diameter, Cat.DiaSpec(diameter, specification), minStockKg, activatedMinKg,
+        => new(id, category, specification, T.FormatDiameter(diameter), Cat.DiaSpec(diameter, specification), minStockKg, activatedMinKg,
             finishThresholdKg, isActive, totals.NormalKg, totals.ActivatedKg, totals.TotalKg, holdingOvenType);
 }

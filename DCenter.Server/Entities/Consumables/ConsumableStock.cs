@@ -5,7 +5,7 @@ public class ConsumableItem
     public int Id { get; set; }
     public string Category { get; set; } = string.Empty;
     public string Specification { get; set; } = string.Empty;
-    public string Diameter { get; set; } = string.Empty;
+    public decimal Diameter { get; set; }
     public decimal MinStockKg { get; set; }
     public decimal ActivatedMinKg { get; set; }
     public decimal? FinishThresholdKg { get; set; }

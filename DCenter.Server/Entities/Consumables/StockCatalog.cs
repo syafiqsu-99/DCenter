@@ -1,3 +1,5 @@
+using System.Globalization;
+
 namespace DCenter.Server.Entities;
 
 public static class StockCatalog
@@ -68,4 +70,8 @@ public static class StockCatalog
     public const string PersonInChargeLookup = "ConsumablePIC";
 
     public static string DiaSpec(string diameter, string specification) => $"{diameter} {specification}".Trim();
+
+    public static string FormatDiameter(decimal diameter) => diameter.ToString("0.00", CultureInfo.InvariantCulture);
+
+    public static string DiaSpec(decimal diameter, string specification) => DiaSpec(FormatDiameter(diameter), specification);
 }

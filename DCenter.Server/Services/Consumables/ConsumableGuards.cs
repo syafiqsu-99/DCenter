@@ -54,7 +54,7 @@ public class ConsumableGuards(WeldReportContext db, ConsumableLedger ledger)
     public Task<ItemRef?> ItemAsync(int id, CancellationToken ct)
         => db.ConsumableItems.AsNoTracking()
             .Where(i => i.Id == id)
-            .Select(i => new ItemRef(i.Id, i.Category, i.Diameter + " " + i.Specification, i.FinishThresholdKg, i.IsActive,
+            .Select(i => new ItemRef(i.Id, i.Category, i.Diameter.ToString() + " " + i.Specification, i.FinishThresholdKg, i.IsActive,
                 i.HoldingOvenType))
             .FirstOrDefaultAsync(ct);
 

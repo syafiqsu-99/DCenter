@@ -125,7 +125,7 @@ public class ConsumableQueryService(WeldReportContext db, ConsumableLedger ledge
                 var r = receipts.GetValueOrDefault(l.Id);
                 var f = flows.GetValueOrDefault(l.Id);
                 var itemTotal = itemTotals.GetValueOrDefault(l.ItemId);
-                return new LotStockRow(l.Id, l.ItemId, l.Category, l.Brand, l.Diameter, l.Specification, l.LotNumber,
+                return new LotStockRow(l.Id, l.ItemId, l.Category, l.Brand, T.FormatDiameter(l.Diameter), l.Specification, l.LotNumber,
                     Cat.DiaSpec(l.Diameter, l.Specification), r?.Date, r?.Source, r?.ReceivedBy,
                     f?.Received ?? 0m, f?.Taken ?? 0m, t.NormalKg, t.BakingKg, t.ActivatedKg, t.TotalKg,
                     l.IsActive && l.MinStockKg > 0 && itemTotal <= l.MinStockKg);
@@ -191,7 +191,7 @@ public class ConsumableQueryService(WeldReportContext db, ConsumableLedger ledge
         ActivatedLotDto Lot(int lotId, decimal kg) => new(lotId, lotMeta[lotId].Brand, lotMeta[lotId].LotNumber, kg);
 
         var rows = items
-            .OrderBy(i => i.Category).ThenBy(i => i.Specification).ThenBy(i => T.DiameterSortKey(i.Diameter))
+            .OrderBy(i => i.Category).ThenBy(i => i.Specification).ThenBy(i => i.Diameter)
             .Select(i =>
             {
                 var itemBins = bins.Where(b => b.ItemId == i.Id).ToList();
@@ -264,7 +264,7 @@ public class ConsumableQueryService(WeldReportContext db, ConsumableLedger ledge
         foreach (var term in T.Terms(p.Q))
         {
             q = q.Where(m => m.TxnNo.Contains(term) || m.Lot.Brand.Contains(term) || m.Lot.LotNumber.Contains(term)
-                             || m.Lot.Item.Specification.Contains(term) || m.Lot.Item.Diameter.Contains(term)
+                             || m.Lot.Item.Specification.Contains(term) || m.Lot.Item.Diameter.ToString().Contains(term)
                              || (m.Requestor != null && m.Requestor.Contains(term))
                              || (m.Remarks != null && m.Remarks.Contains(term))
                              || (m.CreatedBy != null && m.CreatedBy.Contains(term)));
@@ -426,7 +426,7 @@ public class ConsumableQueryService(WeldReportContext db, ConsumableLedger ledge
                 var t = entry.Totals;
                 var isLow = i.IsActive && i.MinStockKg > 0 && t.TotalKg <= i.MinStockKg;
                 var needsRefill = i.IsActive && i.ActivatedMinKg > 0 && t.ActivatedKg < i.ActivatedMinKg;
-                return new ItemBalanceDto(i.Id, i.Category, i.Specification, i.Diameter, Cat.DiaSpec(i.Diameter, i.Specification),
+                return new ItemBalanceDto(i.Id, i.Category, i.Specification, T.FormatDiameter(i.Diameter), Cat.DiaSpec(i.Diameter, i.Specification),
                     t.NormalKg, t.BakingKg, t.ActivatedKg, t.TotalKg, i.MinStockKg, i.ActivatedMinKg,
                     i.FinishThresholdKg ?? settings.FinishThresholdKg, isLow, needsRefill, entry.Lots,
                     lastIssued.TryGetValue(i.Id, out var last) ? (DateOnly?)last : null, i.IsActive, i.HoldingOvenType);

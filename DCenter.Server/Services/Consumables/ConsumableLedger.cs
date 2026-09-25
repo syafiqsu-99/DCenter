@@ -188,8 +188,8 @@ public class ConsumableLedger(WeldReportContext db)
     public static IQueryable<TransactionDto> Project(IQueryable<ConsumableMovement> q)
         => q.Select(m => new TransactionDto(
             m.Id, m.TxnNo, m.TxnType, m.TxnDate, m.CreatedAt, m.CreatedBy,
-            m.Lot.ItemId, m.Lot.Item.Category, m.Lot.Item.Specification, m.Lot.Item.Diameter,
-            m.Lot.Item.Diameter + " " + m.Lot.Item.Specification,
+            m.Lot.ItemId, m.Lot.Item.Category, m.Lot.Item.Specification, m.Lot.Item.Diameter.ToString(),
+            m.Lot.Item.Diameter.ToString() + " " + m.Lot.Item.Specification,
             m.LotId, m.Lot.Brand, m.Lot.LotNumber, m.QuantityKg, m.FromStage, m.ToStage,
             m.Source, m.Requestor, m.WelderId, m.Welder != null ? m.Welder.WelderName : null,
             m.Reason, m.CountedQtyKg, m.ReferenceNo, m.Remarks, m.IsVoided, m.VoidsMovementId,
