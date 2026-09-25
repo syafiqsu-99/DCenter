@@ -362,3 +362,6 @@ MigrationBackup/
 # Fody - auto-generated XML schema
 FodyWeavers.xsd
 /Data
+
+# ASP.NET Data Protection key ring (per machine, never commit)
+DCenter.Server/App_Data/

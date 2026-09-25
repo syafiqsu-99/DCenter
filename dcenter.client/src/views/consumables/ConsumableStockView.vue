@@ -1,0 +1,17 @@
+<template>
+  <div class="consumable-page">
+    <InventoryFilters />
+    <BalanceSummaryTable v-if="store.inventoryFilters.view === 'items'" />
+    <LotStockTable v-else />
+  </div>
+</template>
+
+<script setup>
+  import { useConsumableStore } from '@/store/consumableStore'
+  import InventoryFilters from '@/components/consumables/inventory/InventoryFilters.vue'
+  import BalanceSummaryTable from '@/components/consumables/inventory/BalanceSummaryTable.vue'
+  import LotStockTable from '@/components/consumables/inventory/LotStockTable.vue'
+
+  const store = useConsumableStore()
+  store.enterStock()
+</script>

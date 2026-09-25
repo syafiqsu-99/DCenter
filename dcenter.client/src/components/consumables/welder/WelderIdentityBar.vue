@@ -22,7 +22,7 @@
 
 <script setup>
   import { useConsumableStore } from '@/store/consumableStore'
-  import WelderPicker from '@/components/consumables/WelderPicker.vue'
+  import WelderPicker from '@/components/consumables/shared/WelderPicker.vue'
 
   const emit = defineEmits(['changed'])
 

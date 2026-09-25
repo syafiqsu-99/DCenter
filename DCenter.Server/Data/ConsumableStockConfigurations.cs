@@ -5,6 +5,12 @@ using Cat = DCenter.Server.Entities.StockCatalog;
 
 namespace DCenter.Server.Data;
 
+internal static class SqlLiteral
+{
+    public static string List(IEnumerable<string> values)
+        => string.Join(", ", values.Select(v => $"N'{v.Replace("'", "''")}'"));
+}
+
 public static class ConsumableStockModel
 {
     public const string TxnSequence = "DCenter_ConsumableTxnSeq";
@@ -50,6 +56,7 @@ public class ConsumableItemConfiguration : IEntityTypeConfiguration<ConsumableIt
                 "[MinStockKg] >= 0 AND [ActivatedMinKg] >= 0 AND ([FinishThresholdKg] IS NULL OR [FinishThresholdKg] >= 0)");
             t.HasCheckConstraint("CK_DCenter_ConsumableItems_OvenType",
                 $"[HoldingOvenType] IS NULL OR [HoldingOvenType] IN ({SqlLiteral.List(Cat.OvenTypes)})");
+            t.HasCheckConstraint("CK_DCenter_ConsumableItems_Diameter", "LEN([Diameter]) > 0");
         });
         e.Property(x => x.Category).HasMaxLength(30).IsRequired();
         e.Property(x => x.Specification).HasMaxLength(100).IsRequired();

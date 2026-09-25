@@ -1,6 +1,0 @@
-@DCenter.Server_HostAddress = http://localhost:5031
-
-GET {{DCenter.Server_HostAddress}}/weatherforecast/
-Accept: application/json
-
-###

@@ -1,4 +1,5 @@
-const defaults = { baseURL: '/api', headers: {} };
+const defaults = { baseURL: '/api', headers: {}, onUnauthorized: null };
+const SUPERVISOR_HEADER = 'X-Supervisor-Token';
 
 function buildUrl(url, params) {
   const target = new URL(defaults.baseURL + url, window.location.origin);
@@ -34,8 +35,10 @@ async function request(method, url, { params, body, headers, responseType } = {}
     delete finalHeaders['Content-Type'];
   }
 
-  const res = await fetch(buildUrl(url, params), { method, headers: finalHeaders, body: payload });
-  const data = res.status === 204 ? null : await parseBody(res, responseType);
+  const res = await fetch(buildUrl(url, params), { method, headers: finalHeaders, body: payload, cache: 'no-store' });
+  const data = res.status === 204 ? null : await parseBody(res, res.ok ? responseType : undefined);
+
+  if (res.status === 401 && finalHeaders[SUPERVISOR_HEADER] && url !== '/supervisor/login') defaults.onUnauthorized?.();
 
   if (!res.ok) {
     const error = new Error(`Request to ${url} failed with status ${res.status}`);

@@ -172,57 +172,6 @@ namespace DCenter.Server.Migrations
                     b.ToTable("DCenter_BpvcIx", (string)null);
                 });
 
-            modelBuilder.Entity("DCenter.Server.Entities.Consumable", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<string>("ConsumableType")
-                        .IsRequired()
-                        .HasMaxLength(30)
-                        .HasColumnType("nvarchar(30)");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("Diameter")
-                        .IsRequired()
-                        .HasMaxLength(30)
-                        .HasColumnType("nvarchar(30)");
-
-                    b.Property<bool>("IsActive")
-                        .HasColumnType("bit");
-
-                    b.Property<string>("Manufacturer")
-                        .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)");
-
-                    b.Property<decimal>("MinStockKg")
-                        .HasPrecision(10, 2)
-                        .HasColumnType("decimal(10,2)");
-
-                    b.Property<string>("Specification")
-                        .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("ConsumableType", "Manufacturer", "Specification", "Diameter")
-                        .IsUnique();
-
-                    b.ToTable("DCenter_Consumables", null, t =>
-                        {
-                            t.HasCheckConstraint("CK_DCenter_Consumables_MinStock", "[MinStockKg] >= 0");
-
-                            t.HasCheckConstraint("CK_DCenter_Consumables_Type", "[ConsumableType] IN (N'Bare & Powder Filler', N'Electrode Filler')");
-                        });
-                });
-
             modelBuilder.Entity("DCenter.Server.Entities.ConsumableItem", b =>
                 {
                     b.Property<int>("Id")
@@ -277,6 +226,8 @@ namespace DCenter.Server.Migrations
                         {
                             t.HasCheckConstraint("CK_DCenter_ConsumableItems_Category", "[Category] IN (N'Bare & Powder Filler', N'Electrode Filler')");
 
+                            t.HasCheckConstraint("CK_DCenter_ConsumableItems_Diameter", "LEN([Diameter]) > 0");
+
                             t.HasCheckConstraint("CK_DCenter_ConsumableItems_Limits", "[MinStockKg] >= 0 AND [ActivatedMinKg] >= 0 AND ([FinishThresholdKg] IS NULL OR [FinishThresholdKg] >= 0)");
 
                             t.HasCheckConstraint("CK_DCenter_ConsumableItems_OvenType", "[HoldingOvenType] IS NULL OR [HoldingOvenType] IN (N'Alloy Steel', N'Mild Steel', N'Ni Alloy', N'Stainless Steel')");
@@ -313,33 +264,6 @@ namespace DCenter.Server.Migrations
                         .IsUnique();
 
                     b.ToTable("DCenter_ConsumableItemLots", (string)null);
-                });
-
-            modelBuilder.Entity("DCenter.Server.Entities.ConsumableLot", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<int>("ConsumableId")
-                        .HasColumnType("int");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("LotNumber")
-                        .IsRequired()
-                        .HasMaxLength(60)
-                        .HasColumnType("nvarchar(60)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("ConsumableId", "LotNumber")
-                        .IsUnique();
-
-                    b.ToTable("DCenter_ConsumableLots", (string)null);
                 });
 
             modelBuilder.Entity("DCenter.Server.Entities.ConsumableMovement", b =>
@@ -476,83 +400,6 @@ namespace DCenter.Server.Migrations
                             t.HasCheckConstraint("CK_DCenter_ConsumableMovements_Type", "[TxnType] IN (N'Receive', N'Transfer', N'SendToBake', N'Hold', N'Move', N'Issue', N'Return', N'Finish', N'Adjust', N'Dispose', N'Void')");
 
                             t.HasCheckConstraint("CK_DCenter_ConsumableMovements_Void", "([TxnType] = N'Void' AND [VoidsMovementId] IS NOT NULL) OR ([TxnType] <> N'Void' AND [VoidsMovementId] IS NULL)");
-                        });
-                });
-
-            modelBuilder.Entity("DCenter.Server.Entities.ConsumableTransaction", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<bool>("IsVoided")
-                        .HasColumnType("bit");
-
-                    b.Property<string>("Location")
-                        .IsRequired()
-                        .HasMaxLength(20)
-                        .HasColumnType("nvarchar(20)");
-
-                    b.Property<int>("LotId")
-                        .HasColumnType("int");
-
-                    b.Property<decimal>("QuantityKg")
-                        .HasPrecision(10, 2)
-                        .HasColumnType("decimal(10,2)");
-
-                    b.Property<string>("ReferenceNo")
-                        .HasMaxLength(60)
-                        .HasColumnType("nvarchar(60)");
-
-                    b.Property<string>("Remarks")
-                        .HasMaxLength(500)
-                        .HasColumnType("nvarchar(500)");
-
-                    b.Property<string>("Requestor")
-                        .HasMaxLength(200)
-                        .HasColumnType("nvarchar(200)");
-
-                    b.Property<DateOnly>("TxnDate")
-                        .HasColumnType("date");
-
-                    b.Property<string>("TxnType")
-                        .IsRequired()
-                        .HasMaxLength(10)
-                        .HasColumnType("nvarchar(10)");
-
-                    b.Property<int?>("VoidsTxnId")
-                        .HasColumnType("int");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("CreatedAt");
-
-                    b.HasIndex("TxnDate");
-
-                    SqlServerIndexBuilderExtensions.IncludeProperties(b.HasIndex("TxnDate"), new[] { "TxnType", "QuantityKg", "IsVoided", "LotId", "Location" });
-
-                    b.HasIndex("VoidsTxnId")
-                        .IsUnique()
-                        .HasFilter("[VoidsTxnId] IS NOT NULL");
-
-                    b.HasIndex("LotId", "Location");
-
-                    SqlServerIndexBuilderExtensions.IncludeProperties(b.HasIndex("LotId", "Location"), new[] { "TxnType", "QuantityKg", "IsVoided" });
-
-                    b.ToTable("DCenter_ConsumableTransactions", null, t =>
-                        {
-                            t.HasCheckConstraint("CK_DCenter_ConsumableTxn_Location", "[Location] IN (N'Weldshop', N'Tool Crib')");
-
-                            t.HasCheckConstraint("CK_DCenter_ConsumableTxn_Sign", "[QuantityKg] <> 0 AND ([TxnType] <> N'Receive' OR [QuantityKg] > 0) AND ([TxnType] <> N'Issue' OR [QuantityKg] < 0)");
-
-                            t.HasCheckConstraint("CK_DCenter_ConsumableTxn_Type", "[TxnType] IN (N'Receive', N'Issue', N'Void')");
-
-                            t.HasCheckConstraint("CK_DCenter_ConsumableTxn_Void", "([TxnType] = N'Void' AND [VoidsTxnId] IS NOT NULL) OR ([TxnType] <> N'Void' AND [VoidsTxnId] IS NULL)");
                         });
                 });
 
@@ -1475,17 +1322,6 @@ namespace DCenter.Server.Migrations
                     b.Navigation("Item");
                 });
 
-            modelBuilder.Entity("DCenter.Server.Entities.ConsumableLot", b =>
-                {
-                    b.HasOne("DCenter.Server.Entities.Consumable", "Consumable")
-                        .WithMany("Lots")
-                        .HasForeignKey("ConsumableId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.Navigation("Consumable");
-                });
-
             modelBuilder.Entity("DCenter.Server.Entities.ConsumableMovement", b =>
                 {
                     b.HasOne("DCenter.Server.Entities.BakingRecord", "BakingRecord")
@@ -1528,22 +1364,6 @@ namespace DCenter.Server.Migrations
                     b.Navigation("ToCompartment");
 
                     b.Navigation("Welder");
-                });
-
-            modelBuilder.Entity("DCenter.Server.Entities.ConsumableTransaction", b =>
-                {
-                    b.HasOne("DCenter.Server.Entities.ConsumableLot", "Lot")
-                        .WithMany("Transactions")
-                        .HasForeignKey("LotId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.HasOne("DCenter.Server.Entities.ConsumableTransaction", null)
-                        .WithMany()
-                        .HasForeignKey("VoidsTxnId")
-                        .OnDelete(DeleteBehavior.Restrict);
-
-                    b.Navigation("Lot");
                 });
 
             modelBuilder.Entity("DCenter.Server.Entities.HoldingRecord", b =>
@@ -1615,11 +1435,6 @@ namespace DCenter.Server.Migrations
                     b.Navigation("Report");
                 });
 
-            modelBuilder.Entity("DCenter.Server.Entities.Consumable", b =>
-                {
-                    b.Navigation("Lots");
-                });
-
             modelBuilder.Entity("DCenter.Server.Entities.ConsumableItem", b =>
                 {
                     b.Navigation("Lots");
@@ -1628,11 +1443,6 @@ namespace DCenter.Server.Migrations
             modelBuilder.Entity("DCenter.Server.Entities.ConsumableItemLot", b =>
                 {
                     b.Navigation("Movements");
-                });
-
-            modelBuilder.Entity("DCenter.Server.Entities.ConsumableLot", b =>
-                {
-                    b.Navigation("Transactions");
                 });
 
             modelBuilder.Entity("DCenter.Server.Entities.Joint", b =>

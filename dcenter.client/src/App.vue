@@ -24,36 +24,44 @@
       </div>
     </v-overlay>
 
-    <v-app-bar color="primary" flat>
+    <v-app-bar v-if="!route.meta.bare" color="primary" flat>
       <button type="button" class="brand-home d-flex align-center ms-3"
-              aria-label="Go to dashboard" @click="onGoHome">
+              aria-label="Go to the home page" @click="onGoHome">
         <v-img :src="logo" width="40" height="40" class="me-3" alt="" />
-        <span class="text-h6">DCenter Operations Hub</span>
+        <span class="text-h6 d-none d-sm-inline">DCenter Operations Hub</span>
       </button>
 
       <v-spacer />
 
       <v-btn v-for="item in navItems" :key="item.to"
-             :variant="route.path === item.to || (item.to !== '/' && route.path.startsWith(item.to)) ? 'tonal' : 'text'"
+             :variant="route.path.startsWith(item.to) ? 'tonal' : 'text'"
              :prepend-icon="item.icon"
              class="me-2"
+             :aria-label="item.label"
              @click="onNav(item.to)">
-        {{ item.label }}
+        <span class="d-none d-md-inline">{{ item.label }}</span>
       </v-btn>
 
       <SupervisorNavButton v-if="!booting && !bootError" />
+      <v-progress-linear :active="navigating" indeterminate color="white" absolute location="bottom" height="3" />
     </v-app-bar>
 
     <v-main>
-      <v-container fluid class="pa-4">
-        <router-view v-if="!booting && !bootError" />
+      <v-container fluid :class="route.meta.fullBleed ? ['pa-0 full-bleed', { 'full-bleed--bare': route.meta.bare }] : 'pa-4'">
+        <router-view v-if="!booting && !bootError" v-slot="{ Component, route: viewRoute }">
+          <transition name="page" mode="out-in">
+            <component :is="Component" :key="viewRoute.matched[0]?.path" />
+          </transition>
+        </router-view>
       </v-container>
     </v-main>
 
-    <v-footer color="primary" app class="text-caption justify-space-between px-4">
+    <v-footer v-if="!route.meta.bare" color="primary" app class="text-caption justify-space-between px-4">
       <span>DCenter Operations Hub</span>
       <span>&copy; {{ year }} Emerson — DCenter</span>
     </v-footer>
+
+    <SupervisorSession v-if="!booting && !bootError" />
 
     <v-dialog v-model="leaveDialog" max-width="500" persistent>
       <v-card title="Unsaved changes" prepend-icon="mdi-content-save-alert">
@@ -100,13 +108,14 @@
   import logo from '@/assets/DCenter.png'
   import logonobg from '@/assets/DCenter_No_bg.png';
   import { useLeaveGuard } from '@/composables/useLeaveGuard';
-  import SupervisorNavButton from '@/components/SupervisorNavButton.vue';
+  import SupervisorNavButton from '@/components/common/SupervisorNavButton.vue';
+  import SupervisorSession from '@/components/common/SupervisorSession.vue';
 
   const route = useRoute();
   const router = useRouter();
   const consumableStore = useConsumableStore();
   const allNavItems = [
-    { to: '/', label: 'Report', icon: 'mdi-file-document-edit-outline' },
+    { to: '/report', label: 'Report', icon: 'mdi-file-document-edit-outline' },
     { to: '/consumables', label: 'Consumables', icon: 'mdi-package-variant-closed' },
     { to: '/settings', label: 'Settings', icon: 'mdi-cog-outline', supervisor: true },
   ];
@@ -154,16 +163,31 @@
   }
   function onNav(path) {
     if (path === route.path) {
-      if (path === '/' && reportStore.confirmed) guardLeave(() => reportStore.backToList())
+      if (path === '/report' && reportStore.confirmed) guardLeave(() => reportStore.backToList())
       return
     }
     router.push(path)
   }
 
+  const navigating = ref(false)
+  let navTimer = null
+  router.beforeEach(() => {
+    clearTimeout(navTimer)
+    navTimer = setTimeout(() => { navigating.value = true }, 120)
+  })
+  router.afterEach(() => {
+    clearTimeout(navTimer)
+    navigating.value = false
+  })
+  router.onError(() => {
+    clearTimeout(navTimer)
+    navigating.value = false
+  })
+
   let bypass = false
   const removeGuard = router.beforeEach((to, from) => {
     if (bypass) { bypass = false; return true }
-    if (from.path === '/' && to.path !== '/' && reportStore.confirmed) {
+    if (from.path === '/report' && to.path !== '/report' && reportStore.confirmed) {
       if (reportStore.needsLeavePrompt) {
         hold(() => { reportStore.backToList(); bypass = true; router.push(to.fullPath) })
         return false
