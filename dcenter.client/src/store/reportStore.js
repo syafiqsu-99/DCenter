@@ -7,15 +7,15 @@ function blankMaterial(col) {
   return { id: 0, columnNumber: col, process: '', size: '', type: '', manuf: '', heatLot: '' }
 }
 
-function jointFromRow(index, row) {
+function blankJoint(index) {
   return {
     id: 0,
     jointNumber: index + 1,
-    partDescLeft: row?.itemDesc ?? '',
-    partNoLeft: row?.assemblyItem ?? '',
+    partDescLeft: '',
+    partNoLeft: '',
     heatNumberLeft: '',
-    partDescRight: row?.componentDesc ?? '',
-    partNoRight: row?.childPart ?? '',
+    partDescRight: '',
+    partNoRight: '',
     heatNumberRight: '',
     wpsNo: '',
     rev: '',
@@ -33,8 +33,17 @@ function normalizeJoints(report) {
   return report
 }
 
+function childParts(nodes) {
+  const seen = new Map()
+  for (const n of nodes) {
+    if (n.level >= 1 && n.item && !seen.has(n.item)) seen.set(n.item, { no: n.item, desc: n.itemDesc ?? '' })
+  }
+  return [...seen.values()]
+}
+
 function newReport(workOrderNumber, rows) {
-  const first = rows[0] ?? {}
+  const root = rows.find((r) => r.level === 0) ?? rows[0] ?? {}
+  const joints = Math.min(50, Math.max(1, childParts(rows).length))
   const today = new Date().toISOString().slice(0, 10)
   return {
     id: 0,
@@ -43,18 +52,18 @@ function newReport(workOrderNumber, rows) {
     completedAt: null,
     rowVersion: null,
     dateWelded: today,
-    partNo: first.assemblyItem ?? '',
-    description: first.itemDesc ?? '',
+    partNo: root.assemblyItem ?? '',
+    description: root.assemblyDesc ?? '',
     materialSpec1: '', materialSpec2: '', materialSpec3: '',
     grade1: '', grade2: '', grade3: '',
     pNumber1: '', pNumber2: '', pNumber3: '',
-    joints: rows.slice(0, 50).map((row, i) => jointFromRow(i, row)),
+    joints: Array.from({ length: joints }, (_, i) => blankJoint(i)),
   }
 }
 
 const SEARCH_DEBOUNCE_MS = 350
 const MIN_QUERY_LENGTH = 2
-const PAGE_SIZE = 50
+const PAGE_SIZE = 25
 let searchTimer = null
 let searchToken = 0
 
@@ -124,33 +133,8 @@ export const useReportStore = defineStore('report', {
     savedByWorkOrder() {
       return new Map(this.savedReports.map((r) => [r.workOrderNumber, r]))
     },
-    partDescOptions() {
-      return [
-        ...new Set(this.selectedRows.flatMap((r) => [r.itemDesc, r.componentDesc]).filter(Boolean)),
-      ]
-    },
-    partNoOptions() {
-      return [
-        ...new Set(this.selectedRows.flatMap((r) => [r.assemblyItem, r.childPart]).filter(Boolean)),
-      ]
-    },
-    leftParts() {
-      const seen = new Map()
-      for (const r of this.reportParts) {
-        if (r.assemblyItem && !seen.has(r.assemblyItem)) {
-          seen.set(r.assemblyItem, { no: r.assemblyItem, desc: r.itemDesc ?? '' })
-        }
-      }
-      return [...seen.values()]
-    },
     rightParts() {
-      const seen = new Map()
-      for (const r of this.reportParts) {
-        if (r.childPart && !seen.has(r.childPart)) {
-          seen.set(r.childPart, { no: r.childPart, desc: r.componentDesc ?? '' })
-        }
-      }
-      return [...seen.values()]
+      return childParts(this.reportParts)
     },
     isDirty: (s) => !!s.report && JSON.stringify(s.report) !== s.savedSnapshot,
     needsLeavePrompt() {
@@ -345,7 +329,7 @@ export const useReportStore = defineStore('report', {
       const count = Math.min(50, Math.max(1, Math.round(n) || 1))
       const joints = this.report.joints
       if (joints.length > count) joints.length = count
-      else while (joints.length < count) joints.push(jointFromRow(joints.length, this.selectedRows[joints.length]))
+      else while (joints.length < count) joints.push(blankJoint(joints.length))
     },
 
     async loadHistory() {

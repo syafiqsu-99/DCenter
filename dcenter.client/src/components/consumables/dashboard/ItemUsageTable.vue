@@ -13,6 +13,7 @@
     <v-data-table-virtual :headers="headers" :items="rows" item-value="itemId" class="consumable-table" density="compact"
                           fixed-header height="360" :loading="!store.dashboard" :sort-by="[{ key: 'averageMonthlyKg', order: 'desc' }]"
                           no-data-text="No consumption recorded in the last 3 months.">
+      <template #loading><v-skeleton-loader type="table-row@6" /></template>
       <template #item.diaSpec="{ item }">
         <strong>{{ item.diaSpec }}</strong>
         <div class="text-caption text-medium-emphasis">{{ item.category }}</div>

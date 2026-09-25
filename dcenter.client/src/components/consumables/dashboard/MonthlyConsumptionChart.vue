@@ -21,6 +21,7 @@
         <v-data-table :headers="headers" :items="rows" :loading="loadingDetail" item-value="itemId" density="compact"
                       class="consumable-table" :items-per-page="-1" hide-default-footer
                       no-data-text="Nothing was used this month.">
+          <template #loading><v-skeleton-loader type="table-row@4" /></template>
           <template #item.diaSpec="{ item }"><strong>{{ item.diaSpec }}</strong></template>
           <template #item.pickedKg="{ item }">{{ kg(item.pickedKg) }}</template>
           <template #item.returnedKg="{ item }">{{ item.returnedKg ? kg(item.returnedKg) : '—' }}</template>

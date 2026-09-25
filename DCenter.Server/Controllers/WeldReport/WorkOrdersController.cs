@@ -9,7 +9,10 @@ namespace DCenter.Server.Controllers;
 [Route("api/[controller]")]
 public class WorkOrdersController(WorkOrderSearchService workOrders) : ControllerBase
 {
-    public record WorkOrderSearchResponse(List<WorkOrderRow> Items, bool HasMore);
+    private const string MissingBomObjects =
+        "The multi-level BOM function is missing. Run Sql/OracleBetsyDB/DCenter_BomTree.sql on OracleBetsyDB first.";
+
+    public record WorkOrderSearchResponse(List<WorkOrderNode> Items, bool HasMore);
     public record WorkOrderHeader(string WorkOrderNumber, string? PartNo, string? Description);
 
     [HttpGet("search")]
@@ -24,9 +27,13 @@ public class WorkOrdersController(WorkOrderSearchService workOrders) : Controlle
             var (items, hasMore) = await workOrders.SearchAsync(q, skip, take, ct);
             return Ok(new WorkOrderSearchResponse(items, hasMore));
         }
-        catch (Exception ex) when (ex is SqlException { Number: -2 } or TimeoutException)
+        catch (Exception ex) when (IsTimeout(ex))
         {
             return StatusCode(504, "The work order search took too long. Try a more specific work order number.");
+        }
+        catch (SqlException ex) when (ex.Number == 208)
+        {
+            return StatusCode(503, MissingBomObjects);
         }
     }
 
@@ -37,7 +44,7 @@ public class WorkOrdersController(WorkOrderSearchService workOrders) : Controlle
         {
             return Ok(await workOrders.AllWorkOrderNumbersAsync(ct));
         }
-        catch (Exception ex) when (ex is SqlException { Number: -2 } or TimeoutException)
+        catch (Exception ex) when (IsTimeout(ex))
         {
             return StatusCode(504, "Loading the work order list took too long.");
         }
@@ -46,14 +53,31 @@ public class WorkOrdersController(WorkOrderSearchService workOrders) : Controlle
     [HttpGet("{workOrderNumber}/header")]
     public async Task<ActionResult<WorkOrderHeader>> Header(string workOrderNumber, CancellationToken ct)
     {
-        var parts = await workOrders.PartsForWorkOrderAsync(workOrderNumber, ct);
-        var first = parts.FirstOrDefault();
-        return first is null
-            ? NoContent()
-            : Ok(new WorkOrderHeader(workOrderNumber, first.AssemblyItem, first.ItemDesc));
+        try
+        {
+            var root = (await workOrders.TreeForWorkOrderAsync(workOrderNumber, ct)).FirstOrDefault(n => n.Level == 0);
+            return root is null
+                ? NoContent()
+                : Ok(new WorkOrderHeader(workOrderNumber, root.AssemblyItem, root.AssemblyDesc));
+        }
+        catch (SqlException ex) when (ex.Number == 208)
+        {
+            return StatusCode(503, MissingBomObjects);
+        }
     }
 
     [HttpGet("{workOrderNumber}/parts")]
-    public async Task<ActionResult<List<WorkOrderRow>>> Parts(string workOrderNumber, CancellationToken ct)
-    => Ok(await workOrders.PartsForWorkOrderAsync(workOrderNumber, ct));
+    public async Task<ActionResult<List<WorkOrderNode>>> Parts(string workOrderNumber, CancellationToken ct)
+    {
+        try
+        {
+            return Ok(await workOrders.TreeForWorkOrderAsync(workOrderNumber, ct));
+        }
+        catch (SqlException ex) when (ex.Number == 208)
+        {
+            return StatusCode(503, MissingBomObjects);
+        }
+    }
+
+    private static bool IsTimeout(Exception ex) => ex is SqlException { Number: -2 } or TimeoutException;
 }

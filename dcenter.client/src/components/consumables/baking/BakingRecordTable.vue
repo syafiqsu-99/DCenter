@@ -48,6 +48,7 @@
       <v-divider />
       <v-data-table-virtual :headers="historyHeaders" :items="historyItems" :loading="historyLoading" item-value="id"
                             class="consumable-table" density="compact" height="380" no-data-text="No movements.">
+        <template #loading><v-skeleton-loader type="table-row@6" /></template>
         <template #item.txnDate="{ item }">{{ fmtDate(item.txnDate) }}</template>
         <template #item.txnType="{ item }"><TxnTypeChip :type="item.txnType" :voided="item.isVoided" /></template>
         <template #item.flow="{ item }">{{ stageFlow(item) }}</template>

@@ -7,6 +7,7 @@
     </v-card-title>
     <v-divider />
     <v-alert v-if="error" type="error" variant="tonal" density="compact" class="ma-3">{{ error }}</v-alert>
+    <v-skeleton-loader v-else-if="store.loadingToday && !store.todayReceipts.length" type="list-item-two-line@5" />
     <v-list v-else density="compact" lines="two" class="fill overflow-y-auto">
       <v-list-item v-if="!store.todayReceipts.length" class="text-medium-emphasis">Nothing received today yet.</v-list-item>
       <v-list-item v-for="t in store.todayReceipts" :key="t.id" :class="{ 'text-disabled': t.isVoided }">

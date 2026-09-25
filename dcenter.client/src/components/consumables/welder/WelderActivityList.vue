@@ -4,7 +4,8 @@
       {{ store.counterWelder ? `${store.counterWelder.welderName} — today` : 'Welder activity today' }}
     </v-card-title>
     <v-divider />
-    <v-list density="compact" lines="two" class="activity-list overflow-y-auto">
+    <v-skeleton-loader v-if="store.loadingCounter && store.counterWelder && !store.welderToday.length" type="list-item-two-line@4" />
+    <v-list v-else density="compact" lines="two" class="activity-list overflow-y-auto">
       <v-list-item v-if="!store.counterWelder" class="text-medium-emphasis">Choose a welder to see today’s entries.</v-list-item>
       <v-list-item v-else-if="!store.welderToday.length" class="text-medium-emphasis">No pickups or returns today.</v-list-item>
       <v-list-item v-if="store.counterWelder && !store.isSupervisor && store.welderToday.length" class="text-caption text-medium-emphasis">

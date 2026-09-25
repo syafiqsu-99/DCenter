@@ -17,7 +17,11 @@
     </v-alert>
 
     <div class="consumables-content">
-      <router-view v-if="store.catalogLoaded" />
+      <router-view v-if="store.catalogLoaded" v-slot="{ Component, route: viewRoute }">
+        <transition name="page" mode="out-in">
+          <component :is="Component" :key="viewRoute.name" />
+        </transition>
+      </router-view>
       <v-skeleton-loader v-else-if="!loadError" type="card, table" />
     </div>
   </div>

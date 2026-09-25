@@ -15,6 +15,32 @@ a {
   --viewport-chrome: calc(var(--v-layout-top, 64px) + var(--v-layout-bottom, 56px) + (var(--page-gap) * 2));
 }
 
+.full-bleed {
+  height: calc(100vh - var(--v-layout-top, 64px) - var(--v-layout-bottom, 56px));
+  min-height: 480px;
+}
+
+.page-enter-active,
+.page-leave-active {
+  transition: opacity 0.18s ease, transform 0.18s ease;
+}
+
+.page-enter-from {
+  opacity: 0;
+  transform: translateY(6px);
+}
+
+.page-leave-to {
+  opacity: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .page-enter-active,
+  .page-leave-active {
+    transition: none;
+  }
+}
+
 .min-h-0 {
   min-height: 0;
 }

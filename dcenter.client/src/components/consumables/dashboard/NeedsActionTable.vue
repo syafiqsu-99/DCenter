@@ -11,6 +11,7 @@
     <v-data-table-virtual :headers="headers" :items="rows" item-value="itemId" class="consumable-table" density="compact"
                           fixed-header height="320" :loading="!store.dashboard"
                           no-data-text="Nothing to reorder or refill — every consumable is above its minimum.">
+      <template #loading><v-skeleton-loader type="table-row@6" /></template>
       <template #item.diaSpec="{ item }">
         <strong>{{ item.diaSpec }}</strong>
         <div class="text-caption text-medium-emphasis">{{ item.category }}</div>

@@ -1,12 +1,14 @@
 <template>
-  <v-alert v-if="error" type="error" variant="tonal" class="mb-4" closable>{{ error }}</v-alert>
+  <div>
+    <v-alert v-if="error" type="error" variant="tonal" class="mb-4" closable>{{ error }}</v-alert>
 
-  <WorkOrderBrowser v-if="!confirmed" />
-
-  <template v-else>
-    <ReportActions />
-    <ReportForm />
-  </template>
+    <template v-if="confirmed">
+      <ReportActions />
+      <ReportForm />
+    </template>
+    <v-skeleton-loader v-else-if="loading" type="heading, card, table-row@6" class="bg-transparent" />
+    <WorkOrderBrowser v-else />
+  </div>
 </template>
 
 <script setup>
@@ -17,5 +19,5 @@
     import ReportActions from '@/components/report/ReportActions.vue';
 
     const store = useReportStore();
-    const { confirmed, error } = storeToRefs(store);
+    const { confirmed, error, loading } = storeToRefs(store);
 </script>
