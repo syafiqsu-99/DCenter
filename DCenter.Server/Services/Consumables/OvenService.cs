@@ -39,7 +39,7 @@ public class OvenService(WeldReportContext db, ConsumableLedger ledger)
             var l = lots[b.LotId];
             DateTime? at = since.TryGetValue((b.CompartmentId, b.LotId), out var last) ? last : null;
             return new BinLotDto(l.ItemId, Cat.DiaSpec(l.Diameter, l.Specification), l.Category, b.LotId, l.Brand, l.LotNumber,
-                b.Kg, at, b.CompartmentId, l.HoldingOvenType, l.Specification, Cat.FormatDiameter(l.Diameter));
+                b.Kg, at, b.CompartmentId, l.HoldingOvenType, l.Specification, l.Diameter);
         }
 
         var byBin = positive.Where(b => b.CompartmentId is not null).ToLookup(b => b.CompartmentId!.Value);

@@ -187,7 +187,7 @@ public class StockImportService(WeldReportContext db, ConsumableItemService item
             accepted.SelectMany(p => new[]
             {
                 (ConsumableItemService.LookupBrand, p.Brand),
-                (ConsumableItemService.LookupSize, T.FormatDiameter(itemsByKey[p.ItemKey!].Diameter)),
+                (ConsumableItemService.LookupSize, itemsByKey[p.ItemKey!].Diameter),
                 (ConsumableItemService.LookupType, itemsByKey[p.ItemKey!].Specification),
             }),
             ct);
@@ -236,6 +236,7 @@ public class StockImportService(WeldReportContext db, ConsumableItemService item
         {
             Note(T.Standardized("Type", rawCategory, input.Category));
             Note(T.Standardized("Specification", rawSpec, input.Specification));
+            Note(T.Standardized("Diameter", rawDiameter, input.Diameter));
             Note(T.Standardized("Holding Oven", rawOven, input.HoldingOvenType));
             itemKey = Key(input.Specification, input.Diameter);
             if (existing.TryGetValue(itemKey, out current))
@@ -389,7 +390,7 @@ public class StockImportService(WeldReportContext db, ConsumableItemService item
         return (columns, errors);
     }
 
-    private static string Key(string specification, decimal diameter) => $"{specification}|{T.FormatDiameter(diameter)}".ToUpperInvariant();
+    private static string Key(string specification, string diameter) => $"{specification}|{diameter}".ToUpperInvariant();
 
     private static ServiceResult<StockImportResultDto> Ok(StockImportResultDto value) => ServiceResult<StockImportResultDto>.Ok(value);
 

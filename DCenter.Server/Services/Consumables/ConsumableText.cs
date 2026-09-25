@@ -34,19 +34,28 @@ internal static partial class ConsumableText
 
     public static string? Specification(string? raw) => Collapse(raw)?.ToUpperInvariant();
 
-    public static decimal? Diameter(string? raw)
+    private static readonly Regex MeshPattern = new(@"^(\d{1,4})/(\d{1,4})$", RegexOptions.CultureInvariant);
+
+    public static string? Diameter(string? raw, string? category)
     {
         var v = Trimmed(raw)?.ToLowerInvariant().Replace("mm", string.Empty).Replace(',', '.').Replace(" ", string.Empty);
         if (v is null) return null;
-        if (!decimal.TryParse(v, NumberStyles.AllowDecimalPoint, CultureInfo.InvariantCulture, out var d)) return null;
-        d = Math.Round(d, 2, MidpointRounding.AwayFromZero);
-        return d > 0 && d < 100 ? d : null;
+        if (decimal.TryParse(v, NumberStyles.AllowDecimalPoint, CultureInfo.InvariantCulture, out var d))
+        {
+            d = Math.Round(d, 2, MidpointRounding.AwayFromZero);
+            return d > 0 && d < 100 ? StockCatalog.FormatDiameter(d) : null;
+        }
+        if (category == StockCatalog.ElectrodeFiller) return null;
+        var mesh = MeshPattern.Match(v.Replace("mesh", string.Empty));
+        return mesh.Success ? $"{int.Parse(mesh.Groups[1].Value)}/{int.Parse(mesh.Groups[2].Value)}" : null;
     }
 
-    public static string FormatDiameter(decimal diameter) => StockCatalog.FormatDiameter(diameter);
-
     public static decimal DiameterSortKey(string diameter)
-        => decimal.TryParse(diameter, NumberStyles.AllowDecimalPoint, CultureInfo.InvariantCulture, out var d) ? d : 0m;
+    {
+        if (decimal.TryParse(diameter, NumberStyles.AllowDecimalPoint, CultureInfo.InvariantCulture, out var d)) return d;
+        var mesh = MeshPattern.Match(diameter);
+        return mesh.Success ? 100m + int.Parse(mesh.Groups[1].Value) + int.Parse(mesh.Groups[2].Value) / 100000m : 1_000_000m;
+    }
 
     public const string StandardizedPrefix = "Standardized:";
 

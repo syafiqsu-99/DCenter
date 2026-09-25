@@ -73,5 +73,4 @@ public static class StockCatalog
 
     public static string FormatDiameter(decimal diameter) => diameter.ToString("0.00", CultureInfo.InvariantCulture);
 
-    public static string DiaSpec(decimal diameter, string specification) => DiaSpec(FormatDiameter(diameter), specification);
 }

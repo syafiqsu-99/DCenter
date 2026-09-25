@@ -48,16 +48,15 @@ public class ConsumableImportService(WeldReportContext db, ConsumableItemService
         if (templateOnly) return CsvText.Write([Header]);
 
         var rows = await db.ConsumableItems.AsNoTracking()
-            .OrderBy(i => i.Category).ThenBy(i => i.Specification).ThenBy(i => i.Diameter)
             .Select(i => new { i.Category, i.Specification, i.Diameter, i.MinStockKg, i.ActivatedMinKg, i.FinishThresholdKg, i.HoldingOvenType, i.IsActive })
             .ToListAsync(ct);
 
         var lines = new List<IEnumerable<string?>> { Header };
         lines.AddRange(rows
-            .OrderBy(i => i.Category).ThenBy(i => i.Specification).ThenBy(i => i.Diameter)
+            .OrderBy(i => i.Category).ThenBy(i => i.Specification).ThenBy(i => T.DiameterSortKey(i.Diameter))
             .Select(i => new[]
             {
-                i.Category, i.Specification, T.FormatDiameter(i.Diameter), Num(i.MinStockKg), Num(i.ActivatedMinKg),
+                i.Category, i.Specification, i.Diameter, Num(i.MinStockKg), Num(i.ActivatedMinKg),
                 i.FinishThresholdKg is decimal f ? Num(f) : string.Empty, i.HoldingOvenType ?? string.Empty, i.IsActive ? "Yes" : "No",
             }));
         return CsvText.Write(lines);
@@ -127,7 +126,7 @@ public class ConsumableImportService(WeldReportContext db, ConsumableItemService
 
         var applied = plan.Where(p => p.Input is not null && p.Action is ActionCreate or ActionUpdate).Select(p => p.Input!).ToList();
         await items.EnsureLookupsAsync(
-            applied.SelectMany(n => new[] { (ConsumableItemService.LookupSize, T.FormatDiameter(n.Diameter)), (ConsumableItemService.LookupType, n.Specification) }),
+            applied.SelectMany(n => new[] { (ConsumableItemService.LookupSize, n.Diameter), (ConsumableItemService.LookupType, n.Specification) }),
             ct);
         await db.SaveChangesAsync(ct);
         await tx!.CommitAsync(ct);
@@ -145,8 +144,8 @@ public class ConsumableImportService(WeldReportContext db, ConsumableItemService
         var rawSpec = Cell(Col.Specification);
         var rawDiameter = Cell(Col.Diameter);
         var provisional = T.Specification(rawSpec);
-        var provisionalDia = T.Diameter(rawDiameter);
-        existing.TryGetValue(Key(provisional ?? string.Empty, provisionalDia ?? 0m), out var match);
+        var provisionalDia = T.Diameter(rawDiameter, null);
+        existing.TryGetValue(Key(provisional ?? string.Empty, provisionalDia ?? string.Empty), out var match);
         var current = match?.Item;
 
         decimal? Number(Col c, string label, decimal? fallback, bool blankIsNull = false)
@@ -188,6 +187,7 @@ public class ConsumableImportService(WeldReportContext db, ConsumableItemService
                 {
                     T.Standardized("Type", rawCategory, n.Category),
                     T.Standardized("Specification", rawSpec, n.Specification),
+                    T.Standardized("Diameter", rawDiameter, n.Diameter),
                     T.Standardized("Holding Oven", ovenType, n.HoldingOvenType),
                 }.OfType<string>());
             }
@@ -265,7 +265,7 @@ public class ConsumableImportService(WeldReportContext db, ConsumableItemService
         return (columns, errors);
     }
 
-    private static string Key(string specification, decimal diameter) => $"{specification}|{T.FormatDiameter(diameter)}".ToUpperInvariant();
+    private static string Key(string specification, string diameter) => $"{specification}|{diameter}".ToUpperInvariant();
 
     private static string Num(decimal value) => value.ToString("0.##", CultureInfo.InvariantCulture);
 

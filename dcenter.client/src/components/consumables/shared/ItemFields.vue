@@ -10,7 +10,8 @@
     </v-col>
     <v-col cols="12" sm="4">
       <v-combobox v-model="model.diameter" :items="sizes" :label="COLUMN.diameter" v-bind="field" :disabled="lockIdentity"
-                  hint="Numbers only, saved as e.g. 2.40 or 3.20" persistent-hint
+                  :hint="model.category === ELECTRODE ? 'Numbers only, saved as e.g. 2.40 or 3.20' : 'mm (e.g. 1.20) or mesh size (e.g. 80/325)'"
+                  persistent-hint
                   @blur="model.diameter = formatDiameter(model.diameter)" />
     </v-col>
     <v-col cols="12" sm="4">

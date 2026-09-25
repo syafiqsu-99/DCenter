@@ -87,7 +87,9 @@ export function kg(value) {
 export function formatDiameter(value) {
   const raw = (value ?? '').toString().trim().toLowerCase().replace('mm', '').replace(',', '.').replace(/\s+/g, '')
   const n = Number(raw)
-  return raw && Number.isFinite(n) && n > 0 && n < 100 ? n.toFixed(2) : value
+  if (raw && Number.isFinite(n) && n > 0 && n < 100) return n.toFixed(2)
+  const mesh = /^(\d{1,4})\/(\d{1,4})$/.exec(raw.replace('mesh', ''))
+  return mesh ? `${Number(mesh[1])}/${Number(mesh[2])}` : value
 }
 
 export function todayIso() {

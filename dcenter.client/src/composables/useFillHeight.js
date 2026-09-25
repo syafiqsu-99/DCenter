@@ -1,17 +1,20 @@
-import { onBeforeUnmount, onMounted, ref } from 'vue'
+import { onBeforeUnmount, ref, watch } from 'vue'
 
 export function useFillHeight(target, minHeight = 160) {
   const height = ref(minHeight)
-  let observer = null
-
-  onMounted(() => {
-    observer = new ResizeObserver(([entry]) => {
-      height.value = Math.max(minHeight, Math.floor(entry.contentRect.height))
-    })
-    if (target.value) observer.observe(target.value)
+  const observer = new ResizeObserver(([entry]) => {
+    height.value = Math.max(minHeight, Math.floor(entry.contentRect.height))
   })
 
-  onBeforeUnmount(() => observer?.disconnect())
+  const stop = watch(target, (el, old) => {
+    if (old) observer.unobserve(old)
+    if (el) observer.observe(el)
+  }, { immediate: true, flush: 'post' })
+
+  onBeforeUnmount(() => {
+    stop()
+    observer.disconnect()
+  })
 
   return height
 }

@@ -55,6 +55,28 @@ builder.Services.AddCors(o => o.AddPolicy(DevCors, p => p
 
 var app = builder.Build();
 
+if (app.Configuration.GetValue("DCenter:AutoMigrate", true))
+{
+    using var migrationScope = app.Services.CreateScope();
+    var migrationDb = migrationScope.ServiceProvider.GetRequiredService<WeldReportContext>();
+    try
+    {
+        var pending = (await migrationDb.Database.GetPendingMigrationsAsync()).ToList();
+        if (pending.Count > 0)
+        {
+            app.Logger.LogInformation("Applying database migrations: {Migrations}", string.Join(", ", pending));
+            await migrationDb.Database.MigrateAsync();
+            app.Logger.LogInformation("Database migrations applied.");
+        }
+    }
+    catch (Exception ex)
+    {
+        app.Logger.LogCritical(ex,
+            "Database migration failed, so the server did not start. Fix the error, or set DCenter__AutoMigrate=false and migrate manually.");
+        throw;
+    }
+}
+
 try
 {
     using var scope = app.Services.CreateScope();
@@ -116,26 +138,5 @@ else
 {
     app.MapFallbackToFile("/index.html");
 }
-
-//var autoMigrate = app.Environment.IsDevelopment()
-//    || app.Configuration.GetValue<bool>("DCenter_AutoMigrate");
-
-//if (autoMigrate)
-//{
-//    using var scope = app.Services.CreateScope();
-//    var services = scope.ServiceProvider;
-//    var logger = services.GetRequiredService<ILogger<Program>>();
-//    try
-//    {
-//        var db = services.GetRequiredService<WeldReportContext>();
-//        db.Database.Migrate();
-//        logger.LogInformation("Database migrations applied (or already up to date).");
-//    }
-//    catch (Exception ex)
-//    {
-//        logger.LogError(ex, "Failed to apply database migrations on startup.");
-//        throw;
-//    }
-//}
 
 app.Run();
