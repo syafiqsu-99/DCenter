@@ -17,8 +17,8 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddDbContext<WeldReportContext>(opt =>
     opt.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
 
-builder.Services.AddDbContext<SourceContext>(opt =>
-    opt.UseSqlServer(builder.Configuration.GetConnectionString("SourceConnection")));
+builder.Services.AddDbContext<ErpViewContext>(opt =>
+    opt.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
 
 builder.Services.AddScoped<WorkOrderSearchService>();
 builder.Services.AddScoped<ReportService>();

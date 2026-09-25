@@ -4,7 +4,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace DCenter.Server.Services;
 
-public class WorkOrderSearchService(SourceContext db)
+public class WorkOrderSearchService(ErpViewContext db)
 {
     public const int MaxPageSize = 100;
     public const int DefaultPageSize = 25;

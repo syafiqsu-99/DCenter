@@ -3,7 +3,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace DCenter.Server.Data;
 
-public class SourceContext(DbContextOptions<SourceContext> options) : DbContext(options)
+public class ErpViewContext(DbContextOptions<ErpViewContext> options) : DbContext(options)
 {
     public DbSet<WorkOrderDetail> WorkOrderDetails => Set<WorkOrderDetail>();
     public DbSet<BomTreeRow> BomTree => Set<BomTreeRow>();
@@ -14,7 +14,7 @@ public class SourceContext(DbContextOptions<SourceContext> options) : DbContext(
         b.Entity<WorkOrderDetail>(e =>
         {
             e.HasNoKey();
-            e.ToTable("Work_Order_Detail");
+            e.ToView("vw_DCenter_WorkOrder");
             e.Property(x => x.WoNumber).HasColumnName("WO_NUMBER").IsUnicode(false);
             e.Property(x => x.AssemblyItem).HasColumnName("ASSEMBLY_ITEM");
             e.Property(x => x.ItemDesc).HasColumnName("ITEM_DESC");
@@ -36,7 +36,7 @@ public class SourceContext(DbContextOptions<SourceContext> options) : DbContext(
         b.Entity<ItemMrn>(e =>
         {
             e.HasNoKey();
-            e.ToTable("Tbl_Item_Category_MRN");
+            e.ToView("vw_DCenter_ItemMrn");
             e.Property(x => x.Item).HasColumnName("ITEM").IsUnicode(false);
             e.Property(x => x.ItemDesc).HasColumnName("ITEM_DESC");
             e.Property(x => x.Mrn).HasColumnName("MRN");

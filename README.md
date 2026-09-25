@@ -17,8 +17,9 @@ DCenter/
 ├─ .config/dotnet-tools.json      dotnet-ef, pinned to the EF Core package version
 ├─ DCenter.Server/                ASP.NET Core Web API (.NET 10, EF Core, SQL Server)
 │  ├─ Program.cs                  DI, data protection, SPA hosting
-│  ├─ Data/                       WeldReportContext (app DB), SourceContext (read-only company DB), EF configuration
+│  ├─ Data/                       WeldReportContext (app DB), ErpViewContext (read-only work order views), EF configuration
 │  ├─ Migrations/                 EF Core migrations: the only way schema changes
+│  ├─ Sql/DCenter/                Work order views over OracleBetsyDB, run once by hand
 │  ├─ Assets/                     Logos embedded in the PDF / Excel report
 │  ├─ Controllers/  Services/  Entities/  Models/
 │  │    each split into:  Consumables/  WeldReport/  Settings/  Supervisor/  (+ Services/Shared)
@@ -44,7 +45,6 @@ Secrets and connection strings belong in environment variables, not in `appsetti
 | Variable | Purpose |
 |---|---|
 | `ConnectionStrings__DefaultConnection` | DCenter application database |
-| `ConnectionStrings__SourceConnection` | Company work-order database (read-only) |
 | `Consumables__SupervisorPassword` | Initial supervisor password (until changed in Settings) |
 | `DataProtection__KeysPath` | Optional: folder for session-signing keys (default `DCenter.Server/App_Data/keys`; the IIS app pool needs write access) |
 
@@ -55,6 +55,15 @@ dotnet tool restore                                   # installs dotnet-ef
 dotnet ef database update --project DCenter.Server    # apply migrations
 dotnet run --project DCenter.Server                   # API + Vite dev server via SPA proxy
 ```
+
+### Work order views
+
+Work orders, BOM levels and MRN come from OracleBetsyDB through views in the DCenter database, so nothing is created in OracleBetsyDB. Run `DCenter.Server/Sql/DCenter/DCenter_SourceViews.sql` once on the DCenter database (it is safe to re-run). It needs:
+
+- the DCenter database on the same SQL Server as OracleBetsyDB, or a linked server (replace `OracleBetsyDB.dbo.` with `[server].OracleBetsyDB.dbo.` for a dev localdb);
+- SELECT on `Work_Order_Detail`, `Tbl_Item_Category_MRN` and `Bill_Of_Material_Others` in OracleBetsyDB for the DefaultConnection login.
+
+Until then the work order search shows a message saying which step is missing.
 
 Frontend only: `cd dcenter.client && npm ci && npm run dev`. API calls use relative `/api/...` paths through the Vite proxy.
 
