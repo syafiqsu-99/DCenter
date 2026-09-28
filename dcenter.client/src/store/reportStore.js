@@ -41,9 +41,7 @@ function childParts(nodes) {
   return [...seen.values()]
 }
 
-function newReport(workOrderNumber, rows, summary) {
-  const root = rows.find((r) => r.level === 0) ?? summary ?? {}
-  const joints = Math.min(50, Math.max(1, childParts(rows).length))
+function newReport(workOrderNumber, summary) {
   const today = new Date().toISOString().slice(0, 10)
   return {
     id: 0,
@@ -52,12 +50,12 @@ function newReport(workOrderNumber, rows, summary) {
     completedAt: null,
     rowVersion: null,
     dateWelded: today,
-    partNo: root.assemblyItem ?? '',
-    description: root.assemblyDesc ?? '',
+    partNo: summary?.assemblyItem ?? '',
+    description: summary?.assemblyDesc ?? '',
     materialSpec1: '', materialSpec2: '', materialSpec3: '',
     grade1: '', grade2: '', grade3: '',
     pNumber1: '', pNumber2: '', pNumber3: '',
-    joints: Array.from({ length: joints }, (_, i) => blankJoint(i)),
+    joints: [blankJoint(0)],
   }
 }
 
@@ -125,7 +123,7 @@ export const useReportStore = defineStore('report', {
     loadingWorkOrderNumbers: false,
     autoPNo: blankAutoPNo(),
     recent: readRecent(),
-    listTab: 'Draft',
+    listTab: 'all',
     dashboard: null,
     dashboardMonths: 6,
     loadingDashboard: false,
@@ -261,10 +259,10 @@ export const useReportStore = defineStore('report', {
       const wo = (workOrderNumber ?? '').trim()
       if (!wo) { this.reportParts = []; return }
       try {
-        const { data } = await api.get(`/workorders/${encodeURIComponent(wo)}/parts`)
-        this.reportParts = data ?? []
+        const tree = await this.loadTree(wo)
+        if (this.report?.workOrderNumber === wo) this.reportParts = tree
       } catch {
-        this.reportParts = []
+        if (this.report?.workOrderNumber === wo) this.reportParts = []
       }
     },
 
@@ -318,30 +316,27 @@ export const useReportStore = defineStore('report', {
       this.conflict = false
       this.history = []
       try {
-        const [res, tree] = await Promise.all([
-          api.get(`/reports/${encodeURIComponent(wo)}`),
-          this.loadTree(wo).catch(() => []),
-        ])
+        const res = await api.get(`/reports/${encodeURIComponent(wo)}`)
         const isNew = res.status === 204 || !res.data
         if (isNew) {
-          const summary = this.searchResults.find((r) => r.workOrderNumber === wo)
-            ?? (tree.length ? null : await this.fetchHeader(wo))
-          if (!tree.length && !summary) {
+          const summary = this.searchResults.find((r) => r.workOrderNumber === wo) ?? await this.fetchHeader(wo)
+          if (!summary) {
             this.backToList()
             this.error = `Work order ${wo} was not found.`
             return false
           }
-          this.report = newReport(wo, tree, summary)
+          this.report = newReport(wo, summary)
         } else {
           this.report = normalizeJoints(res.data)
         }
         this.mode = isNew ? 'new' : 'saved'
         this.confirmed = true
-        this.reportParts = tree
+        this.reportParts = this.treeByWorkOrder[wo] ?? []
         this.autoPNo = blankAutoPNo()
         this.markPristine()
         this.ensureRefData()
         this.rememberRecent(wo)
+        if (!this.treeByWorkOrder[wo]) this.loadReportParts(wo)
         return true
       } catch {
         this.backToList()

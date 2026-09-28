@@ -89,33 +89,32 @@ public class ReportService(WeldReportContext db)
         var windowStartAt = windowStart.ToDateTime(TimeOnly.MinValue);
         var staleBefore = DateTime.Now.AddDays(-StaleDraftDays);
 
-        var required = db.Reports.AsNoTracking().Where(r => r.ReportRequired);
-        var drafts = required.Where(r => r.CompletedAt == null);
-
-        var openDrafts = await drafts.CountAsync(ct);
-        var staleDrafts = await drafts.CountAsync(r => r.UpdatedAt < staleBefore, ct);
-        var missingDate = await drafts.CountAsync(r => r.DateWelded == null, ct);
-        var completedThisMonth = await required.CountAsync(r => r.CompletedAt >= monthStartAt, ct);
-
-        var completedAts = await required
-            .Where(r => r.CompletedAt >= windowStartAt)
-            .Select(r => r.CompletedAt!.Value)
+        var reports = await db.Reports
+            .AsNoTracking()
+            .Where(r => r.ReportRequired &&
+                        (r.CompletedAt == null || r.CompletedAt >= windowStartAt || r.DateWelded >= windowStart))
+            .Select(r => new
+            {
+                r.WorkOrderNumber, r.PartNo, r.Description, r.CompletedAt, r.UpdatedAt, r.DateWelded,
+                JointCount = r.Joints.Count,
+            })
             .ToListAsync(ct);
 
-        var weldedReports = await required
-            .Where(r => r.DateWelded >= windowStart)
-            .Select(r => new { DateWelded = r.DateWelded!.Value, Joints = r.Joints.Count })
-            .ToListAsync(ct);
+        var drafts = reports.Where(r => r.CompletedAt is null).ToList();
+        var openDrafts = drafts.Count;
+        var staleDrafts = drafts.Count(r => r.UpdatedAt < staleBefore);
+        var missingDate = drafts.Count(r => r.DateWelded is null);
+        var completedThisMonth = reports.Count(r => r.CompletedAt >= monthStartAt);
 
         var monthly = Enumerable.Range(0, months)
             .Select(i => windowStart.AddMonths(i))
             .Select(m => new MonthCount(
                 m.ToString("MMM yyyy"),
-                completedAts.Count(c => c.Year == m.Year && c.Month == m.Month),
-                weldedReports.Where(w => w.DateWelded.Year == m.Year && w.DateWelded.Month == m.Month).Sum(w => w.Joints)))
+                reports.Count(r => r.CompletedAt is { } c && c.Year == m.Year && c.Month == m.Month),
+                reports.Where(r => r.DateWelded is { } d && d.Year == m.Year && d.Month == m.Month).Sum(r => r.JointCount)))
             .ToList();
 
-        var jointsThisMonth = weldedReports.Where(w => w.DateWelded >= monthStart).Sum(w => w.Joints);
+        var jointsThisMonth = reports.Where(r => r.DateWelded >= monthStart).Sum(r => r.JointCount);
 
         var windowJoints = db.Joints.AsNoTracking()
             .Where(j => j.Report.ReportRequired && j.Report.DateWelded >= windowStart);
@@ -146,16 +145,11 @@ public class ReportService(WeldReportContext db)
             .Take(10)
             .ToListAsync(ct);
 
-        var needsAction = await drafts
-            .Where(r => r.UpdatedAt < staleBefore || r.DateWelded == null)
+        var needsAction = drafts
+            .Where(r => r.UpdatedAt < staleBefore || r.DateWelded is null)
             .OrderBy(r => r.UpdatedAt)
             .Take(50)
-            .Select(r => new
-            {
-                r.WorkOrderNumber, r.PartNo, r.Description,
-                JointCount = r.Joints.Count, r.DateWelded, r.UpdatedAt,
-            })
-            .ToListAsync(ct);
+            .ToList();
 
         return new ReportDashboardDto(
             new ReportKpis(openDrafts, completedThisMonth, jointsThisMonth, staleDrafts, missingDate,

@@ -5,7 +5,7 @@
         <v-icon icon="mdi-magnify" class="me-2" />
         Find a work order
       </v-card-title>
-      <v-card-subtitle>Search by work order number, then press Enter or use the button to open its report.</v-card-subtitle>
+      <v-card-subtitle>Search by work order number and press Enter to open its report. Click a row to see its parts.</v-card-subtitle>
     </v-card-item>
 
     <v-card-text>
@@ -57,9 +57,13 @@
           <v-skeleton-loader type="table-row@8" />
         </template>
         <template #item.workOrderNumber="{ item }">
+          <v-icon :icon="expanded.includes(item.workOrderNumber) ? 'mdi-chevron-down' : 'mdi-chevron-right'"
+                  size="18" class="me-1 text-medium-emphasis" />
           <strong>{{ item.workOrderNumber }}</strong>
         </template>
         <template #item.assemblyItem="{ item }">{{ item.assemblyItem || '—' }}</template>
+        <template #header.data-table-expand />
+        <template #item.data-table-expand />
         <template #item.status="{ item }">
           <ReportStatusChip :status="savedByWorkOrder.get(item.workOrderNumber)?.status" />
         </template>
@@ -125,14 +129,13 @@
     { title: 'Qty', key: 'qty', width: '90px', sortable: false },
     { title: 'Report', key: 'status', width: '120px', sortable: false },
     { title: '', key: 'actions', width: '170px', sortable: false, align: 'end' },
-    { title: '', key: 'data-table-expand', width: '48px' },
+    { title: '', key: 'data-table-expand', width: '0px', headerProps: { class: 'pa-0' }, cellProps: { class: 'pa-0' } },
   ];
   const expanded = ref([]);
   watch(() => store.searchQuery, () => { expanded.value = []; });
 
-  const selectedWorkOrderRow = ref(null);
   const workOrderRowProps = ({ item }) => ({
-    class: selectedWorkOrderRow.value === item.workOrderNumber ? 'bg-blue-grey-lighten-5' : '',
+    class: ['clickable-row', expanded.value.includes(item.workOrderNumber) ? 'bg-blue-grey-lighten-5' : ''],
   });
 
   const ACTIONS = {
@@ -156,8 +159,10 @@
     searchQuery.value ? 'No work orders match your search.' : 'No work orders found.');
 
   function onRowClick(_event, { item }) {
-    selectedWorkOrderRow.value = item.workOrderNumber;
-    store.setSearchInput(item.workOrderNumber);
+    const wo = item.workOrderNumber;
+    expanded.value = expanded.value.includes(wo)
+      ? expanded.value.filter((w) => w !== wo)
+      : [...expanded.value, wo];
   }
 
   onMounted(async () => {
@@ -167,3 +172,9 @@
 
   onBeforeUnmount(() => scrollEl?.removeEventListener('scroll', onTableScroll));
 </script>
+
+<style scoped>
+  .card-table-area :deep(tr.clickable-row) {
+    cursor: pointer;
+  }
+</style>

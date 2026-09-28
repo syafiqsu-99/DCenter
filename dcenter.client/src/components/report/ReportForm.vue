@@ -89,7 +89,7 @@
     <v-text-field :model-value="jointCount" type="number" min="1" max="50" density="compact"
                   variant="outlined" hide-details style="max-width:160px;"
                   label="Joints to insert" @update:model-value="store.setJointCount($event)" />
-    <span class="text-caption text-medium-emphasis">Defaults to the number of child parts (all levels) for this work order, max 50.</span>
+    <span class="text-caption text-medium-emphasis">Set how many joints this report needs (max 50).</span>
   </div>
 
   <JointForm v-for="joint in report.joints" :key="joint.jointNumber" :joint="joint" />
@@ -108,7 +108,7 @@
   const isDuplicate = computed(() => mode.value === 'duplicate');
   const lockedFromSearch = computed(() => mode.value === 'new');
 
-  useLookupStore().load(true);
+  useLookupStore().load();
 
   function onWorkOrderPick(v) {
     store.autofillFromWorkOrder(v);

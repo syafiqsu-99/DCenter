@@ -14,8 +14,6 @@
 
         <v-spacer />
 
-        <ReportSwitcher class="me-2 d-none d-sm-flex" />
-
         <div class="d-flex align-center ga-1 py-1">
           <v-btn :loading="saving" :disabled="!hasDateWelded" variant="text"
                  prepend-icon="mdi-content-save" @click="saveOnly">
@@ -38,7 +36,7 @@
             </template>
             <v-list density="compact" min-width="220">
               <v-list-item prepend-icon="mdi-file-pdf-box" title="View PDF"
-                           :disabled="pdfLoading" @click="viewPdf" />
+                           @click="pdfDialog = true" />
               <v-list-item prepend-icon="mdi-microsoft-excel" title="Download Excel"
                            :disabled="excelLoading" @click="downloadExcel" />
               <v-list-item prepend-icon="mdi-history" title="Status history"
@@ -96,21 +94,8 @@
     </v-card>
   </v-dialog>
 
-  <v-dialog v-model="pdfDialog" fullscreen transition="dialog-bottom-transition" @after-leave="onPdfClosed">
-    <v-card class="d-flex flex-column">
-      <v-toolbar density="comfortable" color="surface">
-        <v-toolbar-title class="text-subtitle-1">PDF preview — {{ report.workOrderNumber }}</v-toolbar-title>
-        <v-spacer />
-        <v-btn variant="text" prepend-icon="mdi-download" @click="downloadPdf">Download</v-btn>
-        <v-btn icon="mdi-close" aria-label="Close PDF preview" @click="pdfDialog = false" />
-      </v-toolbar>
-      <v-divider />
-      <div class="flex-grow-1" style="min-height:0;">
-        <iframe v-if="pdfUrl" :src="pdfUrl" title="Report PDF"
-                style="width:100%;height:100%;border:0;display:block;" />
-      </div>
-    </v-card>
-  </v-dialog>
+  <ReportPdfDialog v-model="pdfDialog" :work-order-number="report.workOrderNumber"
+                   :part-no="report.partNo" :description="report.description" />
 
   <v-snackbar v-model="snackbar" :color="snackbarColor" timeout="3000">{{ snackbarText }}</v-snackbar>
 </template>
@@ -122,7 +107,7 @@
   import { useReportStore } from '@/store/reportStore';
   import api from '@/utils/api';
   import ConfirmDeleteDialog from '@/components/common/ConfirmDeleteDialog.vue';
-  import ReportSwitcher from '@/components/report/ReportSwitcher.vue';
+  import ReportPdfDialog from '@/components/report/ReportPdfDialog.vue';
 
   const store = useReportStore();
   const router = useRouter();
@@ -134,10 +119,8 @@
   const snackbarColor = ref('success');
   const confirmDelete = ref(false);
   const historyDialog = ref(false);
-  const pdfLoading = ref(false);
   const excelLoading = ref(false);
   const pdfDialog = ref(false)
-  const pdfUrl = ref('');
 
   function attemptBack() {
     router.push({ name: 'report-list' })
@@ -197,37 +180,6 @@
         .replace(/\s+/g, ' ')
         .trim() || 'WeldOrderCard'
     )
-  }
-
-  async function viewPdf() {
-    pdfLoading.value = true
-    try {
-      const res = await api.get(`/reports/${encodeURIComponent(report.value.workOrderNumber)}/pdf`, {
-        responseType: 'blob',
-      })
-      if (pdfUrl.value) URL.revokeObjectURL(pdfUrl.value)
-      pdfUrl.value = URL.createObjectURL(res.data)
-      pdfDialog.value = true
-    } catch {
-      notify('Could not load the PDF.', 'error')
-    } finally {
-      pdfLoading.value = false
-    }
-  }
-
-  function onPdfClosed() {
-    if (pdfUrl.value) {
-      URL.revokeObjectURL(pdfUrl.value)
-      pdfUrl.value = ''
-    }
-  }
-
-  function downloadPdf() {
-    if (!pdfUrl.value) return
-    const a = document.createElement('a')
-    a.href = pdfUrl.value
-    a.download = `${safeName(report.value.workOrderNumber, report.value.partNo, shortDesc(report.value.description))}.pdf`
-    a.click()
   }
 
   async function downloadExcel() {

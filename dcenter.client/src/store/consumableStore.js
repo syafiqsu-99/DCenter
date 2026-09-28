@@ -57,6 +57,9 @@ function writeSession(session) {
   }
 }
 
+const SUPERVISOR_RENEW_MS = 60 * 60 * 1000
+let refreshing = false
+
 const requestIds = {}
 let generation = 0
 
@@ -221,6 +224,24 @@ export const useConsumableStore = defineStore('consumables', {
       applySupervisorToken(null)
       this.dashboard = null
       this.syncActor()
+    },
+
+    async refreshSupervisorIfNeeded() {
+      if (!this.supervisor || refreshing) return
+      if (Date.parse(this.supervisor.expiresAt) - Date.now() > SUPERVISOR_RENEW_MS) return
+      refreshing = true
+      try {
+        const { data } = await api.post('/supervisor/session/refresh')
+        if (!this.supervisor || !data?.token) return
+        this.supervisor = { name: data.name, token: data.token, expiresAt: data.expiresAt }
+        this.clock = Date.now()
+        writeSession(this.supervisor)
+        applySupervisorToken(data.token)
+      } catch {
+        // 401 locks the session through onUnauthorized; network errors retry on the next check
+      } finally {
+        refreshing = false
+      }
     },
 
     async verifySupervisor() {

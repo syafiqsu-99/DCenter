@@ -32,7 +32,7 @@
                         :model-value="joint.partDescLeft" :item-title="partDescTitle"
                         @update:model-value="(v) => setPart('Left', 'desc', v)">
               <template #item="{ props: p, item }">
-                <v-list-item v-bind="p" :title="item.raw?.no ?? item.raw" :subtitle="item.raw?.desc" />
+                <v-list-item v-bind="p" :title="item.raw?.desc || item.raw?.no || item.raw" :subtitle="item.raw?.desc ? item.raw?.no : undefined" />
               </template>
             </v-combobox>
           </td>
@@ -42,7 +42,7 @@
                         :model-value="joint.partDescRight" :item-title="partDescTitle"
                         @update:model-value="(v) => setPart('Right', 'desc', v)">
               <template #item="{ props: p, item }">
-                <v-list-item v-bind="p" :title="item.raw?.no ?? item.raw" :subtitle="item.raw?.desc" />
+                <v-list-item v-bind="p" :title="item.raw?.desc || item.raw?.no || item.raw" :subtitle="item.raw?.desc ? item.raw?.no : undefined" />
               </template>
             </v-combobox>
           </td>
@@ -60,7 +60,7 @@
                         :model-value="joint.partNoLeft" :item-title="partNoTitle"
                         @update:model-value="(v) => setPart('Left', 'no', v)">
               <template #item="{ props: p, item }">
-                <v-list-item v-bind="p" :title="item.raw?.no ?? item.raw" :subtitle="item.raw?.desc" />
+                <v-list-item v-bind="p" :title="item.raw?.desc || item.raw?.no || item.raw" :subtitle="item.raw?.desc ? item.raw?.no : undefined" />
               </template>
             </v-combobox>
           </td>
@@ -70,7 +70,7 @@
                         :model-value="joint.partNoRight" :item-title="partNoTitle"
                         @update:model-value="(v) => setPart('Right', 'no', v)">
               <template #item="{ props: p, item }">
-                <v-list-item v-bind="p" :title="item.raw?.no ?? item.raw" :subtitle="item.raw?.desc" />
+                <v-list-item v-bind="p" :title="item.raw?.desc || item.raw?.no || item.raw" :subtitle="item.raw?.desc ? item.raw?.no : undefined" />
               </template>
             </v-combobox>
           </td>
@@ -151,7 +151,7 @@
   import { useLookupStore } from '@/store/lookupStore';
   import { useProcessTypeStore } from '@/store/processTypeStore';
   import { useWpsStore } from '@/store/wpsStore';
-  import api from '@/utils/api';
+  import { useWelderStore } from '@/store/welderStore';
 
   const wpsStore = useWpsStore()
   wpsStore.load();
@@ -213,10 +213,10 @@
     }
   }
 
-  const welderItems = ref([]);
-  async function searchWelders(q) {
-    const { data } = await api.get('/welders/search', { params: { q: q || '' } });
-    welderItems.value = data;
+  const welderStore = useWelderStore();
+  const { items: welderItems } = storeToRefs(welderStore);
+  function searchWelders(q) {
+    welderStore.search(q);
   }
   searchWelders('');
 

@@ -44,6 +44,9 @@
           {{ fmt(item.updatedAt) }}
         </template>
         <template #item.actions="{ item }">
+          <v-btn icon="mdi-file-pdf-box" size="small" variant="text" color="red-darken-2"
+                 :aria-label="`View PDF for work order ${item.workOrderNumber}`" title="View PDF"
+                 @click.stop="viewPdf(item)" />
           <v-menu location="bottom end">
             <template #activator="{ props }">
               <v-btn v-bind="props" icon="mdi-dots-vertical" size="small" variant="text"
@@ -64,6 +67,9 @@
     </div>
   </v-card>
 
+  <ReportPdfDialog v-model="pdfDialog" :work-order-number="pdfReport?.workOrderNumber ?? ''"
+                   :part-no="pdfReport?.partNo ?? ''" :description="pdfReport?.description ?? ''" />
+
   <ConfirmDeleteDialog v-model="confirmDialog" title="Delete this draft?"
                        :loading="deletingRow" @confirm="doDelete">
     This permanently removes the draft for job
@@ -78,6 +84,7 @@
   import { useReportStore } from '@/store/reportStore';
   import ConfirmDeleteDialog from '@/components/common/ConfirmDeleteDialog.vue';
   import ReportStatusChip from '@/components/report/ReportStatusChip.vue';
+  import ReportPdfDialog from '@/components/report/ReportPdfDialog.vue';
 
   const store = useReportStore();
   const router = useRouter();
@@ -91,7 +98,7 @@
     { title: 'Joints', key: 'jointCount', width: '90px', align: 'center' },
     { title: 'Status', key: 'status', width: '120px' },
     { title: 'Updated', key: 'updatedAt', width: '180px' },
-    { title: '', key: 'actions', width: '56px', sortable: false, align: 'end' },
+    { title: '', key: 'actions', width: '100px', sortable: false, align: 'end' },
   ];
 
   const searched = computed(() => {
@@ -104,9 +111,9 @@
   });
 
   const tabs = computed(() => [
+    { value: 'all', label: 'All', count: searched.value.length },
     { value: 'Draft', label: 'Drafts', count: searched.value.filter((r) => r.status === 'Draft').length },
     { value: 'Completed', label: 'Completed', count: searched.value.filter((r) => r.status === 'Completed').length },
-    { value: 'all', label: 'All', count: searched.value.length },
   ]);
 
   const visible = computed(() =>
@@ -114,6 +121,14 @@
 
   function open(workOrderNumber) {
     router.push({ name: 'report-editor', params: { workOrderNumber } });
+  }
+
+  const pdfDialog = ref(false);
+  const pdfReport = ref(null);
+
+  function viewPdf(item) {
+    pdfReport.value = item;
+    pdfDialog.value = true;
   }
 
   const confirmDialog = ref(false);

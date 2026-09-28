@@ -46,6 +46,16 @@ public class SupervisorController(SupervisorAuth auth, SupervisorPasswordService
         return session is null ? Unauthorized("Supervisor session has expired.") : Ok(new SupervisorSessionDto(session.Name, session.ExpiresAt, null));
     }
 
+    // Sliding renewal: an open browser session keeps its login without re-entering the password.
+    [HttpPost("session/refresh")]
+    public ActionResult<SupervisorSessionDto> Refresh()
+    {
+        var session = auth.FromRequest(Request);
+        if (session is null) return Unauthorized("Supervisor session has expired.");
+        var (token, expiresAt) = auth.Issue(session.Name);
+        return Ok(new SupervisorSessionDto(session.Name, expiresAt, token));
+    }
+
     [HttpGet("password")]
     [SupervisorOnly]
     public async Task<ActionResult<SupervisorPasswordStatus>> PasswordStatus(CancellationToken ct)

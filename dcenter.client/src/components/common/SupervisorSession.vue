@@ -9,9 +9,7 @@
   import { useConsumableStore } from '@/store/consumableStore'
   import SupervisorUnlockDialog from '@/components/common/SupervisorUnlockDialog.vue'
 
-  const SUPERVISOR_IDLE_MS = 15 * 60 * 1000
-  const WELDER_IDLE_MS = 5 * 60 * 1000
-  const ACTIVITY_EVENTS = ['pointerdown', 'keydown']
+  const SESSION_CHECK_MS = 60 * 1000
 
   const route = useRoute()
   const router = useRouter()
@@ -20,9 +18,7 @@
   const notice = ref(false)
   const noticeText = ref('')
   const noticeColor = ref('info')
-  let lastActivity = Date.now()
   let timer = null
-  let idleLogout = false
 
   const onSupervisorPage = () => route.matched.some((r) => r.meta.supervisor)
 
@@ -49,18 +45,13 @@
     if (!value && route.query.unlock && !store.isSupervisor) router.replace(withoutUnlockQuery())
   }
 
-  function touch() {
-    lastActivity = Date.now()
+  async function checkSession() {
+    await store.refreshSupervisorIfNeeded()
+    store.tick()
   }
 
-  function checkIdle() {
-    const idle = Date.now() - lastActivity
-    if (store.supervisor && idle > SUPERVISOR_IDLE_MS) {
-      idleLogout = true
-      store.lockSupervisor()
-    }
-    store.tick()
-    if (!store.isSupervisor && store.counterWelder && idle > WELDER_IDLE_MS) store.setWelder(null)
+  function onVisible() {
+    if (document.visibilityState === 'visible') checkSession()
   }
 
   watch(() => store.isSupervisor, (supervisor) => {
@@ -68,8 +59,7 @@
     const relogin = store.reloginPrompt
     store.reloginPrompt = false
     if (relogin) show('success', 'Supervisor password changed. Log in again with the new password.')
-    else show('info', idleLogout ? 'Logged out after 15 minutes of inactivity.' : 'Logged out.')
-    idleLogout = false
+    else show('info', 'Logged out.')
     if (onSupervisorPage()) router.push({ name: 'consumable-welder', query: relogin ? { unlock: '1' } : {} })
   })
 
@@ -80,12 +70,13 @@
   onMounted(async () => {
     if (!store.supervisor) store.init()
     if (store.supervisor && !(await store.verifySupervisor()) && onSupervisorPage()) router.push({ name: 'consumable-welder' })
-    ACTIVITY_EVENTS.forEach((e) => window.addEventListener(e, touch, { passive: true }))
-    timer = setInterval(checkIdle, 30000)
+    document.addEventListener('visibilitychange', onVisible)
+    timer = setInterval(checkSession, SESSION_CHECK_MS)
+    checkSession()
   })
 
   onBeforeUnmount(() => {
-    ACTIVITY_EVENTS.forEach((e) => window.removeEventListener(e, touch))
+    document.removeEventListener('visibilitychange', onVisible)
     clearInterval(timer)
   })
 </script>
