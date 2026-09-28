@@ -7,134 +7,128 @@ namespace DCenter.Server.Services;
 
 public class PdfReportService
 {
+    private static readonly string EmersonLogo =
+        Path.Combine(AppContext.BaseDirectory, "Assets", "Emerson.png");
+    private static readonly string FisherLogo =
+        Path.Combine(AppContext.BaseDirectory, "Assets", "Fisher.png");
+
+    private const float Border = 0.5f;
+    private const float SingleLine = 10;
+
     public byte[] Generate(Report r)
     {
+        var weldDate = WeldCardLayout.FormatDate(r.DateWelded);
+        var joints = r.Joints.OrderBy(j => j.JointNumber)
+            .Select(j => WeldCardLayout.Joint(j, weldDate))
+            .ToList();
+
         return Document.Create(doc =>
         {
             doc.Page(page =>
             {
-                page.Size(PageSizes.A4.Landscape());
-                page.Margin(18);
+                page.Size(PageSizes.A4);
+                page.MarginHorizontal(0.4f, Unit.Inch);
+                page.MarginTop(0.4f, Unit.Inch);
+                page.MarginBottom(0.3f, Unit.Inch);
                 page.DefaultTextStyle(t => t.FontSize(8).FontFamily(Fonts.Arial));
 
                 page.Content().Column(col =>
                 {
-                    col.Spacing(6);
-                    col.Item().AlignCenter().Text("WELD SHOP  JOB REPORT")
-                       .Bold().FontSize(12).Underline();
-
-                    col.Item().Element(e => Header(e, r));
-
-                    foreach (var joint in r.Joints.OrderBy(j => j.JointNumber))
-                        col.Item().Element(e => JointBlock(e, joint));
+                    col.Item().Element(Banner);
+                    col.Item().Element(e => Draw(e, WeldCardLayout.Header(r)));
+                    foreach (var joint in joints)
+                        col.Item().ShowEntire().Element(e => Draw(e, joint));
                 });
 
-                page.Footer().AlignRight().Text("F-WD-005 (Rev : 00)").FontSize(7);
+                page.Footer().PaddingTop(6).Row(row =>
+                {
+                    row.RelativeItem().Text(WeldCardLayout.FormNumber).Bold().FontSize(7);
+                    row.RelativeItem().AlignRight().Text(t =>
+                    {
+                        t.DefaultTextStyle(s => s.FontSize(7));
+                        t.Span("Page ");
+                        t.CurrentPageNumber();
+                        t.Span(" of ");
+                        t.TotalPages();
+                    });
+                });
             });
         }).GeneratePdf();
     }
 
-    private static void Header(IContainer c, Report r)
-    {
-        c.Row(row =>
-        {
-            row.RelativeItem().Column(left =>
-            {
-                left.Item().Element(e => Field(e, "Report Required?", r.ReportRequired ? "YES" : "NO"));
-                left.Item().Element(e => Field(e, "Date Welded :", r.DateWelded?.ToString("d/M/yyyy") ?? "-"));
-                left.Item().Element(e => Field(e, "Work Order:", r.WorkOrderNumber));
-                left.Item().Element(e => Field(e, "Part No. :", r.PartNo));
-                left.Item().Element(e => Field(e, "Description:", r.Description));
-            });
-
-            row.ConstantItem(20);
-
-            row.RelativeItem().Table(t =>
-            {
-                t.ColumnsDefinition(d =>
-                {
-                    d.RelativeColumn(2);
-                    d.RelativeColumn();
-                    d.RelativeColumn();
-                    d.RelativeColumn();
-                });
-                Cell(t, "", true); Cell(t, "1", true); Cell(t, "2", true); Cell(t, "3", true);
-                Cell(t, "Material Spec:", true);
-                Cell(t, r.MaterialSpec1); Cell(t, r.MaterialSpec2); Cell(t, r.MaterialSpec3);
-                Cell(t, "Grade:", true);
-                Cell(t, r.Grade1); Cell(t, r.Grade2); Cell(t, r.Grade3);
-                Cell(t, "P#:", true);
-                Cell(t, r.PNumber1); Cell(t, r.PNumber2); Cell(t, r.PNumber3);
-            });
-        });
-    }
-
-    private static void JointBlock(IContainer c, Joint j)
+    private static void Banner(IContainer c)
     {
         c.Column(col =>
         {
-            col.Item().PaddingTop(4).Text($"Joint {j.JointNumber}").Bold().FontSize(10);
-            col.Item().Row(row =>
+            col.Item().Height((float)WeldCardLayout.LogoRowHeight).Row(row =>
             {
-                row.RelativeItem().Table(t =>
-                {
-                    t.ColumnsDefinition(d => { d.RelativeColumn(); d.RelativeColumn(2); });
-                    Cell(t, "Part Desc. :", true); Cell(t, j.PartDescLeft);
-                    Cell(t, "Part No. :", true); Cell(t, j.PartNoLeft);
-                    Cell(t, "Heat Number :", true); Cell(t, j.HeatNumberLeft);
-                    Cell(t, "WPS No.:", true); Cell(t, j.WpsNo);
-                    Cell(t, "Welder Name :", true); Cell(t, j.WelderName);
-                });
-                row.ConstantItem(8);
-                row.RelativeItem().Table(t =>
-                {
-                    t.ColumnsDefinition(d => { d.RelativeColumn(); d.RelativeColumn(2); });
-                    Cell(t, "Part Desc. :", true); Cell(t, j.PartDescRight);
-                    Cell(t, "Part No. :", true); Cell(t, j.PartNoRight);
-                    Cell(t, "Heat Number :", true); Cell(t, j.HeatNumberRight);
-                    Cell(t, "Rev:", true); Cell(t, j.Rev);
-                    Cell(t, "Welder No", true); Cell(t, j.WelderNo);
-                });
-                row.ConstantItem(8);
-                row.RelativeItem().Element(e => ElectrodeTable(e, j));
+                row.ConstantItem(112).AlignMiddle().Element(e => Logo(e, EmersonLogo));
+                row.RelativeItem();
+                row.ConstantItem(60).AlignMiddle().Element(e => Logo(e, FisherLogo));
             });
+            foreach (var line in WeldCardLayout.CompanyLines)
+                col.Item().Height((float)WeldCardLayout.AddressRowHeight).AlignRight().AlignMiddle()
+                    .Text(line).FontSize(7);
+            col.Item().Height((float)WeldCardLayout.TitleRowHeight).AlignCenter().AlignMiddle()
+                .Text(WeldCardLayout.Title).Bold().FontSize(12);
         });
     }
 
-    private static void ElectrodeTable(IContainer c, Joint j)
+    private static void Logo(IContainer c, string path)
     {
-        var m = j.Materials.OrderBy(x => x.ColumnNumber).ToList();
-        string V(int col, Func<JointMaterial, string?> pick)
-            => m.FirstOrDefault(x => x.ColumnNumber == col) is { } hit ? pick(hit) ?? "-" : "-";
+        if (File.Exists(path)) c.Image(path).FitArea();
+    }
+
+    // Every grid slot gets a bordered cell, so blanks print as empty boxes like the Excel sheet.
+    // Cells keep the layout's fixed heights and scale long text down, as Excel's shrink-to-fit does.
+    private static void Draw(IContainer c, GridSection section)
+    {
+        var rows = section.RowHeights.Count;
+        var taken = new bool[rows + 1, WeldCardLayout.Columns + 1];
+        foreach (var cell in section.Cells)
+            for (var r = cell.Row; r < cell.Row + cell.RowSpan; r++)
+                for (var k = cell.Col; k < cell.Col + cell.ColSpan; k++)
+                    taken[r, k] = true;
 
         c.Table(t =>
         {
             t.ColumnsDefinition(d =>
             {
-                d.RelativeColumn(1.4f); d.RelativeColumn(); d.RelativeColumn(); d.RelativeColumn();
+                for (var i = 0; i < WeldCardLayout.Columns; i++) d.RelativeColumn();
             });
-            Cell(t, "Electrode Data:", true); Cell(t, "1", true); Cell(t, "2", true); Cell(t, "3", true);
-            Cell(t, "Process", true); Cell(t, V(1, x => x.Process)); Cell(t, V(2, x => x.Process)); Cell(t, V(3, x => x.Process));
-            Cell(t, "Size", true); Cell(t, V(1, x => x.Size)); Cell(t, V(2, x => x.Size)); Cell(t, V(3, x => x.Size));
-            Cell(t, "Type", true); Cell(t, V(1, x => x.Type)); Cell(t, V(2, x => x.Type)); Cell(t, V(3, x => x.Type));
-            Cell(t, "Manuf", true); Cell(t, V(1, x => x.Manuf)); Cell(t, V(2, x => x.Manuf)); Cell(t, V(3, x => x.Manuf));
-            Cell(t, "Heat/Lot", true); Cell(t, V(1, x => x.HeatLot)); Cell(t, V(2, x => x.HeatLot)); Cell(t, V(3, x => x.HeatLot));
+
+            foreach (var cell in section.Cells)
+            {
+                var height = section.RowHeights.Skip(cell.Row - 1).Take(cell.RowSpan).Sum();
+                t.Cell().Row((uint)cell.Row).Column((uint)cell.Col)
+                    .RowSpan((uint)cell.RowSpan).ColumnSpan((uint)cell.ColSpan)
+                    .Border(Border).Height((float)height)
+                    .PaddingHorizontal(2).PaddingVertical(1).ScaleToFit().AlignMiddle()
+                    .Element(e => Content(e, cell));
+            }
+
+            for (var r = 1; r <= rows; r++)
+                for (var k = 1; k <= WeldCardLayout.Columns; k++)
+                    if (!taken[r, k])
+                        t.Cell().Row((uint)r).Column((uint)k).Border(Border)
+                            .Height((float)section.RowHeights[r - 1]);
         });
     }
 
-    private static void Field(IContainer c, string label, string? value)
+    private static void Content(IContainer c, GridCell cell)
     {
-        c.Row(row =>
+        if (cell.Center) c = c.AlignCenter();
+        if (cell.Style == GridStyle.Value) c = c.Height(SingleLine);
+        var text = c.Text(cell.Text);
+        if (cell.Center) text.AlignCenter();
+        switch (cell.Style)
         {
-            row.ConstantItem(90).Text(label).SemiBold();
-            row.RelativeItem().BorderBottom(0.5f).Text(value ?? "");
-        });
-    }
-
-    private static void Cell(TableDescriptor t, string? text, bool header = false)
-    {
-        var cell = t.Cell().Border(0.5f).Padding(2);
-        var txt = cell.Text(text ?? "");
-        if (header) txt.SemiBold();
+            case GridStyle.Label:
+                text.Bold();
+                break;
+            case GridStyle.Note:
+                text.Bold().FontSize(7);
+                break;
+        }
     }
 }
