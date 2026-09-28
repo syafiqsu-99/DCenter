@@ -15,6 +15,19 @@ public class ReportsController(
     public async Task<ActionResult<List<ReportSummary>>> List(CancellationToken ct)
         => Ok(await reports.ListAsync(ct));
 
+    [HttpGet("dashboard")]
+    public async Task<ActionResult<ReportDashboardDto>> Dashboard([FromQuery] int months = 6, CancellationToken ct = default)
+        => Ok(await reports.GetDashboardAsync(months, ct));
+
+    [HttpGet("trace")]
+    public async Task<ActionResult<TraceResponse>> Trace([FromQuery] string? field, [FromQuery] string? q, CancellationToken ct)
+    {
+        var term = q?.Trim() ?? "";
+        if (field is null || !ReportService.TraceFields.Contains(field)) return BadRequest("Unknown search field.");
+        if (term.Length < 2) return BadRequest("Type at least 2 characters to search.");
+        return Ok(await reports.TraceAsync(field, term, ct));
+    }
+
     [HttpGet("{workOrderNumber}")]
     public async Task<ActionResult<ReportDto>> Get(string workOrderNumber, CancellationToken ct)
     {

@@ -97,7 +97,12 @@
           <td :style="lbl">WPS No.:</td>
           <td :style="cell">
             <v-combobox v-bind="f" clearable :custom-filter="allowAll" v-model="joint.wpsNo" :items="wpsNos"
-                        :loading="loadingWpsFilter" :messages="wpsHint" @update:search="searchWps" />
+                        :loading="loadingWpsFilter" :title="wpsFilterNote" @update:search="searchWps">
+              <template #prepend-item>
+                <v-list-subheader class="text-caption">{{ wpsFilterNote }}</v-list-subheader>
+                <v-divider />
+              </template>
+            </v-combobox>
           </td>
           <td :style="lbl">Rev:</td>
           <td :style="cell"><v-text-field v-model="joint.rev" v-bind="f" /></td>
@@ -238,29 +243,17 @@
     }
   }
 
-  const { allowedWps, wpsFilterNote, loadingWpsFilter, filterPNos } = storeToRefs(reportStore)
+  const { wpsOptions, wpsFilterNote, loadingWpsFilter } = storeToRefs(reportStore)
   const wpsQuery = ref('')
-
-  const hasFilter = computed(() => filterPNos.value.length > 0)
-
-  const wpsPool = computed(() =>
-    hasFilter.value
-      ? allowedWps.value
-      : wpsStore.items.map((w) => ({ wpsNo: w.wpsNo, process: w.process, baseMetal: w.baseMetal, pNo: w.pNo })))
 
   const wpsItems = computed(() => {
     const q = wpsQuery.value.trim().toLowerCase()
-    if (!q) return wpsPool.value
-    return wpsPool.value.filter(
+    if (!q) return wpsOptions.value
+    return wpsOptions.value.filter(
       (w) => w.wpsNo.toLowerCase().includes(q) || (w.process ?? '').toLowerCase().includes(q))
   })
 
   const wpsNos = computed(() => [...new Set(wpsItems.value.map((x) => x.wpsNo))])
-
-  const wpsHint = computed(() =>
-    hasFilter.value
-      ? (wpsFilterNote.value ?? `Filtered to P-No ${filterPNos.value.join(', ')}`)
-      : 'Showing all WPS — fill a P# above to narrow.')
 
   function searchWps(q) {
     wpsQuery.value = q || ''

@@ -1,23 +1,31 @@
 <template>
   <div>
-    <v-alert v-if="error" type="error" variant="tonal" class="mb-4" closable>{{ error }}</v-alert>
+    <v-tabs v-if="!route.meta.reportEditor" :model-value="route.name" color="primary"
+            density="comfortable" show-arrows class="mb-4">
+      <v-tab v-for="t in tabs" :key="t.name" :value="t.name" :to="{ name: t.name }" :prepend-icon="t.icon">
+        {{ t.label }}
+      </v-tab>
+    </v-tabs>
 
-    <template v-if="confirmed">
-      <ReportActions />
-      <ReportForm />
-    </template>
-    <v-skeleton-loader v-else-if="loading" type="heading, card, table-row@6" class="bg-transparent" />
-    <WorkOrderBrowser v-else />
+    <v-alert v-if="error" type="error" variant="tonal" class="mb-4" closable
+             @click:close="store.error = ''">{{ error }}</v-alert>
+
+    <router-view />
   </div>
 </template>
 
 <script setup>
-    import { storeToRefs } from 'pinia';
-    import { useReportStore } from '@/store/reportStore';
-    import WorkOrderBrowser from '@/components/report/WorkOrderBrowser.vue';
-    import ReportForm from '@/components/report/ReportForm.vue';
-    import ReportActions from '@/components/report/ReportActions.vue';
+  import { storeToRefs } from 'pinia';
+  import { useRoute } from 'vue-router';
+  import { useReportStore } from '@/store/reportStore';
 
-    const store = useReportStore();
-    const { confirmed, error, loading } = storeToRefs(store);
+  const route = useRoute();
+  const store = useReportStore();
+  const { error } = storeToRefs(store);
+
+  const tabs = [
+    { name: 'report-list', label: 'Reports', icon: 'mdi-file-document-multiple-outline' },
+    { name: 'report-dashboard', label: 'Dashboard', icon: 'mdi-view-dashboard-outline' },
+    { name: 'report-trace', label: 'Traceability', icon: 'mdi-magnify-scan' },
+  ];
 </script>

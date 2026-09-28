@@ -17,3 +17,6 @@ export const kgTooltip = {
     label: (ctx) => `${ctx.dataset.label ?? ctx.label}: ${Number(ctx.parsed.y ?? ctx.parsed).toFixed(2)} kg`,
   },
 }
+
+export const REPORTS_COLOR = '#2E7D32'
+export const JOINTS_COLOR = '#1565C0'

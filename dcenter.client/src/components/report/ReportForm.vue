@@ -61,21 +61,21 @@
                 </tr>
                 <tr>
                   <td :style="lblR">Material:</td>
-                  <td :style="cell"><v-combobox v-model="report.materialSpec1" :items="materialOptions" v-bind="f" clearable @update:model-value="onMaterial(1, $event)" /></td>
-                  <td :style="cell"><v-combobox v-model="report.materialSpec2" :items="materialOptions" v-bind="f" clearable @update:model-value="onMaterial(2, $event)" /></td>
-                  <td :style="cell"><v-combobox v-model="report.materialSpec3" :items="materialOptions" v-bind="f" clearable @update:model-value="onMaterial(3, $event)" /></td>
+                  <td :style="cell"><v-combobox v-model="report.materialSpec1" :items="materialOptions" v-bind="f" clearable /></td>
+                  <td :style="cell"><v-combobox v-model="report.materialSpec2" :items="materialOptions" v-bind="f" clearable /></td>
+                  <td :style="cell"><v-combobox v-model="report.materialSpec3" :items="materialOptions" v-bind="f" clearable /></td>
                 </tr>
                 <tr>
                   <td :style="lblR">Grade:</td>
-                  <td :style="cell"><v-combobox v-model="report.grade1" :items="gradeOptions" v-bind="f" clearable @update:model-value="onGrade(1, $event)" /></td>
-                  <td :style="cell"><v-combobox v-model="report.grade2" :items="gradeOptions" v-bind="f" clearable @update:model-value="onGrade(2, $event)" /></td>
-                  <td :style="cell"><v-combobox v-model="report.grade3" :items="gradeOptions" v-bind="f" clearable @update:model-value="onGrade(3, $event)" /></td>
+                  <td :style="cell"><v-combobox v-model="report.grade1" :items="gradeItems(1)" v-bind="f" clearable /></td>
+                  <td :style="cell"><v-combobox v-model="report.grade2" :items="gradeItems(2)" v-bind="f" clearable /></td>
+                  <td :style="cell"><v-combobox v-model="report.grade3" :items="gradeItems(3)" v-bind="f" clearable /></td>
                 </tr>
                 <tr>
                   <td :style="lblR">P#:</td>
-                  <td :style="cell"><v-text-field v-model="report.pNumber1" v-bind="f" /></td>
-                  <td :style="cell"><v-text-field v-model="report.pNumber2" v-bind="f" /></td>
-                  <td :style="cell"><v-text-field v-model="report.pNumber3" v-bind="f" /></td>
+                  <td :style="cell"><v-text-field v-model="report.pNumber1" v-bind="f" :title="pNoTitle(1)" /></td>
+                  <td :style="cell"><v-text-field v-model="report.pNumber2" v-bind="f" :title="pNoTitle(2)" /></td>
+                  <td :style="cell"><v-text-field v-model="report.pNumber3" v-bind="f" :title="pNoTitle(3)" /></td>
                 </tr>
               </tbody>
             </table>
@@ -96,7 +96,7 @@
 </template>
 
 <script setup>
-  import { computed, onMounted } from 'vue';
+  import { computed, onMounted, watch } from 'vue';
   import { storeToRefs } from 'pinia';
   import { useReportStore } from '@/store/reportStore';
   import { useLookupStore } from '@/store/lookupStore';
@@ -116,18 +116,30 @@
 
   const bpvc = useBpvcStore();
   bpvc.load();
-  const { materialOptions, gradeOptions } = storeToRefs(bpvc);
+  const { materialOptions } = storeToRefs(bpvc);
 
-  function fillPNo(col, spec, grade) {
-    const pno = bpvc.resolvePNo(spec, grade);
-    if (pno) report.value[`pNumber${col}`] = pno;
+  function gradeItems(col) {
+    const list = bpvc.gradesFor(report.value[`materialSpec${col}`]);
+    const current = report.value[`grade${col}`];
+    return current && !list.includes(current) ? [current, ...list] : list;
   }
-  function onMaterial(col, spec) {
-    fillPNo(col, spec, report.value[`grade${col}`]);
+
+  function pNoTitle(col) {
+    const r = report.value;
+    if (!r[`materialSpec${col}`] || !r[`grade${col}`]) return 'Fill Material and Grade to look up the P-No from BPVC.';
+    return bpvc.resolvePNo(r[`materialSpec${col}`], r[`grade${col}`])
+      ? 'Filled from BPVC — you can still overwrite it.'
+      : 'No BPVC entry for this Material and Grade — enter the P-No manually.';
   }
-  function onGrade(col, grade) {
-    fillPNo(col, report.value[`materialSpec${col}`], grade);
-  }
+
+  watch(
+    () => [report.value, bpvc.items, ...[1, 2, 3].flatMap((c) => [report.value?.[`materialSpec${c}`], report.value?.[`grade${c}`]])],
+    (now, before) => {
+      const sameSource = !!before && before[0] === now[0] && before[1] === now[1];
+      store.syncPNumbers({ overwrite: sameSource });
+    },
+    { immediate: true },
+  );
 
   const yesNo = [{ t: 'YES', v: true }, { t: 'NO', v: false }];
 

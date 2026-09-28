@@ -6,13 +6,15 @@
                @click="attemptBack" />
 
         <div class="ms-1 me-3">
-          <div class="text-subtitle-2 font-weight-medium">{{ report.workOrderNumber }}</div>
+          <div class="text-subtitle-2 font-weight-medium">{{ report.workOrderNumber || 'New report (duplicate)' }}</div>
           <div class="text-caption text-medium-emphasis">
-            {{ isComplete ? 'Completed' : 'Draft' }}
+            {{ isComplete ? 'Completed' : 'Draft' }}<span v-if="isDirty && !isComplete" class="text-warning"> · Unsaved changes</span>
           </div>
         </div>
 
         <v-spacer />
+
+        <ReportSwitcher class="me-2 d-none d-sm-flex" />
 
         <div class="d-flex align-center ga-1 py-1">
           <v-btn :loading="saving" :disabled="!hasDateWelded" variant="text"
@@ -116,13 +118,15 @@
 <script setup>
   import { ref } from 'vue';
   import { storeToRefs } from 'pinia';
+  import { useRouter } from 'vue-router';
   import { useReportStore } from '@/store/reportStore';
   import api from '@/utils/api';
   import ConfirmDeleteDialog from '@/components/common/ConfirmDeleteDialog.vue';
-  import { useLeaveGuard } from '@/composables/useLeaveGuard';
+  import ReportSwitcher from '@/components/report/ReportSwitcher.vue';
 
   const store = useReportStore();
-  const { report, saving, deleting, hasDateWelded, isComplete, conflict, error,
+  const router = useRouter();
+  const { report, saving, deleting, hasDateWelded, isComplete, isDirty, conflict, error,
           history, loadingHistory } = storeToRefs(store);
 
   const snackbar = ref(false);
@@ -135,9 +139,8 @@
   const pdfDialog = ref(false)
   const pdfUrl = ref('');
 
-  const { guardLeave } = useLeaveGuard()
   function attemptBack() {
-    guardLeave(() => store.backToList())
+    router.push({ name: 'report-list' })
   }
 
   function notify(text, color = 'success') {
@@ -177,7 +180,8 @@
   async function doDelete() {
     const ok = await store.deleteDraft();
     confirmDelete.value = false;
-    if (!ok) notify(store.error || 'Could not delete the draft.', 'error');
+    if (ok) router.push({ name: 'report-list' });
+    else notify(store.error || 'Could not delete the draft.', 'error');
   }
 
   function shortDesc(desc) {

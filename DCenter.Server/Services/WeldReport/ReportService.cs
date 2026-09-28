@@ -76,6 +76,137 @@ public class ReportService(WeldReportContext db)
         return DeleteResult.Ok;
     }
 
+    public const int StaleDraftDays = 7;
+    public const int TraceLimit = 500;
+
+    public async Task<ReportDashboardDto> GetDashboardAsync(int months, CancellationToken ct)
+    {
+        months = Math.Clamp(months, 1, 24);
+        var today = DateOnly.FromDateTime(DateTime.Today);
+        var monthStart = new DateOnly(today.Year, today.Month, 1);
+        var windowStart = monthStart.AddMonths(-(months - 1));
+        var monthStartAt = monthStart.ToDateTime(TimeOnly.MinValue);
+        var windowStartAt = windowStart.ToDateTime(TimeOnly.MinValue);
+        var staleBefore = DateTime.Now.AddDays(-StaleDraftDays);
+
+        var required = db.Reports.AsNoTracking().Where(r => r.ReportRequired);
+        var drafts = required.Where(r => r.CompletedAt == null);
+
+        var openDrafts = await drafts.CountAsync(ct);
+        var staleDrafts = await drafts.CountAsync(r => r.UpdatedAt < staleBefore, ct);
+        var missingDate = await drafts.CountAsync(r => r.DateWelded == null, ct);
+        var completedThisMonth = await required.CountAsync(r => r.CompletedAt >= monthStartAt, ct);
+
+        var completedAts = await required
+            .Where(r => r.CompletedAt >= windowStartAt)
+            .Select(r => r.CompletedAt!.Value)
+            .ToListAsync(ct);
+
+        var weldedReports = await required
+            .Where(r => r.DateWelded >= windowStart)
+            .Select(r => new { DateWelded = r.DateWelded!.Value, Joints = r.Joints.Count })
+            .ToListAsync(ct);
+
+        var monthly = Enumerable.Range(0, months)
+            .Select(i => windowStart.AddMonths(i))
+            .Select(m => new MonthCount(
+                m.ToString("MMM yyyy"),
+                completedAts.Count(c => c.Year == m.Year && c.Month == m.Month),
+                weldedReports.Where(w => w.DateWelded.Year == m.Year && w.DateWelded.Month == m.Month).Sum(w => w.Joints)))
+            .ToList();
+
+        var jointsThisMonth = weldedReports.Where(w => w.DateWelded >= monthStart).Sum(w => w.Joints);
+
+        var windowJoints = db.Joints.AsNoTracking()
+            .Where(j => j.Report.ReportRequired && j.Report.DateWelded >= windowStart);
+
+        var welderPairs = await windowJoints
+            .Where(j => j.WelderNo != null && j.WelderNo != "")
+            .GroupBy(j => new { j.WelderNo, j.WelderName })
+            .Select(g => new { g.Key.WelderNo, g.Key.WelderName, Count = g.Count() })
+            .ToListAsync(ct);
+
+        var topWelders = welderPairs
+            .GroupBy(x => x.WelderNo!)
+            .Select(g => new
+            {
+                WelderNo = g.Key,
+                Name = g.OrderByDescending(x => x.Count).Select(x => x.WelderName).FirstOrDefault(n => !string.IsNullOrWhiteSpace(n)),
+                Count = g.Sum(x => x.Count),
+            })
+            .OrderByDescending(x => x.Count)
+            .Take(10)
+            .ToList();
+
+        var topWps = await windowJoints
+            .Where(j => j.WpsNo != null && j.WpsNo != "")
+            .GroupBy(j => j.WpsNo!)
+            .Select(g => new { WpsNo = g.Key, Count = g.Count() })
+            .OrderByDescending(x => x.Count)
+            .Take(10)
+            .ToListAsync(ct);
+
+        var needsAction = await drafts
+            .Where(r => r.UpdatedAt < staleBefore || r.DateWelded == null)
+            .OrderBy(r => r.UpdatedAt)
+            .Take(50)
+            .Select(r => new
+            {
+                r.WorkOrderNumber, r.PartNo, r.Description,
+                JointCount = r.Joints.Count, r.DateWelded, r.UpdatedAt,
+            })
+            .ToListAsync(ct);
+
+        return new ReportDashboardDto(
+            new ReportKpis(openDrafts, completedThisMonth, jointsThisMonth, staleDrafts, missingDate,
+                StaleDraftDays, monthStart.ToString("MMMM yyyy")),
+            monthly,
+            topWelders.Select(w => new NameCount(w.Name ?? w.WelderNo, w.WelderNo, w.Count)).ToList(),
+            topWps.Select(w => new NameCount(w.WpsNo, null, w.Count)).ToList(),
+            needsAction.Select(r => new NeedsActionDto(
+                r.WorkOrderNumber, r.PartNo, r.Description, r.JointCount, r.DateWelded, r.UpdatedAt,
+                r.DateWelded is null
+                    ? (r.UpdatedAt < staleBefore ? "No date welded · stale" : "No date welded")
+                    : $"No update for {(int)(DateTime.Now - r.UpdatedAt).TotalDays} days")).ToList());
+    }
+
+    public static readonly string[] TraceFields = ["welder", "wps", "heat", "heatLot"];
+
+    public async Task<TraceResponse> TraceAsync(string field, string q, CancellationToken ct)
+    {
+        var joints = db.Joints.AsNoTracking();
+        joints = field switch
+        {
+            "welder" => joints.Where(j => (j.WelderNo != null && j.WelderNo.Contains(q)) ||
+                                          (j.WelderName != null && j.WelderName.Contains(q))),
+            "wps" => joints.Where(j => j.WpsNo != null && j.WpsNo.Contains(q)),
+            "heat" => joints.Where(j => (j.HeatNumberLeft != null && j.HeatNumberLeft.Contains(q)) ||
+                                        (j.HeatNumberRight != null && j.HeatNumberRight.Contains(q))),
+            "heatLot" => joints.Where(j => j.Materials.Any(m => m.HeatLot != null && m.HeatLot.Contains(q))),
+            _ => throw new ArgumentOutOfRangeException(nameof(field), field, "Unknown trace field."),
+        };
+
+        var rows = await joints
+            .OrderByDescending(j => j.Report.DateWelded)
+            .ThenBy(j => j.Report.WorkOrderNumber)
+            .ThenBy(j => j.JointNumber)
+            .Take(TraceLimit + 1)
+            .Select(j => new
+            {
+                j.Report.WorkOrderNumber, j.Report.PartNo, j.Report.CompletedAt, j.Report.DateWelded,
+                j.JointNumber, j.WpsNo, j.WelderName, j.WelderNo, j.HeatNumberLeft, j.HeatNumberRight,
+                HeatLots = j.Materials.OrderBy(m => m.ColumnNumber).Select(m => m.HeatLot).ToList(),
+            })
+            .ToListAsync(ct);
+
+        var items = rows.Take(TraceLimit).Select(r => new TraceRowDto(
+            r.WorkOrderNumber, r.PartNo, r.CompletedAt == null ? "Draft" : "Completed", r.DateWelded,
+            r.JointNumber, r.WpsNo, r.WelderName, r.WelderNo, r.HeatNumberLeft, r.HeatNumberRight,
+            string.Join(", ", r.HeatLots.Where(h => !string.IsNullOrWhiteSpace(h)).Distinct()))).ToList();
+
+        return new TraceResponse(items, rows.Count > TraceLimit);
+    }
+
     public async Task<ReportDto> SaveAsync(ReportDto dto, CancellationToken ct)
     {
         var r = await db.Reports

@@ -48,7 +48,7 @@
   import { Bar } from 'vue-chartjs'
   import { useConsumableStore } from '@/store/consumableStore'
   import { COLUMN, errorText, kg } from '@/utils/consumables'
-  import { TYPE_COLORS, kgTooltip } from '@/components/consumables/dashboard/chartSetup'
+  import { TYPE_COLORS, kgTooltip } from '@/components/common/chartSetup'
 
   const store = useConsumableStore()
   const selected = ref(null)
