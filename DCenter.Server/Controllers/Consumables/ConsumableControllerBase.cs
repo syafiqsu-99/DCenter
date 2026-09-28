@@ -1,6 +1,7 @@
 using DCenter.Server.Models;
 using DCenter.Server.Services;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 
 namespace DCenter.Server.Controllers;
 
@@ -33,13 +34,21 @@ public abstract class ConsumableControllerBase : ControllerBase
 
     protected async Task<ActionResult<T>> Locked<T>(Func<Task<ServiceResult<T>>> action)
     {
+        var gate = HttpContext.RequestServices.GetRequiredService<IdempotencyGate>();
+        var scope = $"{Request.Method} {Request.Path}{Request.QueryString}|{EnteredBy}";
         try
         {
-            return ToAction(await action());
+            return ToAction(await gate.RunAsync(scope, Request.Headers[IdempotencyGate.Header].ToString(), action));
         }
         catch (TimeoutException ex)
         {
             return Conflict(ex.Message);
+        }
+        catch (DbUpdateException ex)
+        {
+            HttpContext.RequestServices.GetRequiredService<ILogger<ConsumableControllerBase>>()
+                .LogWarning(ex, "Database update failed for {Scope}", scope);
+            return Conflict("Someone else saved a change at the same moment, so this was not recorded. Please try again.");
         }
     }
 

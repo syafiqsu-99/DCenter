@@ -106,6 +106,9 @@
   import { useRouter } from 'vue-router'
   import { useConsumableStore } from '@/store/consumableStore'
   import { ALL, COLUMN, errorText, fmtDateTime, kg, openPrint, todayIso } from '@/utils/consumables'
+  import { useSubmitKey } from '@/composables/useSubmitKey'
+
+  const submitKey = useSubmitKey()
 
   const tableArea = ref(null)
   const tableHeight = useFillHeight(tableArea)
@@ -212,7 +215,8 @@
           systemKg: l.systemKg,
           countedKg: valueOf(l) ?? l.systemKg,
         })),
-      })
+      }, submitKey.key.value)
+      submitKey.renew()
       confirmOpen.value = false
       snackbarText.value = `${result.referenceNo} posted — ${result.linesAdjusted} adjustment(s).`
       snackbar.value = true

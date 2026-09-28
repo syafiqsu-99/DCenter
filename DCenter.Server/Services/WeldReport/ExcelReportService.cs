@@ -93,7 +93,7 @@ public class ExcelReportService
 
         // ---- Joint blocks ----
         foreach (var j in r.Joints.OrderBy(x => x.JointNumber))
-            row = JointBlock(ws, row, j, r, dateStr);
+            row = JointBlock(ws, row, j, dateStr);
 
         // ---- Footer ----
         row++;
@@ -112,7 +112,7 @@ public class ExcelReportService
     }
 
     // One joint = 6 rows matching the form: header row, then 4 weld-material rows, then joint desc.
-    private static int JointBlock(IXLWorksheet ws, int row, Joint j, Report r, string dateStr)
+    private static int JointBlock(IXLWorksheet ws, int row, Joint j, string dateStr)
     {
         var m = j.Materials.OrderBy(x => x.ColumnNumber).ToList();
         string V(int col, Func<JointMaterial, string?> pick)
@@ -131,8 +131,8 @@ public class ExcelReportService
         ws.Range(row, 13, row + 1, 20).Merge().Value = "Weld Material Data";
         ws.Range(row, 21, row, 23).Merge().Value = "Engineer/Supervisor";
         ws.Range(row, 24, row, 25).Merge().Value = "Date";
-        ws.Range(row + 1, 21, row + 1, 23).Merge().Value = r.EngineerSupervisor;
-        ws.Range(row + 1, 24, row + 1, 25).Merge().Value = dateStr;
+        ws.Range(row + 1, 21, row + 1, 23).Merge();
+        ws.Range(row + 1, 24, row + 1, 25).Merge();
         ws.Range(row, 1, row + 1, 20).Style.Alignment.SetHorizontal(XLAlignmentHorizontalValues.Center);
         BoldRow(ws, row, wrap: true);
         row += 2;
@@ -164,8 +164,8 @@ public class ExcelReportService
         ws.Range(row + 1, 15, row + 1, 16).Merge().Value = V(1, x => x.Type);
         ws.Range(row + 1, 17, row + 1, 18).Merge().Value = V(2, x => x.Type);
         ws.Range(row + 1, 19, row + 1, 20).Merge().Value = V(3, x => x.Type);
-        ws.Range(row, 21, row, 23).Merge().Value = r.QaInspector;
-        ws.Range(row, 24, row, 25).Merge().Value = dateStr;
+        ws.Range(row, 21, row, 23).Merge();
+        ws.Range(row, 24, row, 25).Merge();
         ws.Range(row + 1, 21, row + 1, 23).Merge().Value = "Welder"; ws.Cell(row + 1, 21).Style.Font.Bold = true;
         ws.Range(row + 1, 24, row + 1, 25).Merge().Value = "Date"; ws.Cell(row + 1, 24).Style.Font.Bold = true;
         row += 2;
@@ -190,10 +190,18 @@ public class ExcelReportService
         // Joint description row
         ws.Range(row, 1, row, 4).Merge().Value = "Joint Description"; ws.Cell(row, 1).Style.Font.Bold = true;
         ws.Range(row, 5, row, 25).Merge().Value =
-            $"Joining of {j.PartDescLeft} with {j.PartDescRight}";
+            $"Joining of {PartLabel(j.PartDescLeft, j.PartNoLeft)} with {PartLabel(j.PartDescRight, j.PartNoRight)}";
         row++;
 
         return row;
+    }
+
+    public static string PartLabel(string? description, string? partNo)
+    {
+        var desc = description?.Trim() ?? "";
+        var no = partNo?.Trim() ?? "";
+        if (no.Length == 0) return desc.Length == 0 ? "-" : desc;
+        return desc.Length == 0 ? no : $"{desc} ({no})";
     }
 
     private static void BoldRow(IXLWorksheet ws, int row, bool wrap = false)

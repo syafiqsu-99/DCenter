@@ -4,4 +4,5 @@
     <Deploy />
   </Project>
   <Project Path="DCenter.Server/DCenter.Server.csproj" />
+  <Project Path="DCenter.Server.Tests/DCenter.Server.Tests.csproj" />
 </Solution>

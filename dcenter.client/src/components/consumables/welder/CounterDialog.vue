@@ -85,6 +85,9 @@
   import { COLUMN, ELECTRODE, QUICK_QTY, errorText, kg, todayIso } from '@/utils/consumables'
   import ItemPicker from '@/components/consumables/shared/ItemPicker.vue'
   import CompartmentPicker from '@/components/consumables/holding/CompartmentPicker.vue'
+  import { useSubmitKey } from '@/composables/useSubmitKey'
+
+  const submitKey = useSubmitKey()
 
   const props = defineProps({
     modelValue: { type: Boolean, default: false },
@@ -230,7 +233,7 @@
           quantityKg: takeAll.value ? 0 : Number(qty.value),
           takeAll: takeAll.value,
           compartmentId: isElectrode.value ? bin.value.compartmentId : null,
-        })
+        }, submitKey.key.value)
       } else {
         const rebake = isElectrode.value && returnTarget.value === 'rebake'
         result = await store.returnStock({
@@ -238,8 +241,9 @@
           quantityKg: Number(qty.value),
           compartmentId: isElectrode.value && !rebake ? compartmentId.value : null,
           forRebake: rebake,
-        })
+        }, submitKey.key.value)
       }
+      submitKey.renew()
       emit('saved', result)
       close(false)
     } catch (e) {

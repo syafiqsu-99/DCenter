@@ -2,6 +2,8 @@ import { defineStore } from 'pinia'
 import api from '@/utils/api'
 import { useBpvcStore } from '@/store/bpvcStore'
 import { useWpsStore } from '@/store/wpsStore'
+import { todayIso } from '@/utils/date'
+import { errorText } from '@/utils/consumables'
 
 function blankMaterial(col) {
   return { id: 0, columnNumber: col, process: '', size: '', type: '', manuf: '', heatLot: '' }
@@ -42,7 +44,7 @@ function childParts(nodes) {
 }
 
 function newReport(workOrderNumber, summary) {
-  const today = new Date().toISOString().slice(0, 10)
+  const today = todayIso()
   return {
     id: 0,
     workOrderNumber,
@@ -245,7 +247,7 @@ export const useReportStore = defineStore('report', {
         this.hasMoreResults = data.hasMore
       } catch (e) {
         if (token !== searchToken) return
-        this.error = e.response?.data ?? 'Could not load work orders.'
+        this.error = errorText(e, 'Could not load work orders.')
         this.searchResults = []
         this.hasMoreResults = false
       } finally {
@@ -464,6 +466,15 @@ export const useReportStore = defineStore('report', {
         this.error = 'Date welded is required before saving.'
         return false
       }
+      if (this.isComplete) {
+        this.error = 'This report is completed. Ask a supervisor to reopen it before making changes.'
+        return false
+      }
+      const wo = (this.report.workOrderNumber ?? '').trim()
+      if (this.mode === 'duplicate' && this.savedByWorkOrder.has(wo)) {
+        this.error = `A report for work order ${wo} already exists. Choose another work order, or open the existing report from Saved reports.`
+        return false
+      }
       this.saving = true
       this.error = ''
       this.conflict = false
@@ -478,7 +489,7 @@ export const useReportStore = defineStore('report', {
         return true
       } catch (e) {
         this.conflict = e.response?.status === 409
-        this.error = e.response?.data ?? 'Save failed.'
+        this.error = errorText(e, 'Save failed.')
         return false
       } finally {
         this.saving = false
@@ -489,13 +500,18 @@ export const useReportStore = defineStore('report', {
       if (!this.report?.workOrderNumber) return false
       this.error = ''
       try {
-        await api.post(`/reports/${encodeURIComponent(this.report.workOrderNumber)}/complete`, complete)
-        this.report.completedAt = complete ? new Date().toISOString() : null
+        const wo = this.report.workOrderNumber
+        await api.post(`/reports/${encodeURIComponent(wo)}/complete`, complete)
+        const { data } = await api.get(`/reports/${encodeURIComponent(wo)}`)
+        if (this.report?.workOrderNumber === wo && data) {
+          this.report.rowVersion = data.rowVersion
+          this.report.completedAt = data.completedAt
+        }
         this.markPristine()
         await this.loadSavedReports()
         return true
       } catch (e) {
-        this.error = e.response?.data ?? 'Could not update status.'
+        this.error = errorText(e, 'Could not update status.')
         return false
       }
     },
@@ -537,7 +553,7 @@ export const useReportStore = defineStore('report', {
         await this.loadSavedReports()
         return true
       } catch (e) {
-        this.error = e.response?.data ?? 'Could not delete the draft.'
+        this.error = errorText(e, 'Could not delete the draft.')
         return false
       } finally {
         this.deleting = false
@@ -564,7 +580,7 @@ export const useReportStore = defineStore('report', {
         await this.loadSavedReports()
         return true
       } catch (e) {
-        this.error = e.response?.data ?? 'Could not delete the draft.'
+        this.error = errorText(e, 'Could not delete the draft.')
         return false
       }
     },
@@ -579,7 +595,7 @@ export const useReportStore = defineStore('report', {
           return false
         }
         const src = normalizeJoints(res.data)
-        const today = new Date().toISOString().slice(0, 10)
+        const today = todayIso()
         this.report = {
           ...src,
           id: 0,
@@ -618,6 +634,9 @@ export const useReportStore = defineStore('report', {
       const wo = (workOrderNumber ?? '').trim()
       this.report.partNo = ''
       this.report.description = ''
+      this.error = this.savedByWorkOrder.has(wo)
+        ? `Work order ${wo} already has a saved report. Choose another work order, or open the existing one from Saved reports.`
+        : ''
       if (!wo) { this.reportParts = []; return }
       this.loadReportParts(wo)
       try {

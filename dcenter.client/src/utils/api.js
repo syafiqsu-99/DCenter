@@ -1,4 +1,7 @@
 const defaults = { baseURL: '/api', headers: {}, onUnauthorized: null };
+const TIMEOUT_MS = 60000;
+const DOWNLOAD_TIMEOUT_MS = 120000;
+const TIMEOUT_MESSAGE = 'The server did not respond in time. Check today\'s entries before trying again, in case it was saved.';
 const SUPERVISOR_HEADER = 'X-Supervisor-Token';
 
 function buildUrl(url, params) {
@@ -23,7 +26,7 @@ async function parseBody(res, responseType) {
   return res.text();
 }
 
-async function request(method, url, { params, body, headers, responseType } = {}) {
+async function request(method, url, { params, body, headers, responseType, timeoutMs } = {}) {
   const finalHeaders = { ...defaults.headers, ...(headers ?? {}) };
   const isFormData = body instanceof FormData;
   let payload = body;
@@ -35,8 +38,23 @@ async function request(method, url, { params, body, headers, responseType } = {}
     delete finalHeaders['Content-Type'];
   }
 
-  const res = await fetch(buildUrl(url, params), { method, headers: finalHeaders, body: payload, cache: 'no-store' });
-  const data = res.status === 204 ? null : await parseBody(res, res.ok ? responseType : undefined);
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs ?? (responseType === 'blob' ? DOWNLOAD_TIMEOUT_MS : TIMEOUT_MS));
+  let res;
+  let data;
+  try {
+    res = await fetch(buildUrl(url, params), {
+      method, headers: finalHeaders, body: payload, cache: 'no-store', signal: controller.signal,
+    });
+    data = res.status === 204 ? null : await parseBody(res, res.ok ? responseType : undefined);
+  } catch (e) {
+    if (e?.name !== 'AbortError') throw e;
+    const error = new Error(`Request to ${url} timed out`);
+    error.response = { status: 0, data: TIMEOUT_MESSAGE };
+    throw error;
+  } finally {
+    clearTimeout(timer);
+  }
 
   if (res.status === 401 && finalHeaders[SUPERVISOR_HEADER] && url !== '/supervisor/login') defaults.onUnauthorized?.();
 

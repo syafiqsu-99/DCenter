@@ -7,9 +7,6 @@ namespace DCenter.Server.Services;
 
 public class PdfReportService
 {
-    private static readonly string LogoPath =
-        Path.Combine(AppContext.BaseDirectory, "Assets", "emerson.png");
-
     public byte[] Generate(Report r)
     {
         return Document.Create(doc =>
@@ -116,7 +113,7 @@ public class PdfReportService
             {
                 d.RelativeColumn(1.4f); d.RelativeColumn(); d.RelativeColumn(); d.RelativeColumn();
             });
-            Cell(t, "Electrode Data:", true); Cell(t, "GTAW", true); Cell(t, "-", true); Cell(t, "-", true);
+            Cell(t, "Electrode Data:", true); Cell(t, "1", true); Cell(t, "2", true); Cell(t, "3", true);
             Cell(t, "Process", true); Cell(t, V(1, x => x.Process)); Cell(t, V(2, x => x.Process)); Cell(t, V(3, x => x.Process));
             Cell(t, "Size", true); Cell(t, V(1, x => x.Size)); Cell(t, V(2, x => x.Size)); Cell(t, V(3, x => x.Size));
             Cell(t, "Type", true); Cell(t, V(1, x => x.Type)); Cell(t, V(2, x => x.Type)); Cell(t, V(3, x => x.Type));

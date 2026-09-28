@@ -170,7 +170,7 @@
     return current && !base.includes(current) ? [current, ...base] : base
   }
 
-  const f = { density: 'compact', variant: 'plain', hideDetails: true };
+  const f = computed(() => ({ density: 'compact', variant: 'plain', hideDetails: true, readonly: reportStore.isComplete }));
   const allowAll = () => true;
 
   const reportStore = useReportStore();

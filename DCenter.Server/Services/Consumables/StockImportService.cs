@@ -106,9 +106,20 @@ public class StockImportService(WeldReportContext db, ConsumableItemService item
             .ToDictionary(g => g.Key, g => g.Select(b => keyById.GetValueOrDefault(b.ItemId, $"#{b.ItemId}")).ToHashSet());
         var newItems = new Dictionary<string, ItemInput>();
         var specifications = await items.SpecificationNamesAsync(ct);
+        var imported = (await ledger.Live()
+                .Where(m => m.TxnType == Cat.TxnReceive && m.ReferenceNo == OpeningReference)
+                .Select(m => new
+                {
+                    m.TxnNo, m.TxnDate, m.QuantityKg, m.ToStage, m.ToCompartmentId,
+                    m.Lot.Item.Specification, m.Lot.Item.Diameter, m.Lot.Brand, m.Lot.LotNumber,
+                })
+                .ToListAsync(ct))
+            .GroupBy(m => OpeningKey(Key(m.Specification, m.Diameter), m.Brand, m.LotNumber, m.QuantityKg, m.ToStage ?? "",
+                m.ToCompartmentId, m.TxnDate))
+            .ToDictionary(g => g.Key, g => g.First().TxnNo);
 
         var plan = parsed.Skip(1)
-            .Select(r => PlanRow(r, columns, existing, brands, occupants, newItems, specifications))
+            .Select(r => PlanRow(r, columns, existing, brands, occupants, newItems, specifications, imported))
             .ToList();
 
         var ready = plan.Count(p => p.Row.Status is StatusReady or StatusNew);
@@ -201,7 +212,7 @@ public class StockImportService(WeldReportContext db, ConsumableItemService item
     private Planned PlanRow(
         CsvText.Row r, Dictionary<Col, int> columns, Dictionary<string, ConsumableItem> existing, Dictionary<string, string> brands,
         Dictionary<int, HashSet<string>> occupants, Dictionary<string, ItemInput> newItems,
-        IReadOnlyDictionary<string, string> specifications)
+        IReadOnlyDictionary<string, string> specifications, Dictionary<string, string> imported)
     {
         var messages = new List<string>();
         string? Cell(Col c) => columns.TryGetValue(c, out var i) && i < r.Fields.Count
@@ -352,6 +363,10 @@ public class StockImportService(WeldReportContext db, ConsumableItemService item
             messages.Add($"{T.WarningPrefix} no compartment given — the electrodes go to {Cat.UnassignedBin} until placed in an oven.");
         }
 
+        if (itemKey is not null && brand is not null && lotNumber is not null && qty > 0
+            && imported.TryGetValue(OpeningKey(itemKey, brand, lotNumber, qty, stage, compartmentId, date), out var earlierTxn))
+            messages.Add($"This exact row was already imported as opening stock in {earlierTxn}. Remove it, or change it if it is new stock.");
+
         var remarks = T.FreeText(rawRemarks, 500);
         var diaSpec = input is not null ? Cat.DiaSpec(input.Diameter, input.Specification) : Cat.DiaSpec(rawDiameter ?? "", rawSpec ?? "");
         var errors = messages.Where(m => !T.IsNote(m)).ToList();
@@ -393,6 +408,11 @@ public class StockImportService(WeldReportContext db, ConsumableItemService item
     }
 
     private static string Key(string specification, string diameter) => $"{specification}|{diameter}".ToUpperInvariant();
+
+    private static string OpeningKey(string itemKey, string brand, string lotNumber, decimal qty, string stage, int? compartmentId, DateOnly date)
+        => string.Join('|', itemKey, brand.ToUpperInvariant(), lotNumber.ToUpperInvariant(),
+            qty.ToString("0.00", CultureInfo.InvariantCulture), stage, compartmentId?.ToString(CultureInfo.InvariantCulture) ?? "-",
+            date.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture));
 
     private static ServiceResult<StockImportResultDto> Ok(StockImportResultDto value) => ServiceResult<StockImportResultDto>.Ok(value);
 

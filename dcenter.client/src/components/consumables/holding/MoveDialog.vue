@@ -35,6 +35,9 @@
   import { useConsumableStore } from '@/store/consumableStore'
   import { errorText, kg, todayIso } from '@/utils/consumables'
   import CompartmentPicker from '@/components/consumables/holding/CompartmentPicker.vue'
+  import { useSubmitKey } from '@/composables/useSubmitKey'
+
+  const submitKey = useSubmitKey()
 
   const props = defineProps({
     modelValue: { type: Boolean, default: false },
@@ -89,7 +92,8 @@
         quantityKg: takeAll.value ? 0 : Number(qty.value),
         takeAll: takeAll.value,
         remarks: remarks.value.trim() || null,
-      })
+      }, submitKey.key.value)
+      submitKey.renew()
       emit('saved', result)
       close(false)
     } catch (e) {

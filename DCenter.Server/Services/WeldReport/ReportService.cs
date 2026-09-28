@@ -33,7 +33,7 @@ public class ReportService(WeldReportContext db)
 
     public enum CompleteResult { Ok, NotFound, DateWeldedRequired }
 
-    public async Task<CompleteResult> MarkCompleteAsync(string workOrderNumber, bool complete, CancellationToken ct)
+    public async Task<CompleteResult> MarkCompleteAsync(string workOrderNumber, bool complete, string? by, CancellationToken ct)
     {
         var r = await db.Reports.FirstOrDefaultAsync(x => x.WorkOrderNumber == workOrderNumber, ct);
         if (r is null) return CompleteResult.NotFound;
@@ -44,6 +44,7 @@ public class ReportService(WeldReportContext db)
         {
             ReportId = r.Id,
             Action = complete ? "Completed" : "Reopened",
+            Details = by is null ? null : $"By {by}",
         });
         await db.SaveChangesAsync(ct);
         return CompleteResult.Ok;
@@ -208,6 +209,7 @@ public class ReportService(WeldReportContext db)
             .FirstOrDefaultAsync(x => x.WorkOrderNumber == dto.WorkOrderNumber, ct);
 
         var isInsert = r is null;
+        if (ReportSaveRules.Conflict(r, dto) is string refusal) throw new ReportConflictException(refusal);
 
         string summary;
         if (r is null)
@@ -219,10 +221,7 @@ public class ReportService(WeldReportContext db)
         else
         {
             summary = BuildSaveSummary(r, dto);
-            if (!string.IsNullOrEmpty(dto.RowVersion))
-            {
-                db.Entry(r).Property(x => x.RowVersion).OriginalValue = Convert.FromBase64String(dto.RowVersion);
-            }
+            db.Entry(r).Property(x => x.RowVersion).OriginalValue = Convert.FromBase64String(dto.RowVersion!);
             db.JointMaterials.RemoveRange(r.Joints.SelectMany(j => j.Materials));
             db.Joints.RemoveRange(r.Joints);
             r.Joints.Clear();
@@ -277,10 +276,10 @@ public class ReportService(WeldReportContext db)
             throw new ReportConflictException(
                 "This report was changed by someone else since you loaded it. Reload the report and re-apply your changes.");
         }
-        catch (DbUpdateException) when (isInsert)
+        catch (DbUpdateException ex) when (isInsert && ReportSaveRules.IsDuplicateKey(ex))
         {
             throw new ReportConflictException(
-                $"A report for job {dto.WorkOrderNumber} was just created by someone else. Reload the list and open it.");
+                $"A report for work order {dto.WorkOrderNumber} was just created by someone else. Open it from Saved reports.");
         }
 
         return ToDto(r);

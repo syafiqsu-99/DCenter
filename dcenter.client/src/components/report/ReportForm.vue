@@ -36,13 +36,13 @@
                 <tr>
                   <td :style="lbl">Part No. :</td>
                   <td :style="cell">
-                    <v-text-field v-model="report.partNo" v-bind="f" :readonly="lockedFromSearch" />
+                    <v-text-field v-model="report.partNo" v-bind="f" :readonly="lockedFromSearch || isComplete" />
                   </td>
                 </tr>
                 <tr>
                   <td :style="lbl">Description:</td>
                   <td :style="cell">
-                    <v-text-field v-model="report.description" v-bind="f" :readonly="lockedFromSearch" />
+                    <v-text-field v-model="report.description" v-bind="f" :readonly="lockedFromSearch || isComplete" />
                   </td>
                 </tr>
               </tbody>
@@ -87,9 +87,11 @@
 
   <div class="d-flex align-center ga-3 mb-3">
     <v-text-field :model-value="jointCount" type="number" min="1" max="50" density="compact"
-                  variant="outlined" hide-details style="max-width:160px;"
+                  variant="outlined" hide-details style="max-width:160px;" :disabled="isComplete"
                   label="Joints to insert" @update:model-value="store.setJointCount($event)" />
-    <span class="text-caption text-medium-emphasis">Set how many joints this report needs (max 50).</span>
+    <span class="text-caption text-medium-emphasis">
+      {{ isComplete ? 'This report is completed and locked. A supervisor can reopen it for changes.' : 'Set how many joints this report needs (max 50).' }}
+    </span>
   </div>
 
   <JointForm v-for="joint in report.joints" :key="joint.jointNumber" :joint="joint" />
@@ -104,7 +106,7 @@
   import { useBpvcStore } from '@/store/bpvcStore';
 
   const store = useReportStore();
-  const { report, jointCount, mode, allWorkOrderNumbers, loadingWorkOrderNumbers } = storeToRefs(store);
+  const { report, jointCount, mode, allWorkOrderNumbers, loadingWorkOrderNumbers, isComplete } = storeToRefs(store);
   const isDuplicate = computed(() => mode.value === 'duplicate');
   const lockedFromSearch = computed(() => mode.value === 'new');
 
@@ -143,7 +145,7 @@
 
   const yesNo = [{ t: 'YES', v: true }, { t: 'NO', v: false }];
 
-  const f = { density: 'compact', variant: 'plain', hideDetails: true };
+  const f = computed(() => ({ density: 'compact', variant: 'plain', hideDetails: true, readonly: isComplete.value }));
 
   const wrap = 'background:#fff;padding:12px;border:1px solid #000;margin-bottom:16px;overflow-x:auto;';
   const titleStyle = 'text-align:center;font-weight:bold;font-size:15px;text-decoration:underline;margin-bottom:10px;';

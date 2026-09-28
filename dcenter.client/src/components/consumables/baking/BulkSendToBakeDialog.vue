@@ -62,6 +62,9 @@
   import { useConsumableStore } from '@/store/consumableStore'
   import { useLookupStore } from '@/store/lookupStore'
   import { errorText, kg, todayIso } from '@/utils/consumables'
+  import { useSubmitKey } from '@/composables/useSubmitKey'
+
+  const submitKey = useSubmitKey()
 
   const props = defineProps({
     modelValue: { type: Boolean, default: false },
@@ -123,7 +126,7 @@
           await store.sendToBake({
             bakingDate: bakingDate.value, itemId: l.itemId, lotId: null, quantityKg: Number(l.qty),
             personInCharge: pic.value.trim(), remarks: null,
-          })
+          }, submitKey.key.value)
         } catch (e) {
           failedId.value = l.itemId
           error.value = `${l.diaSpec}: ${errorText(e, 'Could not send to baking.')}`
@@ -132,6 +135,7 @@
         sent += 1
         lines.value = lines.value.slice(1)
       }
+      submitKey.renew()
       close(false)
     } finally {
       saving.value = false

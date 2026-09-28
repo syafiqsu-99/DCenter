@@ -59,7 +59,8 @@
                            :to="{ name: 'report-duplicate', params: { source: item.workOrderNumber } }" />
               <v-divider class="my-1" />
               <v-list-item prepend-icon="mdi-delete-outline" title="Delete draft" base-color="error"
-                           :disabled="item.status === 'Completed'" @click="askDelete(item)" />
+                           :subtitle="supervisor.isSupervisor ? undefined : 'Supervisor only'"
+                           :disabled="item.status === 'Completed' || !supervisor.isSupervisor" @click="askDelete(item)" />
             </v-list>
           </v-menu>
         </template>
@@ -82,11 +83,13 @@
   import { storeToRefs } from 'pinia';
   import { useRouter } from 'vue-router';
   import { useReportStore } from '@/store/reportStore';
+  import { useConsumableStore } from '@/store/consumableStore';
   import ConfirmDeleteDialog from '@/components/common/ConfirmDeleteDialog.vue';
   import ReportStatusChip from '@/components/report/ReportStatusChip.vue';
   import ReportPdfDialog from '@/components/report/ReportPdfDialog.vue';
 
   const store = useReportStore();
+  const supervisor = useConsumableStore();
   const router = useRouter();
   const { savedReports, loadingSaved, listTab } = storeToRefs(store);
   const savedSearch = ref('');

@@ -33,6 +33,9 @@
   import { ref, watch } from 'vue'
   import { useConsumableStore } from '@/store/consumableStore'
   import { errorText, kg } from '@/utils/consumables'
+  import { useSubmitKey } from '@/composables/useSubmitKey'
+
+  const submitKey = useSubmitKey()
 
   const props = defineProps({
     modelValue: { type: Boolean, default: false },
@@ -62,7 +65,8 @@
       for (const r of props.residuals.filter((x) => selected.value.includes(x.lotId))) {
         await store.finish({
           itemId: r.itemId, lotId: r.lotId, stage: 'Activated', reason: 'Used up', remarks: null, compartmentId: r.compartmentId ?? null,
-        })
+        }, submitKey.key.value)
+        submitKey.renew()
         selected.value = selected.value.filter((id) => id !== r.lotId)
       }
       emit('done')

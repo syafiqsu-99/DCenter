@@ -1,3 +1,4 @@
+import { todayIso } from '@/utils/date'
 export const COLUMN = {
   requestor: 'Requestor',
   receivedBy: 'Received By',
@@ -92,11 +93,7 @@ export function formatDiameter(value) {
   return mesh ? `${Number(mesh[1])}/${Number(mesh[2])}` : value
 }
 
-export function todayIso() {
-  const d = new Date()
-  const pad = (n) => String(n).padStart(2, '0')
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
-}
+export { todayIso }
 
 export function monthStartIso() {
   return `${todayIso().slice(0, 8)}01`

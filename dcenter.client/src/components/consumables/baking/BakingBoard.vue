@@ -84,6 +84,9 @@
   import SendToBakeDialog from '@/components/consumables/baking/SendToBakeDialog.vue'
   import BakingEditDialog from '@/components/consumables/baking/BakingEditDialog.vue'
   import PlaceDialog from '@/components/consumables/baking/PlaceDialog.vue'
+  import { useSubmitKey } from '@/composables/useSubmitKey'
+
+  const submitKey = useSubmitKey()
 
   defineProps({ operator: { type: Boolean, default: false } })
   const emit = defineEmits(['changed'])
@@ -157,8 +160,9 @@
     stamping.value = action
     error.value = ''
     try {
-      if (action === 'start') await store.startBaking(ids)
-      else await store.stopBaking(ids)
+      if (action === 'start') await store.startBaking(ids, null, submitKey.key.value)
+      else await store.stopBaking(ids, null, submitKey.key.value)
+      submitKey.renew()
       selected.value = selected.value.filter((id) => !ids.includes(id))
       await load()
     } catch (e) {

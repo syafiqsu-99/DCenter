@@ -9,7 +9,8 @@ namespace DCenter.Server.Controllers;
 public class ReportsController(
     ReportService reports,
     PdfReportService pdf,
-    ExcelReportService excel) : ControllerBase
+    ExcelReportService excel,
+    SupervisorAuth supervisors) : ControllerBase
 {
     [HttpGet]
     public async Task<ActionResult<List<ReportSummary>>> List(CancellationToken ct)
@@ -37,14 +38,20 @@ public class ReportsController(
 
     [HttpPost("{workOrderNumber}/complete")]
     public async Task<IActionResult> Complete(string workOrderNumber, [FromBody] bool complete, CancellationToken ct)
-        => await reports.MarkCompleteAsync(workOrderNumber, complete, ct) switch
+    {
+        var supervisor = supervisors.FromRequest(Request);
+        if (!complete && supervisor is null)
+            return StatusCode(StatusCodes.Status401Unauthorized, "Only a supervisor can reopen a completed report. Log in as supervisor and try again.");
+        return await reports.MarkCompleteAsync(workOrderNumber, complete, supervisor?.Name, ct) switch
         {
             ReportService.CompleteResult.Ok => NoContent(),
             ReportService.CompleteResult.DateWeldedRequired => BadRequest("Date welded is required to mark a report complete."),
             _ => NotFound(),
         };
+    }
 
     [HttpDelete("{workOrderNumber}")]
+    [SupervisorOnly]
     public async Task<IActionResult> Delete(string workOrderNumber, CancellationToken ct)
         => await reports.DeleteAsync(workOrderNumber, ct) switch
         {

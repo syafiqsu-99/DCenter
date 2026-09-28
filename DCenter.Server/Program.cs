@@ -14,11 +14,19 @@ QuestPDF.Settings.License = LicenseType.Community;
 
 var builder = WebApplication.CreateBuilder(args);
 
-builder.Services.AddDbContext<WeldReportContext>(opt =>
-    opt.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
+if (OperatingSystem.IsWindows()) builder.Logging.AddEventLog();
 
-builder.Services.AddDbContext<ErpViewContext>(opt =>
-    opt.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
+var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
+if (string.IsNullOrWhiteSpace(connectionString))
+    throw new InvalidOperationException(
+        "The database connection string is not set. Set the machine environment variable ConnectionStrings__DefaultConnection and restart the site.");
+
+builder.Services.AddDbContext<WeldReportContext>(opt => opt.UseSqlServer(connectionString));
+
+builder.Services.AddDbContext<ErpViewContext>(opt => opt.UseSqlServer(connectionString));
+
+builder.Services.AddProblemDetails();
+builder.Services.AddSingleton<IdempotencyGate>();
 
 builder.Services.AddScoped<WorkOrderSearchService>();
 builder.Services.AddScoped<ReportService>();
@@ -112,6 +120,8 @@ if (app.Environment.IsDevelopment())
     app.UseCors(DevCors);
 }
 
+app.UseExceptionHandler();
+app.UseStatusCodePages();
 app.UseHttpsRedirection();
 app.UseAuthorization();
 app.MapControllers();

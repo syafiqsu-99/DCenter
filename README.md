@@ -15,6 +15,7 @@ Welders use the app without logging in. Consumables opens on **Welder View**. A 
 ```
 DCenter/
 ├─ .config/dotnet-tools.json      dotnet-ef, pinned to the EF Core package version
+├─ DCenter.Server.Tests/          xUnit tests for ledger, guards, CSV, auth, idempotency and report rules
 ├─ DCenter.Server/                ASP.NET Core Web API (.NET 10, EF Core, SQL Server)
 │  ├─ Program.cs                  DI, data protection, SPA hosting
 │  ├─ Data/                       WeldReportContext (app DB), ErpViewContext (read-only work order views), EF configuration
@@ -48,20 +49,23 @@ Secrets and connection strings belong in environment variables, not in `appsetti
 | `Consumables__SupervisorPassword` | Initial supervisor password (until changed in Settings) |
 | `DataProtection__KeysPath` | Optional: folder for session-signing keys (default `DCenter.Server/App_Data/keys`; the IIS app pool needs write access) |
 
+`appsettings.json` ships with an empty connection string. The server refuses to start, with a message naming the variable, until `ConnectionStrings__DefaultConnection` is set. Keep the keys folder outside anything a publish with "delete existing files" wipes, or supervisors are logged out on every deploy.
+
 ## Development
 
 ```bash
 dotnet tool restore                                   # installs dotnet-ef
 dotnet ef database update --project DCenter.Server    # apply migrations
 dotnet run --project DCenter.Server                   # API + Vite dev server via SPA proxy
+dotnet test DCenter.Server.Tests                      # unit tests (no database needed)
 ```
 
 ### Work order views
 
-Work orders, BOM levels and MRN come from OracleBetsyDB through views in the DCenter database, so nothing is created in OracleBetsyDB. Run `DCenter.Server/Sql/DCenter/DCenter_SourceViews.sql` once on the DCenter database (it is safe to re-run). It needs:
+Work orders and BOM levels come from OracleBetsyDB through views in the DCenter database, so nothing is created in OracleBetsyDB. Run `DCenter.Server/Sql/DCenter/DCenter_SourceViews.sql` once on the DCenter database (it is safe to re-run). It needs:
 
 - the DCenter database on the same SQL Server as OracleBetsyDB, or a linked server (replace `OracleBetsyDB.dbo.` with `[server].OracleBetsyDB.dbo.` for a dev localdb);
-- SELECT on `Work_Order_Detail`, `Tbl_Item_Category_MRN` and `Bill_Of_Material_Others` in OracleBetsyDB for the DefaultConnection login.
+- SELECT on `Work_Order_Detail` and `Bill_Of_Material_Others` in OracleBetsyDB for the DefaultConnection login.
 
 Until then the work order search shows a message saying which step is missing.
 
@@ -70,3 +74,5 @@ Frontend only: `cd dcenter.client && npm ci && npm run dev`. API calls use relat
 ## Deployment
 
 `dotnet publish DCenter.Server -c Release`, then deploy the output to IIS. Apply pending migrations with `dotnet ef database update` (or a generated script) before switching traffic.
+
+Run `dotnet test DCenter.Server.Tests` before every release, and work through the regression checklist in [docs/production-readiness.md](docs/production-readiness.md). On Windows servers, errors and warnings are also written to the Windows Application event log (source ".NET Runtime").
