@@ -76,6 +76,11 @@ a {
     flex: 0 0 auto;
   }
 
+.virtual-capped .v-table__wrapper {
+  max-height: 420px;
+  overflow: auto;
+}
+
 .card-table-area {
   flex: 1 1 auto;
   min-height: 0;

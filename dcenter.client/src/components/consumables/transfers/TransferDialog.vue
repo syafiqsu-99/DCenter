@@ -40,6 +40,9 @@
   import { computed, ref, watch } from 'vue'
   import { useConsumableStore } from '@/store/consumableStore'
   import { QUICK_QTY, errorText, kg, todayIso } from '@/utils/consumables'
+  import { useSubmitKey } from '@/composables/useSubmitKey'
+
+  const submitKey = useSubmitKey()
 
   const props = defineProps({
     modelValue: { type: Boolean, default: false },
@@ -114,7 +117,8 @@
         toStage: isIn.value ? 'Activated' : 'Normal',
         quantityKg: Number(qty.value),
         remarks: remarks.value.trim() || null,
-      })
+      }, submitKey.key.value)
+      submitKey.renew()
       emit('saved', result)
       close(false)
     } catch (e) {

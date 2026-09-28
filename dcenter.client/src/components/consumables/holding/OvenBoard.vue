@@ -73,6 +73,7 @@
   import OvenLayout from '@/components/consumables/holding/OvenLayout.vue'
   import CompartmentDrawer from '@/components/consumables/holding/CompartmentDrawer.vue'
   import MoveDialog from '@/components/consumables/holding/MoveDialog.vue'
+  import { useAutoRefresh } from '@/composables/useAutoRefresh'
 
   const props = defineProps({
     readonly: { type: Boolean, default: false },
@@ -140,6 +141,7 @@
   })
 
   onMounted(() => load(true))
+  useAutoRefresh(() => store.loadOvens(true), { paused: () => drawerOpen.value || moveOpen.value })
 </script>
 
 <style scoped>

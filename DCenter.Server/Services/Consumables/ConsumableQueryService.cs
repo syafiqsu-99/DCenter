@@ -19,7 +19,8 @@ public class ConsumableQueryService(WeldReportContext db, ConsumableLedger ledge
 
     public StockCatalogDto GetCatalog()
         => new(Cat.Categories, Cat.Sources, Cat.ActiveStages, Cat.AdjustReasons, Cat.OvenTypes,
-            settings.FinishThresholdKg, settings.AllowElectrodeDirectTransfer, Math.Max(settings.ReturnWindowDays, 1), CompartmentCodes);
+            settings.FinishThresholdKg, settings.AllowElectrodeDirectTransfer, Math.Max(settings.ReturnWindowDays, 1), CompartmentCodes,
+            Math.Max(settings.WelderBackdateDays, 0));
 
     private static readonly CompartmentCodeDto[] CompartmentCodes = FixedOvens.Ovens
         .SelectMany(o => Enumerable.Range(1, FixedOvens.CompartmentsPerOven).Select(n => new CompartmentCodeDto($"{o.Code}-{n}", o.OvenType)))

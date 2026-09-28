@@ -84,3 +84,20 @@ public record BpvcMaterialUpsert(
     string SpecNo, string? Designation, string? UnsNo, string? MinTensile, string PNo,
     string? GroupNo, string? IsoGroup, string? BrazingPNo, string? NominalComposition,
     string? TypicalProductForm, string? NominalThicknessLimits, string? SpecNoRaw);
+public record ReportKpis(
+    int OpenDrafts, int CompletedThisMonth, int JointsThisMonth,
+    int StaleDrafts, int MissingDateWelded, int StaleDays, string MonthLabel);
+public record MonthCount(string Month, int Reports, int Joints);
+public record NameCount(string Name, string? Detail, int Count);
+public record NeedsActionDto(
+    string WorkOrderNumber, string? PartNo, string? Description, int JointCount,
+    DateOnly? DateWelded, DateTime UpdatedAt, string Reason);
+public record ReportDashboardDto(
+    ReportKpis Kpis, List<MonthCount> Monthly, List<NameCount> TopWelders,
+    List<NameCount> TopWps, List<NeedsActionDto> NeedsAction);
+
+public record TraceRowDto(
+    string WorkOrderNumber, string? PartNo, string Status, DateOnly? DateWelded, int JointNumber,
+    string? WpsNo, string? WelderName, string? WelderNo,
+    string? HeatNumberLeft, string? HeatNumberRight, string HeatLots);
+public record TraceResponse(List<TraceRowDto> Items, bool Truncated);

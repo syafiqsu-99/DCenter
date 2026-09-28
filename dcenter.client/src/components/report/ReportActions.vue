@@ -6,28 +6,32 @@
                @click="attemptBack" />
 
         <div class="ms-1 me-3">
-          <div class="text-subtitle-2 font-weight-medium">{{ report.workOrderNumber }}</div>
+          <div class="text-subtitle-2 font-weight-medium">{{ report.workOrderNumber || 'New report (duplicate)' }}</div>
           <div class="text-caption text-medium-emphasis">
-            {{ isComplete ? 'Completed' : 'Draft' }}
+            {{ isComplete ? 'Completed' : 'Draft' }}<span v-if="isDirty && !isComplete" class="text-warning"> · Unsaved changes</span>
           </div>
         </div>
 
         <v-spacer />
 
         <div class="d-flex align-center ga-1 py-1">
-          <v-btn :loading="saving" :disabled="!hasDateWelded" variant="text"
+          <v-btn v-if="!isComplete" :loading="saving" :disabled="!hasDateWelded || completing" variant="text"
                  prepend-icon="mdi-content-save" @click="saveOnly">
             Save
           </v-btn>
 
-          <v-btn v-if="!isComplete" color="success" variant="flat" :disabled="!hasDateWelded"
-                 prepend-icon="mdi-check" @click="markComplete">
+          <v-btn v-if="!isComplete" color="success" variant="flat" :disabled="!hasDateWelded || saving"
+                 :loading="completing" prepend-icon="mdi-check" @click="markComplete">
             Complete
           </v-btn>
-          <v-btn v-else color="warning" variant="tonal"
+          <v-btn v-else-if="supervisor.isSupervisor" color="warning" variant="tonal" :loading="completing"
                  prepend-icon="mdi-lock-open-variant-outline" @click="reopen">
             Reopen
           </v-btn>
+          <v-chip v-else size="small" variant="tonal" prepend-icon="mdi-lock-outline"
+                  title="Ask a supervisor to reopen this report if it needs changes.">
+            Locked
+          </v-chip>
 
           <v-menu location="bottom end">
             <template #activator="{ props }">
@@ -36,14 +40,15 @@
             </template>
             <v-list density="compact" min-width="220">
               <v-list-item prepend-icon="mdi-file-pdf-box" title="View PDF"
-                           :disabled="pdfLoading" @click="viewPdf" />
+                           @click="viewPdf" />
               <v-list-item prepend-icon="mdi-microsoft-excel" title="Download Excel"
                            :disabled="excelLoading" @click="downloadExcel" />
               <v-list-item prepend-icon="mdi-history" title="Status history"
                            @click="openHistory" />
               <v-divider class="my-1" />
               <v-list-item prepend-icon="mdi-delete-outline" title="Delete draft"
-                           base-color="error" :disabled="isComplete"
+                           :subtitle="supervisor.isSupervisor ? undefined : 'Supervisor only'"
+                           base-color="error" :disabled="isComplete || !supervisor.isSupervisor"
                            @click="confirmDelete = true" />
             </v-list>
           </v-menu>
@@ -94,21 +99,8 @@
     </v-card>
   </v-dialog>
 
-  <v-dialog v-model="pdfDialog" fullscreen transition="dialog-bottom-transition" @after-leave="onPdfClosed">
-    <v-card class="d-flex flex-column">
-      <v-toolbar density="comfortable" color="surface">
-        <v-toolbar-title class="text-subtitle-1">PDF preview — {{ report.workOrderNumber }}</v-toolbar-title>
-        <v-spacer />
-        <v-btn variant="text" prepend-icon="mdi-download" @click="downloadPdf">Download</v-btn>
-        <v-btn icon="mdi-close" aria-label="Close PDF preview" @click="pdfDialog = false" />
-      </v-toolbar>
-      <v-divider />
-      <div class="flex-grow-1" style="min-height:0;">
-        <iframe v-if="pdfUrl" :src="pdfUrl" title="Report PDF"
-                style="width:100%;height:100%;border:0;display:block;" />
-      </div>
-    </v-card>
-  </v-dialog>
+  <ReportPdfDialog v-model="pdfDialog" :work-order-number="report.workOrderNumber"
+                   :part-no="report.partNo" :description="report.description" />
 
   <v-snackbar v-model="snackbar" :color="snackbarColor" timeout="3000">{{ snackbarText }}</v-snackbar>
 </template>
@@ -116,13 +108,17 @@
 <script setup>
   import { ref } from 'vue';
   import { storeToRefs } from 'pinia';
+  import { useRouter } from 'vue-router';
   import { useReportStore } from '@/store/reportStore';
+  import { useConsumableStore } from '@/store/consumableStore';
   import api from '@/utils/api';
   import ConfirmDeleteDialog from '@/components/common/ConfirmDeleteDialog.vue';
-  import { useLeaveGuard } from '@/composables/useLeaveGuard';
+  import ReportPdfDialog from '@/components/report/ReportPdfDialog.vue';
 
   const store = useReportStore();
-  const { report, saving, deleting, hasDateWelded, isComplete, conflict, error,
+  const supervisor = useConsumableStore();
+  const router = useRouter();
+  const { report, saving, deleting, hasDateWelded, isComplete, isDirty, conflict, error,
           history, loadingHistory } = storeToRefs(store);
 
   const snackbar = ref(false);
@@ -130,14 +126,23 @@
   const snackbarColor = ref('success');
   const confirmDelete = ref(false);
   const historyDialog = ref(false);
-  const pdfLoading = ref(false);
   const excelLoading = ref(false);
   const pdfDialog = ref(false)
-  const pdfUrl = ref('');
+  const completing = ref(false);
 
-  const { guardLeave } = useLeaveGuard()
+  function unsavedBlocksOutput() {
+    if (!isDirty.value || isComplete.value) return false;
+    notify('Save your changes first — the PDF and Excel are built from the saved report.', 'warning');
+    return true;
+  }
+
+  function viewPdf() {
+    if (unsavedBlocksOutput()) return;
+    pdfDialog.value = true;
+  }
+
   function attemptBack() {
-    guardLeave(() => store.backToList())
+    router.push({ name: 'report-list' })
   }
 
   function notify(text, color = 'success') {
@@ -156,17 +161,29 @@
   }
 
   async function markComplete() {
-    if (!(await store.save())) {
-      notify(store.error || 'Save failed.', 'error');
-      return;
+    if (completing.value) return;
+    completing.value = true;
+    try {
+      if (!(await store.save())) {
+        notify(store.error || 'Save failed.', 'error');
+        return;
+      }
+      if (await store.setComplete(true)) notify('Report marked complete.');
+      else notify(store.error || 'Could not mark complete.', 'error');
+    } finally {
+      completing.value = false;
     }
-    if (await store.setComplete(true)) notify('Report marked complete.');
-    else notify(store.error || 'Could not mark complete.', 'error');
   }
 
   async function reopen() {
-    if (await store.setComplete(false)) notify('Report reopened as draft.');
-    else notify(store.error || 'Could not reopen report.', 'error');
+    if (completing.value) return;
+    completing.value = true;
+    try {
+      if (await store.setComplete(false)) notify('Report reopened as draft.');
+      else notify(store.error || 'Could not reopen report.', 'error');
+    } finally {
+      completing.value = false;
+    }
   }
 
   async function openHistory() {
@@ -177,7 +194,8 @@
   async function doDelete() {
     const ok = await store.deleteDraft();
     confirmDelete.value = false;
-    if (!ok) notify(store.error || 'Could not delete the draft.', 'error');
+    if (ok) router.push({ name: 'report-list' });
+    else notify(store.error || 'Could not delete the draft.', 'error');
   }
 
   function shortDesc(desc) {
@@ -195,38 +213,8 @@
     )
   }
 
-  async function viewPdf() {
-    pdfLoading.value = true
-    try {
-      const res = await api.get(`/reports/${encodeURIComponent(report.value.workOrderNumber)}/pdf`, {
-        responseType: 'blob',
-      })
-      if (pdfUrl.value) URL.revokeObjectURL(pdfUrl.value)
-      pdfUrl.value = URL.createObjectURL(res.data)
-      pdfDialog.value = true
-    } catch {
-      notify('Could not load the PDF.', 'error')
-    } finally {
-      pdfLoading.value = false
-    }
-  }
-
-  function onPdfClosed() {
-    if (pdfUrl.value) {
-      URL.revokeObjectURL(pdfUrl.value)
-      pdfUrl.value = ''
-    }
-  }
-
-  function downloadPdf() {
-    if (!pdfUrl.value) return
-    const a = document.createElement('a')
-    a.href = pdfUrl.value
-    a.download = `${safeName(report.value.workOrderNumber, report.value.partNo, shortDesc(report.value.description))}.pdf`
-    a.click()
-  }
-
   async function downloadExcel() {
+    if (unsavedBlocksOutput()) return
     excelLoading.value = true
     try {
       const res = await api.get(`/reports/${encodeURIComponent(report.value.workOrderNumber)}/excel`, {

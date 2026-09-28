@@ -26,6 +26,9 @@
   import { ref, watch } from 'vue'
   import { useConsumableStore } from '@/store/consumableStore'
   import { TXN_LABELS, errorText } from '@/utils/consumables'
+  import { useSubmitKey } from '@/composables/useSubmitKey'
+
+  const submitKey = useSubmitKey()
 
   const props = defineProps({
     modelValue: { type: Boolean, default: false },
@@ -52,7 +55,8 @@
     saving.value = true
     error.value = ''
     try {
-      const result = await store.voidTransaction(props.transaction.txnNo, remarks.value.trim())
+      const result = await store.voidTransaction(props.transaction.txnNo, remarks.value.trim(), submitKey.key.value)
+      submitKey.renew()
       emit('voided', result)
       close(false)
     } catch (e) {

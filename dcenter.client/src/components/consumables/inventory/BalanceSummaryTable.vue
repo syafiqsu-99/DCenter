@@ -19,8 +19,8 @@
     </div>
     <v-divider />
     <div ref="tableArea" class="fill">
-      <v-data-table v-model:expanded="expanded" :headers="headers" :items="store.filteredBalances" item-value="itemId"
-                    :loading="store.loadingBalances" show-expand :items-per-page="-1" hide-default-footer
+      <v-data-table-virtual v-model:expanded="expanded" :headers="headers" :items="store.filteredBalances" item-value="itemId"
+                    :loading="store.loadingBalances" show-expand
                     class="consumable-table" density="comfortable" fixed-header :height="tableHeight"
                     no-data-text="No consumables match the filters.">
         <template #loading><v-skeleton-loader type="table-row@8" /></template>
@@ -64,7 +64,7 @@
             </td>
           </tr>
         </template>
-      </v-data-table>
+      </v-data-table-virtual>
     </div>
   </v-card>
 

@@ -56,6 +56,7 @@
   import { useConsumableStore } from '@/store/consumableStore'
   import { ELECTRODE, errorText, kg } from '@/utils/consumables'
   import BulkSendToBakeDialog from '@/components/consumables/baking/BulkSendToBakeDialog.vue'
+  import { useAutoRefresh } from '@/composables/useAutoRefresh'
 
   const emit = defineEmits(['sent'])
 
@@ -124,6 +125,7 @@
 
   defineExpose({ load })
   onMounted(load)
+  useAutoRefresh(load, { paused: () => bulkOpen.value })
 </script>
 
 <style scoped>

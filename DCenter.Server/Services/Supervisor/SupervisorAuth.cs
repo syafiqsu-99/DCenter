@@ -1,5 +1,7 @@
+using System.Collections.Concurrent;
 using System.Globalization;
 using System.Security.Cryptography;
+using System.Text;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.Extensions.Options;
 
@@ -17,6 +19,20 @@ public class SupervisorAuth(IDataProtectionProvider provider, IOptions<Consumabl
     private readonly int sessionHours = Math.Clamp(options.Value.SupervisorSessionHours, 1, 24);
 
     private long notBeforeMs;
+
+    private readonly ConcurrentDictionary<string, DateTimeOffset> revoked = new(StringComparer.Ordinal);
+
+    // Logout: the token stops working even though it has not expired. Kept in memory until it would have expired.
+    public void Revoke(string? token)
+    {
+        var session = Validate(token);
+        if (session is null) return;
+        foreach (var (key, expiresAt) in revoked)
+            if (expiresAt <= DateTimeOffset.UtcNow) revoked.TryRemove(key, out _);
+        revoked[Fingerprint(token!)] = session.ExpiresAt;
+    }
+
+    private static string Fingerprint(string token) => Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(token)));
 
     public (string Token, DateTimeOffset ExpiresAt) Issue(string name)
     {
@@ -41,6 +57,7 @@ public class SupervisorAuth(IDataProtectionProvider provider, IOptions<Consumabl
     public SupervisorSession? Validate(string? token)
     {
         if (string.IsNullOrWhiteSpace(token)) return null;
+        if (!revoked.IsEmpty && revoked.ContainsKey(Fingerprint(token))) return null;
         try
         {
             var payload = protector.Unprotect(token, out var expiresAt);

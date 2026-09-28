@@ -84,6 +84,9 @@
   import { COLUMN, ELECTRODE, errorText, kg, todayIso } from '@/utils/consumables'
   import ItemPicker from '@/components/consumables/shared/ItemPicker.vue'
   import ItemFields from '@/components/consumables/shared/ItemFields.vue'
+  import { useSubmitKey } from '@/composables/useSubmitKey'
+
+  const submitKey = useSubmitKey()
 
   const store = useConsumableStore()
   const lookupStore = useLookupStore()
@@ -199,7 +202,8 @@
         quantityKg: Number(form.quantityKg),
         remarks: text(form.remarks) || null,
       }
-      const result = await store.receive(payload)
+      const result = await store.receive(payload, submitKey.key.value)
+      submitKey.renew()
       store.rememberReceiveHeader({ source: form.source })
       snackbarText.value = `${result.txnNo} saved — Normal balance ${kg(result.balance.normalKg)} kg`
       snackbar.value = true

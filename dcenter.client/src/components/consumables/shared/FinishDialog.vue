@@ -36,6 +36,9 @@
   import { computed, ref, watch } from 'vue'
   import { useConsumableStore } from '@/store/consumableStore'
   import { errorText, kg } from '@/utils/consumables'
+  import { useSubmitKey } from '@/composables/useSubmitKey'
+
+  const submitKey = useSubmitKey()
 
   const props = defineProps({
     modelValue: { type: Boolean, default: false },
@@ -69,6 +72,7 @@
   }
 
   async function submit() {
+    if (!canSave.value || saving.value) return
     saving.value = true
     error.value = ''
     try {
@@ -79,7 +83,8 @@
         reason: reason.value,
         remarks: remarks.value.trim() || null,
         compartmentId: props.bin?.id ?? null,
-      })
+      }, submitKey.key.value)
+      submitKey.renew()
       emit('saved', result)
       close(false)
     } catch (e) {

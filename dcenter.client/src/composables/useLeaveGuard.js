@@ -12,15 +12,6 @@ export function useLeaveGuard() {
     leaveDialog.value = true
   }
 
-  function guardLeave(proceed) {
-    if (store.needsLeavePrompt) {
-      hold(proceed)
-      return false
-    }
-    proceed()
-    return true
-  }
-
   function stay() {
     onProceed = null
     leaveDialog.value = false
@@ -42,5 +33,5 @@ export function useLeaveGuard() {
     p?.()
   }
 
-  return { leaveDialog, hold, guardLeave, stay, discardAndProceed, saveAndProceed }
+  return { leaveDialog, hold, stay, discardAndProceed, saveAndProceed }
 }

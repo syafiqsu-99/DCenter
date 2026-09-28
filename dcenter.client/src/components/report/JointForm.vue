@@ -32,7 +32,7 @@
                         :model-value="joint.partDescLeft" :item-title="partDescTitle"
                         @update:model-value="(v) => setPart('Left', 'desc', v)">
               <template #item="{ props: p, item }">
-                <v-list-item v-bind="p" :title="item.raw?.no ?? item.raw" :subtitle="item.raw?.desc" />
+                <v-list-item v-bind="p" :title="item.raw?.desc || item.raw?.no || item.raw" :subtitle="item.raw?.desc ? item.raw?.no : undefined" />
               </template>
             </v-combobox>
           </td>
@@ -42,7 +42,7 @@
                         :model-value="joint.partDescRight" :item-title="partDescTitle"
                         @update:model-value="(v) => setPart('Right', 'desc', v)">
               <template #item="{ props: p, item }">
-                <v-list-item v-bind="p" :title="item.raw?.no ?? item.raw" :subtitle="item.raw?.desc" />
+                <v-list-item v-bind="p" :title="item.raw?.desc || item.raw?.no || item.raw" :subtitle="item.raw?.desc ? item.raw?.no : undefined" />
               </template>
             </v-combobox>
           </td>
@@ -60,7 +60,7 @@
                         :model-value="joint.partNoLeft" :item-title="partNoTitle"
                         @update:model-value="(v) => setPart('Left', 'no', v)">
               <template #item="{ props: p, item }">
-                <v-list-item v-bind="p" :title="item.raw?.no ?? item.raw" :subtitle="item.raw?.desc" />
+                <v-list-item v-bind="p" :title="item.raw?.desc || item.raw?.no || item.raw" :subtitle="item.raw?.desc ? item.raw?.no : undefined" />
               </template>
             </v-combobox>
           </td>
@@ -70,7 +70,7 @@
                         :model-value="joint.partNoRight" :item-title="partNoTitle"
                         @update:model-value="(v) => setPart('Right', 'no', v)">
               <template #item="{ props: p, item }">
-                <v-list-item v-bind="p" :title="item.raw?.no ?? item.raw" :subtitle="item.raw?.desc" />
+                <v-list-item v-bind="p" :title="item.raw?.desc || item.raw?.no || item.raw" :subtitle="item.raw?.desc ? item.raw?.no : undefined" />
               </template>
             </v-combobox>
           </td>
@@ -97,7 +97,12 @@
           <td :style="lbl">WPS No.:</td>
           <td :style="cell">
             <v-combobox v-bind="f" clearable :custom-filter="allowAll" v-model="joint.wpsNo" :items="wpsNos"
-                        :loading="loadingWpsFilter" :messages="wpsHint" @update:search="searchWps" />
+                        :loading="loadingWpsFilter" :title="wpsFilterNote" @update:search="searchWps">
+              <template #prepend-item>
+                <v-list-subheader class="text-caption">{{ wpsFilterNote }}</v-list-subheader>
+                <v-divider />
+              </template>
+            </v-combobox>
           </td>
           <td :style="lbl">Rev:</td>
           <td :style="cell"><v-text-field v-model="joint.rev" v-bind="f" /></td>
@@ -146,7 +151,7 @@
   import { useLookupStore } from '@/store/lookupStore';
   import { useProcessTypeStore } from '@/store/processTypeStore';
   import { useWpsStore } from '@/store/wpsStore';
-  import api from '@/utils/api';
+  import { useWelderStore } from '@/store/welderStore';
 
   const wpsStore = useWpsStore()
   wpsStore.load();
@@ -165,7 +170,7 @@
     return current && !base.includes(current) ? [current, ...base] : base
   }
 
-  const f = { density: 'compact', variant: 'plain', hideDetails: true };
+  const f = computed(() => ({ density: 'compact', variant: 'plain', hideDetails: true, readonly: reportStore.isComplete }));
   const allowAll = () => true;
 
   const reportStore = useReportStore();
@@ -208,10 +213,10 @@
     }
   }
 
-  const welderItems = ref([]);
-  async function searchWelders(q) {
-    const { data } = await api.get('/welders/search', { params: { q: q || '' } });
-    welderItems.value = data;
+  const welderStore = useWelderStore();
+  const { items: welderItems } = storeToRefs(welderStore);
+  function searchWelders(q) {
+    welderStore.search(q);
   }
   searchWelders('');
 
@@ -238,29 +243,17 @@
     }
   }
 
-  const { allowedWps, wpsFilterNote, loadingWpsFilter, filterPNos } = storeToRefs(reportStore)
+  const { wpsOptions, wpsFilterNote, loadingWpsFilter } = storeToRefs(reportStore)
   const wpsQuery = ref('')
-
-  const hasFilter = computed(() => filterPNos.value.length > 0)
-
-  const wpsPool = computed(() =>
-    hasFilter.value
-      ? allowedWps.value
-      : wpsStore.items.map((w) => ({ wpsNo: w.wpsNo, process: w.process, baseMetal: w.baseMetal, pNo: w.pNo })))
 
   const wpsItems = computed(() => {
     const q = wpsQuery.value.trim().toLowerCase()
-    if (!q) return wpsPool.value
-    return wpsPool.value.filter(
+    if (!q) return wpsOptions.value
+    return wpsOptions.value.filter(
       (w) => w.wpsNo.toLowerCase().includes(q) || (w.process ?? '').toLowerCase().includes(q))
   })
 
   const wpsNos = computed(() => [...new Set(wpsItems.value.map((x) => x.wpsNo))])
-
-  const wpsHint = computed(() =>
-    hasFilter.value
-      ? (wpsFilterNote.value ?? `Filtered to P-No ${filterPNos.value.join(', ')}`)
-      : 'Showing all WPS — fill a P# above to narrow.')
 
   function searchWps(q) {
     wpsQuery.value = q || ''

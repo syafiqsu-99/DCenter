@@ -31,7 +31,7 @@
   import { computed, ref } from 'vue'
   import { Bar } from 'vue-chartjs'
   import { useConsumableStore } from '@/store/consumableStore'
-  import { ACTIVATED_COLOR, BAKING_COLOR, MIN_STOCK_COLOR, NORMAL_COLOR } from '@/components/consumables/dashboard/chartSetup'
+  import { ACTIVATED_COLOR, BAKING_COLOR, MIN_STOCK_COLOR, NORMAL_COLOR } from '@/components/common/chartSetup'
 
   const FIT_COUNT = 16
   const BAR_SLOT_PX = 64

@@ -20,7 +20,7 @@
                           :hint="`Available ${kg(available)} kg`" persistent-hint />
           </v-col>
           <v-col cols="12" sm="6">
-            <v-text-field v-model="bakingDate" type="date" label="Baking Date" :max="todayIso()" v-bind="field" />
+            <v-text-field v-model="bakingDate" type="date" label="Baking Date" :max="todayIso()" :min="store.earliestEntryDate" v-bind="field" />
           </v-col>
           <v-col cols="12" sm="6">
             <v-combobox v-model="pic" :items="picOptions" label="Person In Charge" v-bind="field" />
@@ -51,6 +51,9 @@
   import { useLookupStore } from '@/store/lookupStore'
   import { ELECTRODE, QUICK_QTY, errorText, kg, todayIso } from '@/utils/consumables'
   import ItemPicker from '@/components/consumables/shared/ItemPicker.vue'
+  import { useSubmitKey } from '@/composables/useSubmitKey'
+
+  const submitKey = useSubmitKey()
 
   const props = defineProps({
     modelValue: { type: Boolean, default: false },
@@ -130,7 +133,8 @@
         quantityKg: Number(qty.value),
         personInCharge: pic.value.trim(),
         remarks: remarks.value.trim() || null,
-      })
+      }, submitKey.key.value)
+      submitKey.renew()
       emit('saved', result)
       close(false)
     } catch (e) {

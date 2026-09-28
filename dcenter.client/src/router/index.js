@@ -5,7 +5,17 @@ const supervisor = { supervisor: true };
 
 const routes = [
   { path: '/', name: 'home', meta: { fullBleed: true, bare: true }, component: () => import('@/views/home/HomeView.vue') },
-  { path: '/report', name: 'report', component: () => import('@/views/report/ReportView.vue') },
+  {
+    path: '/report',
+    component: () => import('@/views/report/ReportView.vue'),
+    children: [
+      { path: '', name: 'report-list', component: () => import('@/views/report/ReportListView.vue') },
+      { path: 'wo/:workOrderNumber', name: 'report-editor', meta: { reportEditor: true }, component: () => import('@/views/report/ReportEditorView.vue') },
+      { path: 'duplicate/:source', name: 'report-duplicate', meta: { reportEditor: true }, component: () => import('@/views/report/ReportEditorView.vue') },
+      { path: 'dashboard', name: 'report-dashboard', component: () => import('@/views/report/ReportDashboardView.vue') },
+      { path: 'traceability', name: 'report-trace', component: () => import('@/views/report/ReportTraceView.vue') },
+    ],
+  },
   {
     path: '/consumables',
     component: () => import('@/views/consumables/ConsumablesView.vue'),

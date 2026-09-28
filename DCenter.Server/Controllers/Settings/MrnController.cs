@@ -66,9 +66,11 @@ public class MrnController(WeldReportContext db) : ControllerBase
 
     [SupervisorOnly]
     [HttpPost("import")]
+    [RequestSizeLimit(CsvText.MaxUploadBytes + 64 * 1024)]
     public async Task<ActionResult<object>> Import(IFormFile file, CancellationToken ct)
     {
         if (file is null || file.Length == 0) return BadRequest("No file uploaded.");
+        if (file.Length > CsvText.MaxUploadBytes) return BadRequest("The file is larger than 2 MB.");
 
         int added = 0, skipped = 0;
         var seen = (await db.MrnSpecs.ToListAsync(ct)).Select(RowKey).ToHashSet();

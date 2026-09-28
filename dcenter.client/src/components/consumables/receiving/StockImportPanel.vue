@@ -95,6 +95,9 @@
   import { stockGuide } from '@/utils/csvGuides'
   import { COLUMN, errorText, kg, saveBlob } from '@/utils/consumables'
   import CsvColumnGuide from '@/components/consumables/shared/CsvColumnGuide.vue'
+  import { useSubmitKey } from '@/composables/useSubmitKey'
+
+  const submitKey = useSubmitKey()
 
   const OPENING = 'OPENING'
   const WARNING = 'Warning:'
@@ -185,7 +188,8 @@
     busy.value = 'commit'
     error.value = ''
     try {
-      result.value = await store.importStock(file.value, { commit: true, skipInvalid })
+      result.value = await store.importStock(file.value, { commit: true, skipInvalid, key: submitKey.key.value })
+      if (result.value.committed) submitKey.renew()
       problemsOnly.value = !result.value.committed && result.value.rejected > 0
     } catch (e) {
       error.value = errorText(e, 'Import failed. Nothing was saved.')

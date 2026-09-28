@@ -19,6 +19,7 @@ public class ConsumableMovementService(
     {
         var (user, date, error) = G.Common(enteredBy, r.TxnDate);
         if (error is not null) return Fail(error);
+        if (guards.CheckBackdate(date) is string backdate) return Fail(backdate);
 
         var source = T.Source(r.Source);
         if (source is null) return Fail("Source must be Weld Shop or Tool Crib.");
@@ -95,6 +96,7 @@ public class ConsumableMovementService(
     {
         var (user, date, error) = G.Common(enteredBy, r.TxnDate);
         if (error is not null) return Fail(error);
+        if (guards.CheckBackdate(date) is string backdate) return Fail(backdate);
 
         var from = T.Stage(r.FromStage);
         var to = T.Stage(r.ToStage);
@@ -145,6 +147,7 @@ public class ConsumableMovementService(
     {
         var (user, date, error) = G.Common(enteredBy, r.TxnDate);
         if (error is not null) return Fail(error);
+        if (guards.CheckBackdate(date) is string backdate) return Fail(backdate);
 
         var qty = T.RoundKg(r.QuantityKg);
         if (!r.TakeAll && qty <= 0) return Fail("Take/KG must be greater than 0.");
@@ -210,6 +213,7 @@ public class ConsumableMovementService(
     {
         var (user, date, error) = G.Common(enteredBy, r.TxnDate);
         if (error is not null) return Fail(error);
+        if (guards.CheckBackdate(date) is string backdate) return Fail(backdate);
 
         var qty = T.RoundKg(r.QuantityKg);
         if (qty <= 0) return Fail("Return quantity must be greater than 0.");
@@ -310,6 +314,7 @@ public class ConsumableMovementService(
     {
         var (user, date, error) = G.Common(enteredBy, r.TxnDate);
         if (error is not null) return Fail(error);
+        if (guards.CheckBackdate(date) is string backdate) return Fail(backdate);
         if (r.FromCompartmentId == r.ToCompartmentId) return Fail("Choose a different compartment to move to.");
 
         var qty = T.RoundKg(r.QuantityKg);
@@ -454,6 +459,7 @@ public class ConsumableMovementService(
     {
         var (user, date, error) = G.Common(enteredBy, r.TxnDate);
         if (error is not null) return Fail(error);
+        if (guards.CheckBackdate(date) is string backdate) return Fail(backdate);
 
         var stage = T.Stage(r.Stage) ?? string.Empty;
         if (stage == Cat.Normal) return Fail("Normal storage is corrected through a Stock Count, not a single adjustment.");

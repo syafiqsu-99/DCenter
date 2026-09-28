@@ -31,68 +31,29 @@ public class WorkOrderSearchService(ErpViewContext db)
         => Summaries(db.WorkOrderDetails.Where(w => w.WoNumber == workOrderNumber), 0, 1)
             .FirstOrDefaultAsync(ct);
 
-    public async Task<List<WorkOrderNode>> TreeForWorkOrderAsync(string workOrderNumber, CancellationToken ct)
+    public const int MaxChildLookup = 1000;
+    private const int ChildLookupChunk = 500;
+
+    public async Task<List<BomLinkDto>> ChildrenAsync(IEnumerable<string> parentItems, CancellationToken ct)
     {
-        if (await SummaryAsync(workOrderNumber, ct) is not { } wo) return [];
+        var items = parentItems
+            .Select(i => i.Trim())
+            .Where(i => i.Length > 0)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Take(MaxChildLookup)
+            .ToList();
 
-        var root = wo.AssemblyItem ?? string.Empty;
-        List<BomTreeRow> rows = root.Length == 0
-            ? []
-            : await db.BomTree
-                .AsNoTracking()
-                .Where(t => t.RootItem == root)
-                .ToListAsync(ct);
-
-        var items = rows.Select(r => r.Component).Append(root).Where(i => i.Length > 0).Distinct().ToList();
-        List<ItemMrn> mrnRows = items.Count == 0
-            ? []
-            : await db.ItemMrns
-                .AsNoTracking()
-                .Where(m => m.Item != null && items.Contains(m.Item))
-                .ToListAsync(ct);
-
-        var mrnByItem = mrnRows
-            .GroupBy(m => m.Item!, StringComparer.OrdinalIgnoreCase)
-            .ToDictionary(
-                g => g.Key,
-                g => g.OrderBy(m => m.Mrn is null ? 1 : 0)
-                      .ThenBy(m => m.CategorySetName, StringComparer.Ordinal)
-                      .First(),
-                StringComparer.OrdinalIgnoreCase);
-
-        WorkOrderNode Node(int level, string? parent, string item, string? desc, string path)
+        var links = new List<BomLinkDto>();
+        foreach (var chunk in items.Chunk(ChildLookupChunk))
         {
-            mrnByItem.TryGetValue(item, out var mrn);
-            return new WorkOrderNode
-            {
-                WorkOrderNumber = wo.WorkOrderNumber,
-                AssemblyItem = wo.AssemblyItem,
-                AssemblyDesc = wo.AssemblyDesc,
-                Qty = wo.Qty,
-                Level = level,
-                ParentItem = parent,
-                Item = item,
-                ItemDesc = string.IsNullOrWhiteSpace(desc) ? mrn?.ItemDesc : desc,
-                Path = path,
-                Mrn = mrn?.Mrn,
-                MrnDesc = mrn?.MrnDesc,
-            };
+            links.AddRange(await db.Bom
+                .AsNoTracking()
+                .Where(b => chunk.Contains(b.Item))
+                .Select(b => new BomLinkDto(b.Item, b.Component, b.ComponentDesc))
+                .ToListAsync(ct));
         }
-
-        var nodes = new List<WorkOrderNode> { Node(0, null, root, wo.AssemblyDesc, $"/{root}/") };
-        nodes.AddRange(rows
-            .OrderBy(r => r.Path, StringComparer.Ordinal)
-            .Select(r => Node(r.Level, r.ParentItem, r.Component, r.ComponentDesc, r.Path)));
-        return nodes;
+        return links;
     }
-
-    public async Task<List<string>> AllWorkOrderNumbersAsync(CancellationToken ct)
-        => await db.WorkOrderDetails
-            .AsNoTracking()
-            .Select(w => w.WoNumber)
-            .Distinct()
-            .OrderBy(n => n)
-            .ToListAsync(ct);
 
     private static IQueryable<WorkOrderSummary> Summaries(IQueryable<WorkOrderDetail> source, int skip, int take)
         => source

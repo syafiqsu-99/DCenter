@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia'
 import api from '@/utils/api'
+import { daysAgoIso } from '@/utils/date'
 import { useLookupStore } from '@/store/lookupStore'
 import { ALL, categoryParam, monthStartIso, todayIso } from '@/utils/consumables'
 
@@ -57,6 +58,22 @@ function writeSession(session) {
   }
 }
 
+const SUPERVISOR_RENEW_MS = 60 * 60 * 1000
+let refreshing = false
+
+function fingerprint(text) {
+  let hash = 0x811c9dc5
+  for (let i = 0; i < text.length; i++) {
+    hash ^= text.charCodeAt(i)
+    hash = Math.imul(hash, 0x01000193) >>> 0
+  }
+  return hash.toString(16).padStart(8, '0')
+}
+
+function submitHeaders(key, url, payload) {
+  return key ? { 'Idempotency-Key': `${key}:${fingerprint(`${url}|${JSON.stringify(payload ?? null)}`)}` } : undefined
+}
+
 const requestIds = {}
 let generation = 0
 
@@ -89,6 +106,7 @@ export const useConsumableStore = defineStore('consumables', {
     catalog: {
       categories: [], sources: [], stages: [], adjustReasons: [],
       ovenTypes: [], finishThresholdKg: 0.5, allowElectrodeDirectTransfer: false, returnWindowDays: 7,
+      welderBackdateDays: 7,
     },
     catalogLoaded: false,
 
@@ -140,6 +158,9 @@ export const useConsumableStore = defineStore('consumables', {
   getters: {
     hasEnteredBy: (s) => !!s.enteredBy.trim(),
     isSupervisor: (s) => !!s.supervisor && Date.parse(s.supervisor.expiresAt) > s.clock,
+    earliestEntryDate() {
+      return this.isSupervisor ? undefined : daysAgoIso(this.catalog.welderBackdateDays ?? 7)
+    },
 
     filteredBalances(s) {
       const f = s.inventoryFilters
@@ -214,6 +235,11 @@ export const useConsumableStore = defineStore('consumables', {
       return this.supervisor
     },
 
+    async logoutSupervisor() {
+      if (this.supervisor) await api.post('/supervisor/logout').catch(() => {})
+      this.lockSupervisor()
+    },
+
     lockSupervisor() {
       this.supervisor = null
       this.counterWelder = null
@@ -221,6 +247,24 @@ export const useConsumableStore = defineStore('consumables', {
       applySupervisorToken(null)
       this.dashboard = null
       this.syncActor()
+    },
+
+    async refreshSupervisorIfNeeded() {
+      if (!this.supervisor || refreshing) return
+      if (Date.parse(this.supervisor.expiresAt) - Date.now() > SUPERVISOR_RENEW_MS) return
+      refreshing = true
+      try {
+        const { data } = await api.post('/supervisor/session/refresh')
+        if (!this.supervisor || !data?.token) return
+        this.supervisor = { name: data.name, token: data.token, expiresAt: data.expiresAt }
+        this.clock = Date.now()
+        writeSession(this.supervisor)
+        applySupervisorToken(data.token)
+      } catch {
+        // 401 locks the session through onUnauthorized; network errors retry on the next check
+      } finally {
+        refreshing = false
+      }
     },
 
     async verifySupervisor() {
@@ -280,10 +324,11 @@ export const useConsumableStore = defineStore('consumables', {
       return ensureNotHtml(data)
     },
 
-    async importStock(file, { commit = false, skipInvalid = false } = {}) {
+    async importStock(file, { commit = false, skipInvalid = false, key = null } = {}) {
       const form = new FormData()
       form.append('file', file)
-      const { data } = await api.post('/consumables/stock-import', form, { params: { commit, skipInvalid } })
+      const headers = commit ? submitHeaders(key, '/consumables/stock-import', [file.name, file.size, file.lastModified, skipInvalid]) : undefined
+      const { data } = await api.post('/consumables/stock-import', form, { params: { commit, skipInvalid }, headers })
       ensureNotHtml(data)
       if (data.committed) {
         this.stale()
@@ -426,37 +471,37 @@ export const useConsumableStore = defineStore('consumables', {
       }
     },
 
-    async post(url, payload) {
-      const { data } = await api.post(url, payload)
+    async post(url, payload, key = null) {
+      const { data } = await api.post(url, payload, { headers: submitHeaders(key, url, payload) })
       this.stale()
       return data
     },
 
-    async receive(payload) {
-      const data = await this.post('/consumables/receive', payload)
+    async receive(payload, key = null) {
+      const data = await this.post('/consumables/receive', payload, key)
       if (payload.newItem) useLookupStore().load(true).catch(() => {})
       await this.loadToday().catch(() => {})
       return data
     },
 
-    transfer(payload) {
-      return this.post('/consumables/transfer', payload)
+    transfer(payload, key = null) {
+      return this.post('/consumables/transfer', payload, key)
     },
 
-    issue(payload) {
-      return this.post('/consumables/issue', payload)
+    issue(payload, key = null) {
+      return this.post('/consumables/issue', payload, key)
     },
 
-    returnStock(payload) {
-      return this.post('/consumables/return', payload)
+    returnStock(payload, key = null) {
+      return this.post('/consumables/return', payload, key)
     },
 
-    finish(payload) {
-      return this.post('/consumables/finish', payload)
+    finish(payload, key = null) {
+      return this.post('/consumables/finish', payload, key)
     },
 
-    move(payload) {
-      return this.post('/consumables/move', payload)
+    move(payload, key = null) {
+      return this.post('/consumables/move', payload, key)
     },
 
     async loadCountSheet(scope, category) {
@@ -464,8 +509,8 @@ export const useConsumableStore = defineStore('consumables', {
       return data
     },
 
-    async postStockCount(payload) {
-      const data = await this.post('/consumables/stock-counts', payload)
+    async postStockCount(payload, key = null) {
+      const data = await this.post('/consumables/stock-counts', payload, key)
       this.dashboard = null
       return data
     },
@@ -491,19 +536,19 @@ export const useConsumableStore = defineStore('consumables', {
       }
     },
 
-    async sendToBake(payload) {
-      const data = await this.post('/consumables/baking', payload)
+    async sendToBake(payload, key = null) {
+      const data = await this.post('/consumables/baking', payload, key)
       this.rememberPersonInCharge(payload.personInCharge)
       useLookupStore().load(true).catch(() => {})
       return data
     },
 
-    startBaking(ids, at = null) {
-      return this.post('/consumables/baking/start', { ids, at })
+    startBaking(ids, at = null, key = null) {
+      return this.post('/consumables/baking/start', { ids, at }, key)
     },
 
-    stopBaking(ids, at = null) {
-      return this.post('/consumables/baking/stop', { ids, at })
+    stopBaking(ids, at = null, key = null) {
+      return this.post('/consumables/baking/stop', { ids, at }, key)
     },
 
     async updateBaking(id, body) {
@@ -513,8 +558,8 @@ export const useConsumableStore = defineStore('consumables', {
       return data
     },
 
-    place(payload) {
-      return this.post('/consumables/holding', payload)
+    place(payload, key = null) {
+      return this.post('/consumables/holding', payload, key)
     },
 
     async loadBakingRecords(params) {
@@ -541,8 +586,8 @@ export const useConsumableStore = defineStore('consumables', {
       }
     },
 
-    async voidTransaction(txnNo, remarks) {
-      const data = await this.post(`/consumables/transactions/${encodeURIComponent(txnNo)}/void`, { remarks })
+    async voidTransaction(txnNo, remarks, key = null) {
+      const data = await this.post(`/consumables/transactions/${encodeURIComponent(txnNo)}/void`, { remarks }, key)
       this.dashboard = null
       return data
     },

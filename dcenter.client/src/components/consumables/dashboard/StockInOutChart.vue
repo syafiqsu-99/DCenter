@@ -12,7 +12,7 @@
   import { computed } from 'vue'
   import { Bar } from 'vue-chartjs'
   import { useConsumableStore } from '@/store/consumableStore'
-  import { IN_COLOR, OUT_COLOR, kgTooltip } from '@/components/consumables/dashboard/chartSetup'
+  import { IN_COLOR, OUT_COLOR, kgTooltip } from '@/components/common/chartSetup'
 
   const store = useConsumableStore()
 

@@ -1,5 +1,6 @@
 using DCenter.Server.Services;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 
 namespace DCenter.Server.Controllers;
 
@@ -14,9 +15,12 @@ public record SupervisorPasswordChange(string? CurrentPassword, string? NewPassw
 public class SupervisorController(SupervisorAuth auth, SupervisorPasswordService passwords, ILogger<SupervisorController> logger)
     : ControllerBase
 {
+    public const string LoginRateLimit = "supervisor-login";
+
     private static readonly TimeSpan FailureDelay = TimeSpan.FromSeconds(1);
 
     [HttpPost("login")]
+    [EnableRateLimiting(LoginRateLimit)]
     public async Task<ActionResult<SupervisorSessionDto>> Login(SupervisorLoginRequest request, CancellationToken ct)
     {
         var status = await passwords.StatusAsync(ct);
@@ -44,6 +48,28 @@ public class SupervisorController(SupervisorAuth auth, SupervisorPasswordService
     {
         var session = auth.FromRequest(Request);
         return session is null ? Unauthorized("Supervisor session has expired.") : Ok(new SupervisorSessionDto(session.Name, session.ExpiresAt, null));
+    }
+
+    [HttpPost("logout")]
+    public IActionResult Logout()
+    {
+        var session = auth.FromRequest(Request);
+        if (session is not null)
+        {
+            auth.Revoke(Request.Headers[SupervisorAuth.TokenHeader].ToString());
+            logger.LogInformation("Supervisor logout by {Name} from {Ip}", session.Name, HttpContext.Connection.RemoteIpAddress);
+        }
+        return NoContent();
+    }
+
+    // Sliding renewal: an open browser session keeps its login without re-entering the password.
+    [HttpPost("session/refresh")]
+    public ActionResult<SupervisorSessionDto> Refresh()
+    {
+        var session = auth.FromRequest(Request);
+        if (session is null) return Unauthorized("Supervisor session has expired.");
+        var (token, expiresAt) = auth.Issue(session.Name);
+        return Ok(new SupervisorSessionDto(session.Name, expiresAt, token));
     }
 
     [HttpGet("password")]

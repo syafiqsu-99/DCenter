@@ -9,16 +9,39 @@ using Microsoft.Extensions.FileProviders;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
 using System.Linq;
+using System.Threading.RateLimiting;
+using DCenter.Server.Controllers;
 
 QuestPDF.Settings.License = LicenseType.Community;
 
 var builder = WebApplication.CreateBuilder(args);
 
-builder.Services.AddDbContext<WeldReportContext>(opt =>
-    opt.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
+if (OperatingSystem.IsWindows()) builder.Logging.AddEventLog();
 
-builder.Services.AddDbContext<ErpViewContext>(opt =>
-    opt.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
+var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
+if (string.IsNullOrWhiteSpace(connectionString))
+    throw new InvalidOperationException(
+        "The database connection string is not set. Set the machine environment variable ConnectionStrings__DefaultConnection and restart the site.");
+
+builder.Services.AddDbContext<WeldReportContext>(opt => opt.UseSqlServer(connectionString));
+
+builder.Services.AddDbContext<ErpViewContext>(opt => opt.UseSqlServer(connectionString));
+
+builder.Services.AddProblemDetails();
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddRateLimiter(options =>
+{
+    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+    options.OnRejected = async (context, ct) =>
+    {
+        context.HttpContext.Response.ContentType = "text/plain; charset=utf-8";
+        await context.HttpContext.Response.WriteAsync("Too many login attempts. Wait a minute and try again.", ct);
+    };
+    options.AddPolicy(SupervisorController.LoginRateLimit, http => RateLimitPartition.GetFixedWindowLimiter(
+        http.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+        _ => new FixedWindowRateLimiterOptions { PermitLimit = 10, Window = TimeSpan.FromMinutes(1), QueueLimit = 0 }));
+});
+builder.Services.AddSingleton<IdempotencyGate>();
 
 builder.Services.AddScoped<WorkOrderSearchService>();
 builder.Services.AddScoped<ReportService>();
@@ -112,7 +135,18 @@ if (app.Environment.IsDevelopment())
     app.UseCors(DevCors);
 }
 
+app.UseExceptionHandler();
+app.UseStatusCodePages();
+app.Use(async (context, next) =>
+{
+    var headers = context.Response.Headers;
+    headers.XContentTypeOptions = "nosniff";
+    headers.XFrameOptions = "SAMEORIGIN";
+    headers["Referrer-Policy"] = "same-origin";
+    await next();
+});
 app.UseHttpsRedirection();
+app.UseRateLimiter();
 app.UseAuthorization();
 app.MapControllers();
 app.Map("api/{**path}", () => Results.NotFound(

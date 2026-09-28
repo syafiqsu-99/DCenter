@@ -129,7 +129,7 @@
 
   const reportStore = useReportStore();
   const lookupStore = useLookupStore();
-  const { leaveDialog, hold, guardLeave, stay, discardAndProceed, saveAndProceed } = useLeaveGuard();
+  const { leaveDialog, hold, stay, discardAndProceed, saveAndProceed } = useLeaveGuard();
 
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
@@ -162,10 +162,7 @@
     onNav('/')
   }
   function onNav(path) {
-    if (path === route.path) {
-      if (path === '/report' && reportStore.confirmed) guardLeave(() => reportStore.backToList())
-      return
-    }
+    if (path === route.path) return
     router.push(path)
   }
 
@@ -187,7 +184,10 @@
   let bypass = false
   const removeGuard = router.beforeEach((to, from) => {
     if (bypass) { bypass = false; return true }
-    if (from.path === '/report' && to.path !== '/report' && reportStore.confirmed) {
+    const leavingEditor = from.meta.reportEditor && to.fullPath !== from.fullPath
+    const stayingOnReport = to.name === 'report-editor' &&
+      to.params.workOrderNumber === reportStore.report?.workOrderNumber
+    if (leavingEditor && !stayingOnReport && reportStore.confirmed) {
       if (reportStore.needsLeavePrompt) {
         hold(() => { reportStore.backToList(); bypass = true; router.push(to.fullPath) })
         return false

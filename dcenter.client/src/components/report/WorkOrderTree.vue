@@ -1,38 +1,31 @@
 <template>
   <div class="py-2 px-4">
-    <v-skeleton-loader v-if="loading" type="table-row@3" class="bg-transparent" />
-    <div v-else-if="error" class="text-error text-body-2 py-2">{{ error }}</div>
-    <div v-else-if="!nodes.length" class="text-medium-emphasis text-body-2 py-2">No BOM found for this work order.</div>
-    <v-table v-else density="compact" class="bg-transparent tree-table">
-      <thead>
-        <tr>
-          <th style="width:100px">Level</th>
-          <th>Item</th>
-          <th>Description</th>
-          <th style="width:140px">MRN</th>
-          <th>MRN Description</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr v-for="n in nodes" :key="n.path">
-          <td>
-            <v-chip size="x-small" label :color="n.level === 0 ? 'primary' : undefined"
-                    :variant="n.level === 0 ? 'flat' : 'tonal'">
-              {{ n.level === 0 ? 'Assembly' : `L${n.level}` }}
-            </v-chip>
-          </td>
-          <td>
-            <span class="tree-cell" :style="{ paddingLeft: `${n.level * 16}px` }">
-              <span v-if="n.level > 0" class="tree-branch">└</span>
-              <span :class="n.level === 0 ? 'font-weight-bold' : ''">{{ n.item || '—' }}</span>
-            </span>
-          </td>
-          <td>{{ n.itemDesc || '—' }}</td>
-          <td>{{ n.mrn || '—' }}</td>
-          <td>{{ n.mrnDesc || '—' }}</td>
-        </tr>
-      </tbody>
-    </v-table>
+    <div v-if="progress" class="d-flex align-center ga-2 text-caption text-medium-emphasis mb-1">
+      <v-progress-circular indeterminate size="14" width="2" color="primary" />
+      {{ progress.level ? `Loading BOM level ${progress.level}…` : 'Loading work order…' }}
+      <span v-if="nodes.length > 1">{{ nodes.length - 1 }} part(s) so far</span>
+    </div>
+    <div v-if="error" class="text-error text-body-2 py-2">{{ error }}</div>
+    <div v-else-if="!progress && !nodes.length" class="text-medium-emphasis text-body-2 py-2">No BOM found for this work order.</div>
+    <v-data-table-virtual v-if="nodes.length" :headers="headers" :items="nodes" item-value="path"
+                          density="compact" fixed-header class="bg-transparent tree-table virtual-capped">
+      <template #item.level="{ item }">
+        <v-chip size="x-small" label :color="item.level === 0 ? 'primary' : undefined"
+                :variant="item.level === 0 ? 'flat' : 'tonal'">
+          {{ item.level === 0 ? 'Assembly' : `L${item.level}` }}
+        </v-chip>
+      </template>
+      <template #item.item="{ item }">
+        <span class="tree-cell" :style="{ paddingLeft: `${item.level * 16}px` }">
+          <span v-if="item.level > 0" class="tree-branch">└</span>
+          <span :class="item.level === 0 ? 'font-weight-bold' : ''">{{ item.item || '—' }}</span>
+        </span>
+      </template>
+      <template #item.itemDesc="{ item }">{{ item.itemDesc || '—' }}</template>
+    </v-data-table-virtual>
+    <div v-if="truncated" class="text-caption text-warning mt-1">
+      Showing the first 5,000 parts of this BOM.
+    </div>
   </div>
 </template>
 
@@ -44,8 +37,15 @@
   const store = useReportStore()
   const error = ref('')
 
+  const headers = [
+    { title: 'Level', key: 'level', width: '100px', sortable: false },
+    { title: 'Item', key: 'item', sortable: false },
+    { title: 'Description', key: 'itemDesc', sortable: false },
+  ]
+
   const nodes = computed(() => store.treeByWorkOrder[props.workOrderNumber] ?? [])
-  const loading = computed(() => !!store.loadingTrees[props.workOrderNumber] || (!error.value && !store.treeByWorkOrder[props.workOrderNumber]))
+  const progress = computed(() => store.loadingTrees[props.workOrderNumber] ?? null)
+  const truncated = computed(() => !!store.truncatedTrees[props.workOrderNumber])
 
   onMounted(async () => {
     try {
