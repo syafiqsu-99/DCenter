@@ -20,7 +20,7 @@
     overflow-y: auto;
     color: #fff;
     background:
-      linear-gradient(115deg, rgba(0, 40, 85, 0.85) 0%, rgba(0, 40, 85, 0.7) 50%, rgba(0, 40, 85, 0.55) 100%),
+      linear-gradient(115deg, rgba(0, 40, 85, 0.85) 0%, rgba(0, 40, 85, 0.7) 0%, rgba(0, 40, 85, 0.55) 0%),
       var(--home-bg) center / cover no-repeat;
   }
 
