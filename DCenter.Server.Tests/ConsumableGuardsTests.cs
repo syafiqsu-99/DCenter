@@ -97,4 +97,24 @@ public class ConsumableGuardsTests
         Assert.Null(ConsumableGuards.BackdateError(today, today, false, 0));
         Assert.Contains("today", ConsumableGuards.BackdateError(today.AddDays(-1), today, false, 0));
     }
+
+    [Fact]
+    public void ReceiverName_RequiresAChosenActiveWelder()
+    {
+        Assert.Contains("Received By", ConsumableGuards.ReceiverName(null, null).Error);
+        Assert.Contains("no longer", ConsumableGuards.ReceiverName(5, null).Error);
+        Assert.Contains("reactivate", ConsumableGuards.ReceiverName(5, new ReceiverRef("Ali", false)).Error);
+        Assert.Equal(("Ali", null), ConsumableGuards.ReceiverName(5, new ReceiverRef("Ali", true)));
+    }
+
+    [Theory]
+    [InlineData("W-01", "Ali", true)]
+    [InlineData("W-01", null, false)]
+    [InlineData("", "Ali", false)]
+    public void DuplicateWelderNumber_IsRefusedOnlyWhenAlreadyRegistered(string number, string? registeredTo, bool refused)
+    {
+        var error = DCenter.Server.Controllers.WeldersController.DuplicateNumberError(number, registeredTo);
+
+        Assert.Equal(refused, error is not null);
+    }
 }

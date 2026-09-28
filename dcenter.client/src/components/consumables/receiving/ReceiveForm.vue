@@ -20,8 +20,8 @@
           </v-btn-toggle>
           <div class="text-caption text-medium-emphasis mt-1">{{ COLUMN.source }} (origin)</div>
         </v-col>
-        <v-col cols="12" md="4" class="d-flex align-center text-body-2 text-medium-emphasis">
-          <v-icon class="me-2">mdi-account-check-outline</v-icon>Received by {{ store.enteredBy }}
+        <v-col cols="12" md="4">
+          <ReceiverPicker v-model="receiver" @register="openRegister(typeof receiver === 'string' ? receiver : '')" />
         </v-col>
       </v-row>
 
@@ -73,6 +73,7 @@
     </v-card-actions>
   </v-card>
 
+  <RegisterReceiverDialog v-model="registerOpen" :name="registerName" @registered="onRegistered" />
   <v-snackbar v-model="snackbar" color="success" timeout="4000">{{ snackbarText }}</v-snackbar>
 </template>
 
@@ -84,6 +85,8 @@
   import { COLUMN, ELECTRODE, errorText, kg, todayIso } from '@/utils/consumables'
   import ItemPicker from '@/components/consumables/shared/ItemPicker.vue'
   import ItemFields from '@/components/consumables/shared/ItemFields.vue'
+  import ReceiverPicker from '@/components/consumables/receiving/ReceiverPicker.vue'
+  import RegisterReceiverDialog from '@/components/consumables/receiving/RegisterReceiverDialog.vue'
   import { useSubmitKey } from '@/composables/useSubmitKey'
 
   const submitKey = useSubmitKey()
@@ -104,6 +107,10 @@
     quantityKg: null,
     remarks: '',
   })
+  const receiver = ref(store.receiveHeader.receiver ?? null)
+  const registerOpen = ref(false)
+  const registerName = ref('')
+  let saveAfterRegister = false
   const isNew = ref(false)
   const item = ref(null)
   const newItem = ref(blankItem())
@@ -146,8 +153,11 @@
       ? !!newItem.value.category && !!text(newItem.value.specification) && !!text(newItem.value.diameter)
       : !!item.value)
 
+  const receiverChosen = computed(() =>
+    typeof receiver.value === 'string' ? !!text(receiver.value) : !!receiver.value?.id)
+
   const canSave = computed(() =>
-    store.hasEnteredBy && itemReady.value && !!form.source && !!text(form.brand) && !!text(form.lotNumber)
+    store.hasEnteredBy && receiverChosen.value && itemReady.value && !!form.source && !!text(form.brand) && !!text(form.lotNumber)
     && Number(form.quantityKg) > 0)
 
   const summary = computed(() => {
@@ -175,15 +185,46 @@
     newItem.value = blankItem()
   })
 
+  function openRegister(name, thenSave = false) {
+    registerName.value = name
+    saveAfterRegister = thenSave
+    registerOpen.value = true
+  }
+
+  function onRegistered(welder) {
+    receiver.value = welder
+    if (saveAfterRegister) save()
+    saveAfterRegister = false
+  }
+
+  async function resolveReceiver() {
+    if (receiver.value && typeof receiver.value === 'object') return receiver.value
+    const name = text(receiver.value)
+    const wanted = name.toLowerCase()
+    const matches = (await store.searchWelders(name, false)).filter((w) => w.welderName.trim().toLowerCase() === wanted)
+    if (matches.length === 1) {
+      receiver.value = matches[0]
+      return matches[0]
+    }
+    if (matches.length > 1) {
+      error.value = `More than one person is named ${name}. Pick the right one from the Received By list (the ID is shown under each name).`
+      return null
+    }
+    openRegister(name, true)
+    return null
+  }
+
   async function save() {
     if (!canSave.value || saving.value) return
     saving.value = true
     error.value = ''
     try {
+      const who = await resolveReceiver()
+      if (!who) return
       const payload = {
         txnDate: form.txnDate,
         source: form.source,
-        receivedBy: null,
+        receivedByWelderId: who.id,
         itemId: isNew.value ? null : item.value.id,
         newItem: isNew.value
           ? {
@@ -204,7 +245,10 @@
       }
       const result = await store.receive(payload, submitKey.key.value)
       submitKey.renew()
-      store.rememberReceiveHeader({ source: form.source })
+      store.rememberReceiveHeader({
+        source: form.source,
+        receiver: { id: who.id, welderName: who.welderName, welderNo: who.welderNo },
+      })
       snackbarText.value = `${result.txnNo} saved — Normal balance ${kg(result.balance.normalKg)} kg`
       snackbar.value = true
       picker.value?.reload()

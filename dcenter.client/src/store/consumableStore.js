@@ -114,7 +114,7 @@ export const useConsumableStore = defineStore('consumables', {
     supervisor: null,
     clock: Date.now(),
     reloginPrompt: false,
-    receiveHeader: { source: '' },
+    receiveHeader: { source: '', receiver: null },
 
     todayReceipts: [],
     loadingToday: false,
@@ -198,7 +198,7 @@ export const useConsumableStore = defineStore('consumables', {
 
   actions: {
     init() {
-      this.receiveHeader = { source: '', ...readLocal(HEADER_KEY, {}) }
+      this.receiveHeader = { source: '', receiver: null, ...readLocal(HEADER_KEY, {}) }
       this.personInCharge = readLocal(PIC_KEY, '')
       this.supervisor = readSession()
       this.clock = Date.now()
@@ -451,6 +451,11 @@ export const useConsumableStore = defineStore('consumables', {
 
     async searchWelders(q, stockOnly = true) {
       const { data } = await api.get('/welders/search', { params: { q, stockOnly } })
+      return data
+    },
+
+    async registerWelder(welder) {
+      const { data } = await api.post('/welders', welder)
       return data
     },
 

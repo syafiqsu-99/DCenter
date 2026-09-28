@@ -44,7 +44,7 @@ public record LotStockRow(
     decimal NormalKg, decimal BakingKg, decimal ActivatedKg, decimal BalanceKg, bool IsLow);
 
 public record ReceiveRequest(
-    DateOnly? TxnDate, string? Source, string? ReceivedBy, int? ItemId, ItemUpsert? NewItem,
+    DateOnly? TxnDate, string? Source, int? ReceivedByWelderId, int? ItemId, ItemUpsert? NewItem,
     string? Brand, string? LotNumber, decimal QuantityKg, string? Remarks);
 
 public record TransferRequest(

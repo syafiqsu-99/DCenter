@@ -15,6 +15,8 @@ public sealed record ItemRef(
 
 public sealed record WelderRef(int Id, string WelderName);
 
+public sealed record ReceiverRef(string WelderName, bool IsActive);
+
 public sealed record StockLine(int LotId, decimal Kg);
 
 public class ConsumableGuards(
@@ -45,6 +47,21 @@ public class ConsumableGuards(
         if (date > T.Today) return (user, date, "Date cannot be in the future.");
         return (user, date, null);
     }
+
+    public static (string? Name, string? Error) ReceiverName(int? welderId, ReceiverRef? welder)
+    {
+        if (welderId is null) return (null, "Choose who received this stock in Received By.");
+        if (welder is null) return (null, "The person in Received By is no longer in the welder list. Choose another name.");
+        if (!welder.IsActive)
+            return (null, $"{welder.WelderName} is not an active welder. Choose another name or reactivate them in Settings → Welders.");
+        return (welder.WelderName, null);
+    }
+
+    public Task<ReceiverRef?> ReceiverAsync(int? welderId, CancellationToken ct)
+        => welderId is int id
+            ? db.Welders.AsNoTracking().Where(w => w.Id == id)
+                .Select(w => new ReceiverRef(w.WelderName, w.IsActive)).FirstOrDefaultAsync(ct)
+            : Task.FromResult<ReceiverRef?>(null);
 
     public static (int? Bin, string? Error) ResolveBin(ItemRef item, int? compartmentId)
         => item.IsElectrode || compartmentId is null
