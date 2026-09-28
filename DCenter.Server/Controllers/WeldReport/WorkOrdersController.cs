@@ -44,10 +44,18 @@ public class WorkOrdersController(WorkOrderSearchService workOrders) : Controlle
                 : Ok(new WorkOrderHeader(workOrderNumber, wo.AssemblyItem, wo.AssemblyDesc));
         });
 
-    [HttpGet("{workOrderNumber}/parts")]
-    public Task<ActionResult<List<WorkOrderNode>>> Parts(string workOrderNumber, CancellationToken ct)
-        => Guard("Loading the work order parts took too long.", async () =>
-            (ActionResult<List<WorkOrderNode>>)Ok(await workOrders.TreeForWorkOrderAsync(workOrderNumber, ct)));
+    public record BomChildrenRequest(List<string>? Items);
+
+    [HttpPost("bom/children")]
+    public Task<ActionResult<List<BomLinkDto>>> BomChildren(BomChildrenRequest request, CancellationToken ct)
+    {
+        var items = request.Items ?? [];
+        if (items.Count == 0) return Task.FromResult<ActionResult<List<BomLinkDto>>>(BadRequest("No parent items given."));
+        if (items.Count > WorkOrderSearchService.MaxChildLookup)
+            return Task.FromResult<ActionResult<List<BomLinkDto>>>(BadRequest($"Ask for at most {WorkOrderSearchService.MaxChildLookup} items at a time."));
+        return Guard("Loading the BOM took too long.", async () =>
+            (ActionResult<List<BomLinkDto>>)Ok(await workOrders.ChildrenAsync(items, ct)));
+    }
 
     private async Task<ActionResult<T>> Guard<T>(string timeoutMessage, Func<Task<ActionResult<T>>> action)
     {

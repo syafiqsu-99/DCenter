@@ -92,6 +92,36 @@ const MIN_QUERY_LENGTH = 2
 const PAGE_SIZE = 25
 let searchTimer = null
 let searchToken = 0
+const TREE_MAX_LEVEL = 20
+const TREE_MAX_NODES = 5000
+const CHILD_CHUNK = 500
+const childrenByItem = new Map()
+const treeLoads = new Map()
+
+function itemKey(item) {
+  return (item ?? '').trim().toUpperCase()
+}
+
+function comparePath(a, b) {
+  return a.path < b.path ? -1 : a.path > b.path ? 1 : 0
+}
+
+async function fetchChildren(items) {
+  const missing = [...new Set(items.map((i) => (i ?? '').trim()).filter(Boolean))]
+    .filter((i) => !childrenByItem.has(itemKey(i)))
+  const chunks = []
+  for (let i = 0; i < missing.length; i += CHILD_CHUNK) chunks.push(missing.slice(i, i + CHILD_CHUNK))
+  await Promise.all(chunks.map(async (chunk) => {
+    const { data } = await api.post('/workorders/bom/children', { items: chunk })
+    const grouped = new Map(chunk.map((c) => [itemKey(c), []]))
+    for (const link of data ?? []) {
+      const key = itemKey(link.item)
+      if (!grouped.has(key)) grouped.set(key, [])
+      grouped.get(key).push(link)
+    }
+    for (const [key, links] of grouped) childrenByItem.set(key, links)
+  }))
+}
 let traceToken = 0
 
 export const useReportStore = defineStore('report', {
@@ -118,6 +148,7 @@ export const useReportStore = defineStore('report', {
     reportParts: [],
     treeByWorkOrder: {},
     loadingTrees: {},
+    truncatedTrees: {},
     mode: 'browse',
     allWorkOrderNumbers: [],
     loadingWorkOrderNumbers: false,
@@ -183,7 +214,8 @@ export const useReportStore = defineStore('report', {
       return new Map(this.savedReports.map((r) => [r.workOrderNumber, r]))
     },
     rightParts() {
-      return childParts(this.reportParts)
+      const wo = (this.report?.workOrderNumber ?? '').trim()
+      return childParts(this.treeByWorkOrder[wo] ?? this.reportParts)
     },
     isDirty: (s) => !!s.report && JSON.stringify(s.report) !== s.savedSnapshot,
     needsLeavePrompt() {
@@ -209,7 +241,6 @@ export const useReportStore = defineStore('report', {
           params: { q: this.searchQuery, skip: 0, take: PAGE_SIZE },
         })
         if (token !== searchToken) return
-        this.treeByWorkOrder = {}
         this.searchResults = data.items.map((r, i) => ({ ...r, _index: i }))
         this.hasMoreResults = data.hasMore
       } catch (e) {
@@ -241,15 +272,60 @@ export const useReportStore = defineStore('report', {
       }
     },
 
-    async loadTree(workOrderNumber) {
+    loadTree(workOrderNumber) {
       const wo = (workOrderNumber ?? '').trim()
-      if (!wo) return []
-      if (this.treeByWorkOrder[wo]) return this.treeByWorkOrder[wo]
-      this.loadingTrees[wo] = true
+      if (!wo) return Promise.resolve([])
+      if (treeLoads.has(wo)) return treeLoads.get(wo)
+      if (this.treeByWorkOrder[wo]) return Promise.resolve(this.treeByWorkOrder[wo])
+      const run = this.walkTree(wo).finally(() => treeLoads.delete(wo))
+      treeLoads.set(wo, run)
+      return run
+    },
+
+    async walkTree(wo) {
+      this.loadingTrees[wo] = { level: 0 }
+      delete this.truncatedTrees[wo]
       try {
-        const { data } = await api.get(`/workorders/${encodeURIComponent(wo)}/parts`)
-        this.treeByWorkOrder[wo] = data ?? []
-        return this.treeByWorkOrder[wo]
+        const summary = this.searchResults.find((r) => r.workOrderNumber === wo) ?? await this.fetchHeader(wo)
+        if (!summary) {
+          this.treeByWorkOrder[wo] = []
+          return this.treeByWorkOrder[wo]
+        }
+        const root = (summary.assemblyItem ?? '').trim()
+        this.treeByWorkOrder[wo] = [{ level: 0, parentItem: null, item: root, itemDesc: summary.assemblyDesc ?? '', path: `/${root}/` }]
+        const nodes = this.treeByWorkOrder[wo]
+        let frontier = root ? [nodes[0]] : []
+        for (let level = 1; level <= TREE_MAX_LEVEL && frontier.length; level++) {
+          this.loadingTrees[wo] = { level }
+          await fetchChildren(frontier.map((n) => n.item))
+          const next = []
+          for (const parent of frontier) {
+            for (const link of childrenByItem.get(itemKey(parent.item)) ?? []) {
+              if (parent.path.includes(`/${link.component}/`)) continue
+              next.push({
+                level,
+                parentItem: parent.item,
+                item: link.component,
+                itemDesc: link.componentDesc ?? '',
+                path: `${parent.path}${link.component}/`,
+              })
+            }
+          }
+          const room = TREE_MAX_NODES - nodes.length
+          if (next.length > room) {
+            nodes.push(...next.slice(0, room))
+            nodes.sort(comparePath)
+            this.truncatedTrees[wo] = true
+            break
+          }
+          nodes.push(...next)
+          nodes.sort(comparePath)
+          frontier = next
+        }
+        return nodes
+      } catch (e) {
+        delete this.treeByWorkOrder[wo]
+        throw e
       } finally {
         delete this.loadingTrees[wo]
       }
@@ -331,12 +407,12 @@ export const useReportStore = defineStore('report', {
         }
         this.mode = isNew ? 'new' : 'saved'
         this.confirmed = true
-        this.reportParts = this.treeByWorkOrder[wo] ?? []
+        this.reportParts = []
         this.autoPNo = blankAutoPNo()
         this.markPristine()
         this.ensureRefData()
         this.rememberRecent(wo)
-        if (!this.treeByWorkOrder[wo]) this.loadReportParts(wo)
+        this.loadTree(wo).catch(() => {})
         return true
       } catch {
         this.backToList()

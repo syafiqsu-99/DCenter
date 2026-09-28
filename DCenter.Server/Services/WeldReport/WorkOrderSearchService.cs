@@ -31,19 +31,28 @@ public class WorkOrderSearchService(ErpViewContext db)
         => Summaries(db.WorkOrderDetails.Where(w => w.WoNumber == workOrderNumber), 0, 1)
             .FirstOrDefaultAsync(ct);
 
-    public async Task<List<WorkOrderNode>> TreeForWorkOrderAsync(string workOrderNumber, CancellationToken ct)
-    {
-        var nodes = await db.Database
-            .SqlQuery<WorkOrderNode>($"""
-                SELECT WorkOrderNumber, AssemblyItem, AssemblyDesc, Qty, [Level], ParentItem, Item, ItemDesc, [Path], Mrn, MrnDesc
-                FROM dbo.fn_DCenter_WorkOrderParts({workOrderNumber})
-                """)
-            .ToListAsync(ct);
+    public const int MaxChildLookup = 1000;
+    private const int ChildLookupChunk = 500;
 
-        return nodes
-            .OrderBy(n => n.Level == 0 ? 0 : 1)
-            .ThenBy(n => n.Path, StringComparer.Ordinal)
+    public async Task<List<BomLinkDto>> ChildrenAsync(IEnumerable<string> parentItems, CancellationToken ct)
+    {
+        var items = parentItems
+            .Select(i => i.Trim())
+            .Where(i => i.Length > 0)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Take(MaxChildLookup)
             .ToList();
+
+        var links = new List<BomLinkDto>();
+        foreach (var chunk in items.Chunk(ChildLookupChunk))
+        {
+            links.AddRange(await db.Bom
+                .AsNoTracking()
+                .Where(b => chunk.Contains(b.Item))
+                .Select(b => new BomLinkDto(b.Item, b.Component, b.ComponentDesc))
+                .ToListAsync(ct));
+        }
+        return links;
     }
 
     public async Task<List<string>> AllWorkOrderNumbersAsync(CancellationToken ct)

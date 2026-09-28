@@ -18,8 +18,8 @@
           <v-btn icon="mdi-close" size="small" variant="text" aria-label="Close month details" @click="selected = null" />
         </div>
         <v-alert v-if="detailError" type="error" variant="tonal" density="compact" class="mx-4 mb-3">{{ detailError }}</v-alert>
-        <v-data-table :headers="headers" :items="rows" :loading="loadingDetail" item-value="itemId" density="compact"
-                      class="consumable-table" :items-per-page="-1" hide-default-footer
+        <v-data-table-virtual :headers="headers" :items="rows" :loading="loadingDetail" item-value="itemId" density="compact"
+                      class="consumable-table virtual-capped" fixed-header
                       no-data-text="Nothing was used this month.">
           <template #loading><v-skeleton-loader type="table-row@4" /></template>
           <template #item.diaSpec="{ item }"><strong>{{ item.diaSpec }}</strong></template>
@@ -36,7 +36,7 @@
               <td class="text-end">{{ kg(total('netKg')) }}</td>
             </tr>
           </template>
-        </v-data-table>
+        </v-data-table-virtual>
       </div>
     </v-expand-transition>
   </v-card>
