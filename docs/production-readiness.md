@@ -5,7 +5,8 @@
 - `dotnet build` (0 warnings);
 - `dotnet test` (69/69);
 - EF migration drift check (clean);
-- a mocked-API browser smoke test (40/40).
+- a mocked-API browser smoke test (45/45);
+- HTTP checks against the running server (security headers, login rate limit, ProblemDetails errors, fail-fast without a connection string).
 
 **Not verified:** the database-backed integration tests (section 9) were **not** run against SQL Server. None was available in the review environment. Run them on staging before go-live.
 
@@ -94,35 +95,39 @@
 | C1 | **Fixed in code — action needed** | Connection strings in `appsettings*.json` are now empty. The server refuses to start without `ConnectionStrings__DefaultConnection`. **Rotate the DB password.** It remains in git history until you rewrite it. |
 | C2 | **Fixed** | `ReportSaveRules.Conflict` refuses a save onto an existing report without its id and RowVersion. Duplicate mode warns and blocks when the chosen WO already has a report. |
 | C3 | **Fixed** | Server: saving a completed report returns 409, and reopen and delete need a supervisor. The reopen event records who did it. Client: completed reports are read-only, with no Save, a "Locked" chip, and Reopen for supervisors only. |
-| C4 | **Fixed** | Added a `DCenter.Server.Tests` project with 69 tests, all passing. |
+| C4 | **Fixed** | Added a `DCenter.Server.Tests` project with 81 tests, all passing. |
 | H1 | **Fixed** | After Complete or Reopen, the client reloads the RowVersion, so the next save works. |
 | H2 | **Fixed** | The PDF electrode header shows columns 1/2/3 instead of the hard-coded GTAW. PDF and Excel are blocked while there are unsaved edits. |
 | H3 | **Fixed** | The Excel joint description includes part numbers. Engineer/Supervisor and QA Inspector names and dates are blank for wet-ink signing; the welder date stays. |
 | H4 | **Fixed** | Idempotency keys on every consumable mutation: a server `IdempotencyGate` plus a per-form `useSubmitKey`, keyed by a fingerprint of the request. Re-imported opening-stock rows are rejected. **Limit:** keys are held in memory, so an app-pool recycle between a request and its retry is not covered. |
 | H5 | **Fixed** | The report date uses the local day (`utils/date.js`). |
-| H6 | Open (accepted risk) | Kiosk identity model unchanged. See Phase 2. |
+| H6 | Accepted risk (by decision) | Kiosk identity model unchanged; no welder PIN. |
 | H7 | **Fixed** | ProblemDetails, the exception handler and status-code pages are on, with Windows Event Log logging. DB update conflicts in consumables return 409 and are logged. The report insert conflict is detected only by SQL unique-violation errors. |
 | M5 | **Fixed** | Client requests time out after 60 s (downloads 120 s) with a "check today's entries" message. |
-| M9 | **Verified** | `dotnet ef migrations has-pending-model-changes` reports that the migrations match the model. |
-| M1–M4, M6–M8, M10–M12, L1–L8 | Open | Phase 2/3 backlog. See the plan below. |
+| M1 | **Partly fixed (by decision)** | Logout now cancels the token on the server (`POST /api/supervisor/logout`). There is deliberately no inactivity or time-based logout: supervisors stay logged in until they log out or close the browser. |
+| M2 | **Fixed** | Login is limited to 10 attempts per minute per IP; further attempts get 429 "Too many login attempts". Verified against the running server. |
+| M3 | **Fixed** | Welders can date entries up to 7 days back (`Consumables__WelderBackdateDays`); supervisors any date. Enforced on the server for receive, transfer, issue, return, move, adjust, send-to-bake, place and baking start/stop times. Welder date pickers show the same minimum. |
+| M4 | **Fixed** | Complete is refused until every joint has a WPS No., Welder Name and No., both heat numbers, and electrode column 1 Process, Type and Heat/Lot. The server lists what is missing per joint. |
+| M6 | **Fixed** | The welder station, baking board and oven board refresh every 60 s and when the tab regains focus, pausing while a dialog is open. |
+| M7 | **Partly fixed (by decision)** | The Duplicate screen searches work orders on the server instead of downloading every number (`/workorders/numbers` removed). The initial Find-a-work-order list is kept, per decision. |
+| M8 | Declined | A BOM copy table was declined. The BOM loads level by level, live. |
+| M9 | **Verified safe** | The migrations match the model (`dotnet ef migrations has-pending-model-changes`). EF Core 10 takes `sp_getapplock('__EFMigrationsLock')` during `Migrate()`, so overlapping IIS processes cannot migrate at the same time. |
+| M10 | Documented | See README → Configuration (`DataProtection__KeysPath` outside the site folder). |
+| M11 | **Fixed** | The BPVC, WPS, MRN and Lookup imports are limited to 2 MB. |
+| M12 | Accepted | Report volume is small, and the list is filtered in a virtual table. Revisit above about 20k reports. |
+| L1 | **Fixed** | More than 50 joints is rejected (400), and joints are renumbered 1…n on save. |
+| L2 | **Fixed** | FinishDialog ignores a second submit while saving. |
+| L3 | Accepted | ERP work-order numbers do not contain `/` or `%`. |
+| L4 | **Fixed** | The Excel logos use the exact file names. |
+| L5, L7 | No action | Single-site local time, and unused fields. |
+| L6 | **Fixed** | Draft deletions are logged with the supervisor's name. |
+| L8 | **Fixed** | Responses carry `X-Content-Type-Options`, `X-Frame-Options` and `Referrer-Policy`. Verified. |
 
-### Phase 2 / 3 backlog
-- **M1** An absolute token cap (e.g. 7 days) and server-side revocation on logout.
-- **M2** A login rate limiter.
-- **M3** A back-dating window with supervisor override.
-- **M4** Completion validation: joints need WPS, welder and heat no.
-- **H6** Welder PIN or kiosk binding.
-- **M6** Auto-refresh of the station and oven board.
-- **M7** WO search requires 2+ characters, and a server lookup replaces the full WO number list.
-- **M8** A BOM copy table if large expansions stay slow.
-- **M9** Set `DCenter__AutoMigrate=false` in production and migrate in the deploy step.
-- **M10** Keys folder outside the site.
-- **M11** Size limits on the settings imports.
-- **M12** Paged report list.
-- **L1–L8** as listed above.
+### Remaining open
+- **H6 (accepted risk):** welders pick their own name with no PIN, so the audit trail relies on trust at the station.
 
 ## 8. Unit test plan
-Tests marked ★ are implemented in `DCenter.Server.Tests` (69 tests, all passing).
+Tests marked ★ are implemented in `DCenter.Server.Tests` (81 tests, all passing). Round 2 added tests for the back-dating window, completion rules, joint renumbering and logout revocation.
 
 **Consumables**
 - ★ `ConsumableLedger.AllocateFifo`: exact fill; spans lots in LotId order; skips ≤ 0 lots; insufficient → null; qty 0.
@@ -279,7 +284,7 @@ Tests marked ★ are implemented in `DCenter.Server.Tests` (69 tests, all passin
 
 ## 15. Go-live readiness verdict
 **Before these fixes: NO-GO.**
-**Now: conditional GO.** Every critical and high-risk defect except H6 is fixed in code, builds cleanly and is covered by unit and smoke tests.
+**Now: conditional GO.** Every critical, high and medium item is fixed, verified safe, documented or declined by decision. The only accepted open risk is H6. Everything builds cleanly and is covered by unit and smoke tests.
 
 **Go-live conditions, all still open:**
 1. **Rotate the database password** and set it only via `ConnectionStrings__DefaultConnection` (C1).
@@ -287,4 +292,7 @@ Tests marked ★ are implemented in `DCenter.Server.Tests` (69 tests, all passin
 3. Run the section 9 integration tests and the section 12 regression checklist on a **staging SQL Server**. They could not run in the review environment.
 4. Two real users per role complete the section 11 acceptance scenarios.
 
-**Accepted risks for the initial internal rollout (Phase 2):** H6 (kiosk identity) and the open M/L items in section 7.
+**Accepted risks for the initial internal rollout:**
+- H6 (kiosk identity).
+- M12 (unpaged report list).
+- L3 (special characters in WO numbers).

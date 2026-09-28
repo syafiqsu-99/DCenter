@@ -16,6 +16,7 @@ public class BakingService(WeldReportContext db, ConsumableLedger ledger, Consum
     {
         var (user, date, error) = G.Common(enteredBy, r.BakingDate);
         if (error is not null) return Fail<BakingResult>(error);
+        if (guards.CheckBackdate(date) is string backdate) return Fail<BakingResult>(backdate);
 
         var pic = T.FreeText(r.PersonInCharge, 100);
         if (pic is null) return Fail<BakingResult>("Person In Charge is required.");
@@ -129,6 +130,7 @@ public class BakingService(WeldReportContext db, ConsumableLedger ledger, Consum
     {
         var (user, date, error) = G.Common(enteredBy, r.HoldingDate);
         if (error is not null) return Fail<PlaceResult>(error);
+        if (guards.CheckBackdate(date) is string backdate) return Fail<PlaceResult>(backdate);
 
         var qty = T.RoundKg(r.QuantityKg);
         if (!r.TakeAll && qty <= 0) return Fail<PlaceResult>("Quantity must be greater than 0.");
@@ -286,6 +288,7 @@ public class BakingService(WeldReportContext db, ConsumableLedger ledger, Consum
 
         var at = r.At ?? DateTime.Now;
         if (at > DateTime.Now + ClockTolerance) return Fail<BakingResult>("The time cannot be in the future.");
+        if (guards.CheckBackdate(DateOnly.FromDateTime(at)) is string backdate) return Fail<BakingResult>(backdate);
 
         await using var tx = await db.Database.BeginTransactionAsync(ct);
         var lockItemIds = await db.BakingRecords.Where(b => ids.Contains(b.Id)).Select(b => b.Lot.ItemId).Distinct().ToListAsync(ct);

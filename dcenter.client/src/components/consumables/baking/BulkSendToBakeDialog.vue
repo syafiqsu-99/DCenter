@@ -38,7 +38,7 @@
             <v-combobox v-model="pic" :items="picOptions" label="Person In Charge" v-bind="field" :disabled="saving" />
           </v-col>
           <v-col cols="12" sm="6">
-            <v-text-field v-model="bakingDate" type="date" label="Baking Date" :max="todayIso()" v-bind="field" :disabled="saving" />
+            <v-text-field v-model="bakingDate" type="date" label="Baking Date" :max="todayIso()" :min="store.earliestEntryDate" v-bind="field" :disabled="saving" />
           </v-col>
         </v-row>
 

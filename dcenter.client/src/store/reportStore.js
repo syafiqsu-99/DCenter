@@ -125,6 +125,8 @@ async function fetchChildren(items) {
   }))
 }
 let traceToken = 0
+let woOptionTimer = null
+let woOptionToken = 0
 
 export const useReportStore = defineStore('report', {
   state: () => ({
@@ -152,7 +154,7 @@ export const useReportStore = defineStore('report', {
     loadingTrees: {},
     truncatedTrees: {},
     mode: 'browse',
-    allWorkOrderNumbers: [],
+    workOrderOptions: [],
     loadingWorkOrderNumbers: false,
     autoPNo: blankAutoPNo(),
     recent: readRecent(),
@@ -344,18 +346,26 @@ export const useReportStore = defineStore('report', {
       }
     },
 
-    async loadAllWorkOrderNumbers(force = false) {
-      if (this.loadingWorkOrderNumbers) return
-      if (!force && this.allWorkOrderNumbers.length) return
-      this.loadingWorkOrderNumbers = true
-      try {
-        const { data } = await api.get('/workorders/numbers')
-        this.allWorkOrderNumbers = data ?? []
-      } catch {
-        // keep any cached list; the field still accepts typed input
-      } finally {
+    searchWorkOrderNumbers(term) {
+      const q = (term ?? '').trim()
+      clearTimeout(woOptionTimer)
+      if (q.length < MIN_QUERY_LENGTH) {
+        this.workOrderOptions = []
         this.loadingWorkOrderNumbers = false
+        return
       }
+      this.loadingWorkOrderNumbers = true
+      woOptionTimer = setTimeout(async () => {
+        const token = ++woOptionToken
+        try {
+          const { data } = await api.get('/workorders/search', { params: { q, skip: 0, take: PAGE_SIZE } })
+          if (token === woOptionToken) this.workOrderOptions = (data?.items ?? []).map((r) => r.workOrderNumber)
+        } catch {
+          // the field still accepts a typed work order number
+        } finally {
+          if (token === woOptionToken) this.loadingWorkOrderNumbers = false
+        }
+      }, SEARCH_DEBOUNCE_MS)
     },
 
     async loadSavedReports() {

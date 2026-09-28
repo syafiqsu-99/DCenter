@@ -1,6 +1,7 @@
 using DCenter.Server.Data;
 using DCenter.Server.Entities;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 using Cat = DCenter.Server.Entities.StockCatalog;
 using T = DCenter.Server.Services.ConsumableText;
 
@@ -16,8 +17,26 @@ public sealed record WelderRef(int Id, string WelderName);
 
 public sealed record StockLine(int LotId, decimal Kg);
 
-public class ConsumableGuards(WeldReportContext db, ConsumableLedger ledger)
+public class ConsumableGuards(
+    WeldReportContext db, ConsumableLedger ledger, IHttpContextAccessor http, SupervisorAuth supervisors,
+    IOptions<ConsumableOptions> options)
 {
+    public static string? BackdateError(DateOnly date, DateOnly today, bool supervisor, int days)
+    {
+        if (supervisor || date >= today.AddDays(-Math.Max(days, 0))) return null;
+        return days == 0
+            ? "Welders can only record today's entries. Ask a supervisor to record older ones."
+            : $"Welders can record entries up to {days} day(s) back. Ask a supervisor to record older ones.";
+    }
+
+    // Supervisors may back-date freely; everyone else is limited to the configured window.
+    public string? CheckBackdate(DateOnly date)
+    {
+        var request = http.HttpContext?.Request;
+        var supervisor = request is not null && supervisors.FromRequest(request) is not null;
+        return BackdateError(date, T.Today, supervisor, options.Value.WelderBackdateDays);
+    }
+
     public static (string? User, DateOnly Date, string? Error) Common(string? enteredBy, DateOnly? txnDate)
     {
         var user = T.FreeText(enteredBy, 100);

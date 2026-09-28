@@ -11,7 +11,7 @@
     <v-list density="comfortable" min-width="220">
       <v-list-item prepend-icon="mdi-key-change" title="Change password" @click="router.push({ name: 'settings', query: { section: 'supervisor' } })" />
       <v-divider />
-      <v-list-item prepend-icon="mdi-logout" title="Logout" base-color="error" @click="store.lockSupervisor()" />
+      <v-list-item prepend-icon="mdi-logout" title="Logout" base-color="error" @click="store.logoutSupervisor()" />
     </v-list>
   </v-menu>
 </template>

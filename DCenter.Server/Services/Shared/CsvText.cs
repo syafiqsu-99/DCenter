@@ -5,6 +5,8 @@ namespace DCenter.Server.Services;
 
 public static class CsvText
 {
+    public const long MaxUploadBytes = 2 * 1024 * 1024;
+
     public sealed record Row(int Line, List<string> Fields);
 
     public static List<Row> Parse(string text) => Parse(text, out _);

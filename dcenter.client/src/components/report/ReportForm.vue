@@ -27,7 +27,8 @@
                   <td :style="lbl">Work Order:</td>
                   <td :style="cell">
                     <v-combobox v-if="isDuplicate" v-model="report.workOrderNumber"
-                                :items="allWorkOrderNumbers" :loading="loadingWorkOrderNumbers"
+                                :items="workOrderOptions" :loading="loadingWorkOrderNumbers"
+                                no-filter @update:search="store.searchWorkOrderNumbers"
                                 v-bind="f" clearable
                                 @update:model-value="onWorkOrderPick" />
                     <v-text-field v-else v-model="report.workOrderNumber" v-bind="f" readonly />
@@ -98,7 +99,7 @@
 </template>
 
 <script setup>
-  import { computed, onMounted, watch } from 'vue';
+  import { computed, watch } from 'vue';
   import { storeToRefs } from 'pinia';
   import { useReportStore } from '@/store/reportStore';
   import { useLookupStore } from '@/store/lookupStore';
@@ -106,7 +107,7 @@
   import { useBpvcStore } from '@/store/bpvcStore';
 
   const store = useReportStore();
-  const { report, jointCount, mode, allWorkOrderNumbers, loadingWorkOrderNumbers, isComplete } = storeToRefs(store);
+  const { report, jointCount, mode, workOrderOptions, loadingWorkOrderNumbers, isComplete } = storeToRefs(store);
   const isDuplicate = computed(() => mode.value === 'duplicate');
   const lockedFromSearch = computed(() => mode.value === 'new');
 
@@ -160,7 +161,4 @@
   const dateCell = computed(() =>
     dateWeldedMissing.value ? cell + 'background:#fdecea;' : cell);
 
-  onMounted(() => {
-    if (isDuplicate.value) store.loadAllWorkOrderNumbers();
-  });
 </script>

@@ -55,6 +55,79 @@ public class ReportSaveRulesTests
     }
 }
 
+public class ReportCompletionTests
+{
+    private static Joint FullJoint(int number) => new()
+    {
+        JointNumber = number, WpsNo = "WPS-8", WelderName = "Ali", WelderNo = "W-01", HeatNumberLeft = "H1", HeatNumberRight = "H2",
+        Materials = [new JointMaterial { ColumnNumber = 1, Process = "SMAW", Type = "E308L", HeatLot = "L9" }],
+    };
+
+    [Fact]
+    public void CompleteReportHasNoProblems()
+    {
+        var report = new Report { Joints = [FullJoint(1), FullJoint(2)] };
+
+        Assert.Empty(ReportSaveRules.CompletionProblems(report));
+    }
+
+    [Fact]
+    public void ReportWithoutJointsCannotBeCompleted()
+    {
+        Assert.Equal(["Add at least one joint."], ReportSaveRules.CompletionProblems(new Report()));
+    }
+
+    [Fact]
+    public void MissingFieldsAreNamedPerJoint()
+    {
+        var gaps = FullJoint(2);
+        gaps.WpsNo = "  ";
+        gaps.WelderNo = null;
+        gaps.HeatNumberRight = "";
+        gaps.Materials[0].HeatLot = null;
+        var noElectrode = FullJoint(3);
+        noElectrode.Materials = [];
+        var report = new Report { Joints = [FullJoint(1), gaps, noElectrode] };
+
+        var problems = ReportSaveRules.CompletionProblems(report);
+
+        Assert.Equal(
+        [
+            "Joint 2: WPS No., Welder No., Heat Number (with), Electrode 1 Heat/Lot",
+            "Joint 3: Electrode 1 Process, Electrode 1 Type, Electrode 1 Heat/Lot",
+        ], problems);
+    }
+
+    [Fact]
+    public void CompletionMessageListsTenJointsThenCounts()
+    {
+        var problems = Enumerable.Range(1, 12).Select(i => $"Joint {i}: WPS No.").ToList();
+
+        var message = ReportSaveRules.CompletionMessage(problems);
+
+        Assert.Contains("Joint 10: WPS No.", message);
+        Assert.DoesNotContain("Joint 11:", message);
+        Assert.EndsWith("and 2 more joint(s).", message);
+    }
+
+    [Fact]
+    public void RenumberGivesOneToNInTheUsersOrder()
+    {
+        var joints = new List<JointDto>
+        {
+            new() { JointNumber = 5, WpsNo = "a" },
+            new() { JointNumber = 2, WpsNo = "b" },
+            new() { JointNumber = 2, WpsNo = "c" },
+            new() { JointNumber = 9, WpsNo = "d" },
+        };
+
+        var renumbered = ReportSaveRules.Renumber(joints);
+
+        Assert.Equal([1, 2, 3, 4], renumbered.Select(j => j.JointNumber));
+        Assert.Equal(["b", "c", "a", "d"], renumbered.Select(j => j.WpsNo));
+    }
+}
+
 public class ReportDocumentTests
 {
     private static Report Sample(int joints = 1)

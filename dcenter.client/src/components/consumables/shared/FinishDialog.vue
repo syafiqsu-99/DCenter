@@ -72,6 +72,7 @@
   }
 
   async function submit() {
+    if (!canSave.value || saving.value) return
     saving.value = true
     error.value = ''
     try {

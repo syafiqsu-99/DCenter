@@ -6,9 +6,9 @@ namespace DCenter.Server.Services;
 public class ExcelReportService
 {
     private static readonly string EmersonLogo =
-        Path.Combine(AppContext.BaseDirectory, "Assets", "emerson.png");
+        Path.Combine(AppContext.BaseDirectory, "Assets", "Emerson.png");
     private static readonly string FisherLogo =
-        Path.Combine(AppContext.BaseDirectory, "Assets", "fisher.png");
+        Path.Combine(AppContext.BaseDirectory, "Assets", "Fisher.png");
 
     // 10 columns (A..J) mirror the form grid.
     public byte[] Generate(Report r)

@@ -85,6 +85,7 @@
   import BakingEditDialog from '@/components/consumables/baking/BakingEditDialog.vue'
   import PlaceDialog from '@/components/consumables/baking/PlaceDialog.vue'
   import { useSubmitKey } from '@/composables/useSubmitKey'
+  import { useAutoRefresh } from '@/composables/useAutoRefresh'
 
   const submitKey = useSubmitKey()
 
@@ -195,6 +196,7 @@
     timer = setInterval(() => { now.value = new Date() }, 60000)
   })
   onBeforeUnmount(() => clearInterval(timer))
+  useAutoRefresh(load, { paused: () => sendOpen.value || editOpen.value || placeOpen.value || !!stamping.value })
 </script>
 
 <style scoped>

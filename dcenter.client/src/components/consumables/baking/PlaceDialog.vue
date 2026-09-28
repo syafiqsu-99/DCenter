@@ -11,7 +11,7 @@
 
         <v-row dense>
           <v-col cols="12" sm="6">
-            <v-text-field v-model="holdingDate" type="date" label="Date" :max="todayIso()" v-bind="field" />
+            <v-text-field v-model="holdingDate" type="date" label="Date" :max="todayIso()" :min="store.earliestEntryDate" v-bind="field" />
           </v-col>
           <v-col cols="12" sm="6">
             <v-text-field v-model.number="qty" type="number" min="0.01" step="0.01" label="Quantity" suffix="kg" v-bind="field"

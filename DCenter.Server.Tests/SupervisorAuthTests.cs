@@ -51,4 +51,29 @@ public class SupervisorAuthTests
 
         Assert.Null(auth.Validate(old));
     }
+
+    [Fact]
+    public void RevokedTokenStopsWorkingButOthersStayValid()
+    {
+        var auth = Create();
+        var (first, _) = auth.Issue("Supervisor A");
+        var (second, _) = auth.Issue("Supervisor B");
+
+        auth.Revoke(first);
+
+        Assert.Null(auth.Validate(first));
+        Assert.NotNull(auth.Validate(second));
+    }
+
+    [Fact]
+    public void RevokingGarbageIsHarmless()
+    {
+        var auth = Create();
+        var (token, _) = auth.Issue("Supervisor A");
+
+        auth.Revoke(null);
+        auth.Revoke("not-a-token");
+
+        Assert.NotNull(auth.Validate(token));
+    }
 }

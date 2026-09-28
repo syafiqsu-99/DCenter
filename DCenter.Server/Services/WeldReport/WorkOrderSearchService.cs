@@ -55,14 +55,6 @@ public class WorkOrderSearchService(ErpViewContext db)
         return links;
     }
 
-    public async Task<List<string>> AllWorkOrderNumbersAsync(CancellationToken ct)
-        => await db.WorkOrderDetails
-            .AsNoTracking()
-            .Select(w => w.WoNumber)
-            .Distinct()
-            .OrderBy(n => n)
-            .ToListAsync(ct);
-
     private static IQueryable<WorkOrderSummary> Summaries(IQueryable<WorkOrderDetail> source, int skip, int take)
         => source
             .AsNoTracking()

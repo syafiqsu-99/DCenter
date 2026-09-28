@@ -31,13 +31,21 @@ public class ReportService(WeldReportContext db)
                 r.UpdatedAt))
             .ToListAsync(ct);
 
-    public enum CompleteResult { Ok, NotFound, DateWeldedRequired }
+    public enum CompleteResult { Ok, NotFound, DateWeldedRequired, Incomplete }
 
-    public async Task<CompleteResult> MarkCompleteAsync(string workOrderNumber, bool complete, string? by, CancellationToken ct)
+    public sealed record CompleteOutcome(CompleteResult Result, IReadOnlyList<string> Problems);
+
+    public async Task<CompleteOutcome> MarkCompleteAsync(string workOrderNumber, bool complete, string? by, CancellationToken ct)
     {
-        var r = await db.Reports.FirstOrDefaultAsync(x => x.WorkOrderNumber == workOrderNumber, ct);
-        if (r is null) return CompleteResult.NotFound;
-        if (complete && r.DateWelded is null) return CompleteResult.DateWeldedRequired;
+        var query = db.Reports.Where(x => x.WorkOrderNumber == workOrderNumber);
+        var r = complete
+            ? await query.Include(x => x.Joints).ThenInclude(j => j.Materials).FirstOrDefaultAsync(ct)
+            : await query.FirstOrDefaultAsync(ct);
+        if (r is null) return new(CompleteResult.NotFound, []);
+        if (complete && r.DateWelded is null) return new(CompleteResult.DateWeldedRequired, []);
+        if (complete && ReportSaveRules.CompletionProblems(r) is { Count: > 0 } problems)
+            return new(CompleteResult.Incomplete, problems);
+
         r.CompletedAt = complete ? DateTime.Now : null;
         r.UpdatedAt = DateTime.Now;
         db.ReportStatusEvents.Add(new ReportStatusEvent
@@ -47,7 +55,7 @@ public class ReportService(WeldReportContext db)
             Details = by is null ? null : $"By {by}",
         });
         await db.SaveChangesAsync(ct);
-        return CompleteResult.Ok;
+        return new(CompleteResult.Ok, []);
     }
 
     public async Task<List<ReportStatusEventDto>?> GetHistoryAsync(string WorkOrderNumber, CancellationToken ct)
@@ -230,7 +238,7 @@ public class ReportService(WeldReportContext db)
         ApplyHeader(r, dto);
         r.UpdatedAt = DateTime.Now;
 
-        foreach (var jd in dto.Joints.OrderBy(j => j.JointNumber).Take(50))
+        foreach (var jd in ReportSaveRules.Renumber(dto.Joints).Take(ReportSaveRules.MaxJoints))
         {
             var joint = new Joint
             {

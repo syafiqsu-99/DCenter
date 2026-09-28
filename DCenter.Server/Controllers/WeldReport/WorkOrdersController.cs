@@ -29,11 +29,6 @@ public class WorkOrdersController(WorkOrderSearchService workOrders) : Controlle
             return (ActionResult<WorkOrderSearchResponse>)Ok(new WorkOrderSearchResponse(items, hasMore));
         });
 
-    [HttpGet("numbers")]
-    public Task<ActionResult<List<string>>> Numbers(CancellationToken ct)
-        => Guard("Loading the work order list took too long.", async () =>
-            (ActionResult<List<string>>)Ok(await workOrders.AllWorkOrderNumbersAsync(ct)));
-
     [HttpGet("{workOrderNumber}/header")]
     public Task<ActionResult<WorkOrderHeader>> Header(string workOrderNumber, CancellationToken ct)
         => Guard("Loading the work order took too long.", async () =>

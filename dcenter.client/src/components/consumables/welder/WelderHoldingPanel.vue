@@ -47,6 +47,7 @@
   import PlaceDialog from '@/components/consumables/baking/PlaceDialog.vue'
   import CounterDialog from '@/components/consumables/welder/CounterDialog.vue'
   import FinishPromptDialog from '@/components/consumables/welder/FinishPromptDialog.vue'
+  import { useAutoRefresh } from '@/composables/useAutoRefresh'
 
   const store = useConsumableStore()
   const placeOpen = ref(false)
@@ -114,4 +115,5 @@
   }
 
   onMounted(load)
+  useAutoRefresh(load, { paused: () => placeOpen.value || useOpen.value || promptOpen.value })
 </script>

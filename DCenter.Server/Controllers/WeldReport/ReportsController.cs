@@ -10,7 +10,8 @@ public class ReportsController(
     ReportService reports,
     PdfReportService pdf,
     ExcelReportService excel,
-    SupervisorAuth supervisors) : ControllerBase
+    SupervisorAuth supervisors,
+    ILogger<ReportsController> logger) : ControllerBase
 {
     [HttpGet]
     public async Task<ActionResult<List<ReportSummary>>> List(CancellationToken ct)
@@ -42,10 +43,12 @@ public class ReportsController(
         var supervisor = supervisors.FromRequest(Request);
         if (!complete && supervisor is null)
             return StatusCode(StatusCodes.Status401Unauthorized, "Only a supervisor can reopen a completed report. Log in as supervisor and try again.");
-        return await reports.MarkCompleteAsync(workOrderNumber, complete, supervisor?.Name, ct) switch
+        var outcome = await reports.MarkCompleteAsync(workOrderNumber, complete, supervisor?.Name, ct);
+        return outcome.Result switch
         {
             ReportService.CompleteResult.Ok => NoContent(),
             ReportService.CompleteResult.DateWeldedRequired => BadRequest("Date welded is required to mark a report complete."),
+            ReportService.CompleteResult.Incomplete => BadRequest(ReportSaveRules.CompletionMessage(outcome.Problems)),
             _ => NotFound(),
         };
     }
@@ -53,12 +56,17 @@ public class ReportsController(
     [HttpDelete("{workOrderNumber}")]
     [SupervisorOnly]
     public async Task<IActionResult> Delete(string workOrderNumber, CancellationToken ct)
-        => await reports.DeleteAsync(workOrderNumber, ct) switch
+    {
+        var result = await reports.DeleteAsync(workOrderNumber, ct);
+        if (result == ReportService.DeleteResult.Ok)
+            logger.LogInformation("Report draft {WorkOrder} deleted by {Supervisor}", workOrderNumber, supervisors.FromRequest(Request)?.Name);
+        return result switch
         {
             ReportService.DeleteResult.Ok => NoContent(),
             ReportService.DeleteResult.Completed => Conflict("Completed reports cannot be deleted. Reopen the report first."),
             _ => NotFound(),
         };
+    }
 
     [HttpGet("{workOrderNumber}/history")]
     public async Task<ActionResult<List<ReportStatusEventDto>>> History(string workOrderNumber, CancellationToken ct)
@@ -74,6 +82,8 @@ public class ReportsController(
             return BadRequest("Work order number is required.");
         if (dto.DateWelded is null)
             return BadRequest("Date welded is required to save a report.");
+        if (dto.Joints.Count > ReportSaveRules.MaxJoints)
+            return BadRequest($"A report can have at most {ReportSaveRules.MaxJoints} joints.");
         try
         {
             return Ok(await reports.SaveAsync(dto, ct));

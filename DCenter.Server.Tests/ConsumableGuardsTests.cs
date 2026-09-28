@@ -74,4 +74,27 @@ public class ConsumableGuardsTests
         Assert.Equal("Ali Bin", user);
         Assert.Equal(DateOnly.FromDateTime(DateTime.Now), date);
     }
+
+    [Theory]
+    [InlineData(7, false, true)]
+    [InlineData(8, false, false)]
+    [InlineData(0, false, true)]
+    [InlineData(365, true, true)]
+    public void BackdateError_LimitsWelderEntriesToTheWindow(int daysBack, bool supervisor, bool allowed)
+    {
+        var today = new DateOnly(2026, 9, 28);
+
+        var error = ConsumableGuards.BackdateError(today.AddDays(-daysBack), today, supervisor, 7);
+
+        Assert.Equal(allowed, error is null);
+    }
+
+    [Fact]
+    public void BackdateError_ZeroDaysMeansTodayOnly()
+    {
+        var today = new DateOnly(2026, 9, 28);
+
+        Assert.Null(ConsumableGuards.BackdateError(today, today, false, 0));
+        Assert.Contains("today", ConsumableGuards.BackdateError(today.AddDays(-1), today, false, 0));
+    }
 }

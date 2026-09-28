@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia'
 import api from '@/utils/api'
+import { daysAgoIso } from '@/utils/date'
 import { useLookupStore } from '@/store/lookupStore'
 import { ALL, categoryParam, monthStartIso, todayIso } from '@/utils/consumables'
 
@@ -105,6 +106,7 @@ export const useConsumableStore = defineStore('consumables', {
     catalog: {
       categories: [], sources: [], stages: [], adjustReasons: [],
       ovenTypes: [], finishThresholdKg: 0.5, allowElectrodeDirectTransfer: false, returnWindowDays: 7,
+      welderBackdateDays: 7,
     },
     catalogLoaded: false,
 
@@ -156,6 +158,9 @@ export const useConsumableStore = defineStore('consumables', {
   getters: {
     hasEnteredBy: (s) => !!s.enteredBy.trim(),
     isSupervisor: (s) => !!s.supervisor && Date.parse(s.supervisor.expiresAt) > s.clock,
+    earliestEntryDate() {
+      return this.isSupervisor ? undefined : daysAgoIso(this.catalog.welderBackdateDays ?? 7)
+    },
 
     filteredBalances(s) {
       const f = s.inventoryFilters
@@ -228,6 +233,11 @@ export const useConsumableStore = defineStore('consumables', {
       applySupervisorToken(data.token)
       this.syncActor()
       return this.supervisor
+    },
+
+    async logoutSupervisor() {
+      if (this.supervisor) await api.post('/supervisor/logout').catch(() => {})
+      this.lockSupervisor()
     },
 
     lockSupervisor() {

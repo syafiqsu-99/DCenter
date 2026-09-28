@@ -105,6 +105,7 @@
   import SendToBakeDialog from '@/components/consumables/baking/SendToBakeDialog.vue'
   import FinishPromptDialog from '@/components/consumables/welder/FinishPromptDialog.vue'
   import WelderActivityList from '@/components/consumables/welder/WelderActivityList.vue'
+  import { useAutoRefresh } from '@/composables/useAutoRefresh'
 
   const props = defineProps({ mode: { type: String, default: 'use' } })
 
@@ -183,6 +184,7 @@
 
   watch(() => store.counterWelder?.id, refresh)
   onMounted(refresh)
+  useAutoRefresh(refresh, { paused: () => dialogOpen.value || promptOpen.value || bakeOpen.value })
 </script>
 
 <style scoped>

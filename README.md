@@ -47,6 +47,7 @@ Secrets and connection strings belong in environment variables, not in `appsetti
 |---|---|
 | `ConnectionStrings__DefaultConnection` | DCenter application database |
 | `Consumables__SupervisorPassword` | Initial supervisor password (until changed in Settings) |
+| `Consumables__WelderBackdateDays` | Optional: how many days back welders may date entries (default 7; supervisors are not limited) |
 | `DataProtection__KeysPath` | Optional: folder for session-signing keys (default `DCenter.Server/App_Data/keys`; the IIS app pool needs write access) |
 
 `appsettings.json` ships with an empty connection string. The server refuses to start, with a message naming the variable, until `ConnectionStrings__DefaultConnection` is set. Keep the keys folder outside anything a publish with "delete existing files" wipes, or supervisors are logged out on every deploy.
