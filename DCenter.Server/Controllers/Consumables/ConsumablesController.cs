@@ -153,7 +153,7 @@ public class ConsumablesController(
 
     [HttpPost("items/import")]
     [SupervisorOnly]
-    [RequestSizeLimit(ConsumableImportService.MaxFileBytes + 64 * 1024)]
+    [RequestSizeLimit(CsvText.RequestLimitBytes)]
     public async Task<ActionResult<ImportResultDto>> ImportItems(
         IFormFile? file, [FromQuery] bool commit = false, [FromQuery] bool skipInvalid = false, CancellationToken ct = default)
     {
@@ -172,7 +172,7 @@ public class ConsumablesController(
 
     [HttpPost("stock-import")]
     [SupervisorOnly]
-    [RequestSizeLimit(StockImportService.MaxFileBytes + 64 * 1024)]
+    [RequestSizeLimit(CsvText.RequestLimitBytes)]
     public async Task<ActionResult<StockImportResultDto>> ImportStock(
         IFormFile? file, [FromQuery] bool commit = false, [FromQuery] bool skipInvalid = false, CancellationToken ct = default)
     {

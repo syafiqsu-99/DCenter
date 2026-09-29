@@ -62,6 +62,8 @@ internal static partial class ConsumableText
 
     public const string WarningPrefix = "Warning:";
 
+    public const int MaxPageSize = 200;
+
     public static (string? Value, string? Suggestion) MatchOption(string? raw, IReadOnlyList<string> options)
     {
         var key = OptionKey(raw);

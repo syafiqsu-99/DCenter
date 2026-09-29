@@ -27,7 +27,7 @@ public class ReportService(WeldReportContext db)
                 r.PartNo,
                 r.Description,
                 r.Joints.Count,
-                r.CompletedAt == null ? "Draft" : "Completed",
+                r.CompletedAt == null ? ReportStatus.Draft : ReportStatus.Completed,
                 r.UpdatedAt))
             .ToListAsync(ct);
 
@@ -51,7 +51,7 @@ public class ReportService(WeldReportContext db)
         db.ReportStatusEvents.Add(new ReportStatusEvent
         {
             ReportId = r.Id,
-            Action = complete ? "Completed" : "Reopened",
+            Action = complete ? ReportAction.Completed : ReportAction.Reopened,
             Details = by is null ? null : $"By {by}",
         });
         await db.SaveChangesAsync(ct);
@@ -203,7 +203,7 @@ public class ReportService(WeldReportContext db)
             .ToListAsync(ct);
 
         var items = rows.Take(TraceLimit).Select(r => new TraceRowDto(
-            r.WorkOrderNumber, r.PartNo, r.CompletedAt == null ? "Draft" : "Completed", r.DateWelded,
+            r.WorkOrderNumber, r.PartNo, r.CompletedAt == null ? ReportStatus.Draft : ReportStatus.Completed, r.DateWelded,
             r.JointNumber, r.WpsNo, r.WelderName, r.WelderNo, r.HeatNumberLeft, r.HeatNumberRight,
             string.Join(", ", r.HeatLots.Where(h => !string.IsNullOrWhiteSpace(h)).Distinct()))).ToList();
 
@@ -271,7 +271,7 @@ public class ReportService(WeldReportContext db)
         db.ReportStatusEvents.Add(new ReportStatusEvent
         {
             Report = r,
-            Action = isInsert ? "Created" : "Saved",
+            Action = isInsert ? ReportAction.Created : ReportAction.Saved,
             Details = summary,
         });
 

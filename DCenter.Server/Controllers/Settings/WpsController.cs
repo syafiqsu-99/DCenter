@@ -85,7 +85,7 @@ public class WpsController(WeldReportContext db, ILogger<WpsController> logger) 
 
     [SupervisorOnly]
     [HttpPost("import")]
-    [RequestSizeLimit(CsvText.MaxUploadBytes + 64 * 1024)]
+    [RequestSizeLimit(CsvText.RequestLimitBytes)]
     public async Task<ActionResult<ImportCounts>> Import(IFormFile? file, CancellationToken ct)
     {
         var sheet = await ReadAsync(file, Columns, ct);
@@ -106,7 +106,7 @@ public class WpsController(WeldReportContext db, ILogger<WpsController> logger) 
         catch (DbUpdateException ex)
         {
             logger.LogError(ex, "WPS import failed to save");
-            return Conflict("The import could not be saved because the table changed at the same time. Try the import again.");
+            return Conflict(ImportSaveConflict);
         }
         return Ok(counts);
     }

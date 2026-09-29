@@ -79,6 +79,20 @@ public class ReportStatusEvent
     public int ReportId { get; set; }
     public Report Report { get; set; } = null!;
     public string? Details { get; set; }
-    public string Action { get; set; } = string.Empty; // "Completed" or "Reopened"
+    public string Action { get; set; } = string.Empty;
     public DateTime OccurredAt { get; set; } = DateTime.Now;
+}
+
+public static class ReportStatus
+{
+    public const string Draft = "Draft";
+    public const string Completed = "Completed";
+}
+
+public static class ReportAction
+{
+    public const string Created = "Created";
+    public const string Saved = "Saved";
+    public const string Completed = "Completed";
+    public const string Reopened = "Reopened";
 }

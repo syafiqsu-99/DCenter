@@ -92,7 +92,7 @@
 <script setup>
   import { computed, onMounted, ref } from 'vue'
   import api from '@/utils/api'
-  import { errorText } from '@/utils/consumables'
+  import { errorText } from '@/utils/errors'
   import ConfirmDeleteDialog from '@/components/common/ConfirmDeleteDialog.vue'
 
   const SCOPE_LABELS = { Report: 'Report', ReportAndStock: 'Report & Stock' }

@@ -11,6 +11,8 @@ public static class ReferenceCsv
 
     public sealed record ImportCounts(int Added, int Updated, int Unchanged, int Skipped);
 
+    public const string ImportSaveConflict = "The import could not be saved because the table changed at the same time. Try the import again.";
+
     public static string? Clean(string? value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
 
     public static byte[] Export(IReadOnlyList<Column> columns, IEnumerable<string?[]> rows)

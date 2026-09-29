@@ -87,11 +87,11 @@
   </div>
 
   <div class="d-flex align-center ga-3 mb-3">
-    <v-text-field :model-value="jointCount" type="number" min="1" max="50" density="compact"
+    <v-text-field :model-value="jointCount" type="number" min="1" :max="MAX_JOINTS" density="compact"
                   variant="outlined" hide-details style="max-width:160px;" :disabled="isComplete"
                   label="Joints to insert" @update:model-value="store.setJointCount($event)" />
     <span class="text-caption text-medium-emphasis">
-      {{ isComplete ? 'This report is completed and locked. A supervisor can reopen it for changes.' : 'Set how many joints this report needs (max 50).' }}
+      {{ isComplete ? 'This report is completed and locked. A supervisor can reopen it for changes.' : `Set how many joints this report needs (max ${MAX_JOINTS}).` }}
     </span>
   </div>
 
@@ -105,6 +105,7 @@
   import { useLookupStore } from '@/store/lookupStore';
   import JointForm from '@/components/report/JointForm.vue';
   import { useBpvcStore } from '@/store/bpvcStore';
+  import { MAX_JOINTS } from '@/utils/constants';
 
   const store = useReportStore();
   const { report, jointCount, mode, workOrderOptions, loadingWorkOrderNumbers, isComplete } = storeToRefs(store);

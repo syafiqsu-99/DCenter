@@ -12,7 +12,6 @@ namespace DCenter.Server.Services;
 
 public class ConsumableQueryService(WeldReportContext db, ConsumableLedger ledger, IOptions<ConsumableOptions> options)
 {
-    private const int MaxPageSize = 200;
     private readonly ConsumableOptions settings = options.Value;
 
     private sealed record Receipt(int LotId, DateOnly Date, string? Source, string? ReceivedBy);
@@ -279,7 +278,7 @@ public class ConsumableQueryService(WeldReportContext db, ConsumableLedger ledge
         var items = await ConsumableLedger.Project(q
                 .OrderByDescending(m => m.CreatedAt).ThenByDescending(m => m.Id)
                 .Skip(Math.Max(p.Skip, 0))
-                .Take(Math.Clamp(p.Take, 1, MaxPageSize)))
+                .Take(Math.Clamp(p.Take, 1, T.MaxPageSize)))
             .ToListAsync(ct);
 
         return ServiceResult<TransactionPage>.Ok(new TransactionPage(items, total));

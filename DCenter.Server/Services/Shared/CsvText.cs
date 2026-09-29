@@ -6,6 +6,7 @@ namespace DCenter.Server.Services;
 public static class CsvText
 {
     public const long MaxUploadBytes = 2 * 1024 * 1024;
+    public const long RequestLimitBytes = MaxUploadBytes + 64 * 1024;
 
     public sealed record Row(int Line, List<string> Fields);
 

@@ -8,7 +8,7 @@
         <div class="ms-1 me-3">
           <div class="text-subtitle-2 font-weight-medium">{{ report.workOrderNumber || 'New report (duplicate)' }}</div>
           <div class="text-caption text-medium-emphasis">
-            {{ isComplete ? 'Completed' : 'Draft' }}<span v-if="isDirty && !isComplete" class="text-warning"> · Unsaved changes</span>
+            {{ isComplete ? REPORT_STATUS.completed : REPORT_STATUS.draft }}<span v-if="isDirty && !isComplete" class="text-warning"> · Unsaved changes</span>
           </div>
         </div>
 
@@ -85,7 +85,7 @@
           This report has not been completed or reopened yet.
         </div>
         <v-timeline-item v-for="(h, i) in history" :key="i"
-                         :dot-color="h.action === 'Completed' ? 'success' : h.action === 'Reopened' ? 'warning' : 'info'"
+                         :dot-color="actionColor(h.action)"
                          size="x-small">
           <div class="text-body-2 font-weight-medium">{{ h.action }}</div>
           <div v-if="h.details" class="text-caption">{{ h.details }}</div>
@@ -114,6 +114,7 @@
   import api from '@/utils/api';
   import ConfirmDeleteDialog from '@/components/common/ConfirmDeleteDialog.vue';
   import ReportPdfDialog from '@/components/report/ReportPdfDialog.vue';
+  import { REPORT_ACTION, REPORT_STATUS } from '@/utils/constants';
 
   const store = useReportStore();
   const supervisor = useConsumableStore();
@@ -127,6 +128,12 @@
   const confirmDelete = ref(false);
   const historyDialog = ref(false);
   const excelLoading = ref(false);
+  function actionColor(action) {
+    if (action === REPORT_ACTION.completed) return 'success';
+    if (action === REPORT_ACTION.reopened) return 'warning';
+    return 'info';
+  }
+
   const pdfDialog = ref(false)
   const completing = ref(false);
 

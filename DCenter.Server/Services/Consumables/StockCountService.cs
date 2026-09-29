@@ -195,7 +195,7 @@ public class StockCountService(WeldReportContext db, ConsumableLedger ledger, Co
         if (to is DateOnly t) q = q.Where(c => c.CountDate <= t);
         if (Scope(scope) is string stage) q = q.Where(c => c.Scope == stage);
         var total = await q.CountAsync(ct);
-        var rows = await ToDtosAsync(q.OrderByDescending(c => c.Id).Skip(Math.Max(skip, 0)).Take(Math.Clamp(take, 1, 200)), ct);
+        var rows = await ToDtosAsync(q.OrderByDescending(c => c.Id).Skip(Math.Max(skip, 0)).Take(Math.Clamp(take, 1, T.MaxPageSize)), ct);
         return new StockCountPage(rows, total);
     }
 

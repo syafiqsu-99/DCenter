@@ -10,7 +10,7 @@ namespace DCenter.Server.Services;
 
 public class ConsumableImportService(WeldReportContext db, ConsumableItemService items, ConsumableLedger ledger)
 {
-    public const long MaxFileBytes = 2 * 1024 * 1024;
+    public const long MaxFileBytes = CsvText.MaxUploadBytes;
     private const int MaxRows = 5000;
 
     public const string ActionCreate = "Create";
@@ -196,7 +196,7 @@ public class ConsumableImportService(WeldReportContext db, ConsumableItemService
         }
 
         if (input is not null && input.Category == Cat.ElectrodeFiller && input.HoldingOvenType is null)
-            messages.Add("Warning: no holding oven type — electrodes cannot be placed in an oven until it is set.");
+            messages.Add($"{T.WarningPrefix} no holding oven type — electrodes cannot be placed in an oven until it is set.");
 
         if (input is not null)
         {

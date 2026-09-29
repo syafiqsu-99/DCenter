@@ -60,7 +60,7 @@
               <v-divider class="my-1" />
               <v-list-item prepend-icon="mdi-delete-outline" title="Delete draft" base-color="error"
                            :subtitle="supervisor.isSupervisor ? undefined : 'Supervisor only'"
-                           :disabled="item.status === 'Completed' || !supervisor.isSupervisor" @click="askDelete(item)" />
+                           :disabled="item.status === REPORT_STATUS.completed || !supervisor.isSupervisor" @click="askDelete(item)" />
             </v-list>
           </v-menu>
         </template>
@@ -86,6 +86,7 @@
   import { useConsumableStore } from '@/store/consumableStore';
   import ConfirmDeleteDialog from '@/components/common/ConfirmDeleteDialog.vue';
   import ReportStatusChip from '@/components/report/ReportStatusChip.vue';
+  import { REPORT_STATUS } from '@/utils/constants';
   import ReportPdfDialog from '@/components/report/ReportPdfDialog.vue';
 
   const store = useReportStore();
@@ -115,8 +116,8 @@
 
   const tabs = computed(() => [
     { value: 'all', label: 'All', count: searched.value.length },
-    { value: 'Draft', label: 'Drafts', count: searched.value.filter((r) => r.status === 'Draft').length },
-    { value: 'Completed', label: 'Completed', count: searched.value.filter((r) => r.status === 'Completed').length },
+    { value: REPORT_STATUS.draft, label: 'Drafts', count: searched.value.filter((r) => r.status === REPORT_STATUS.draft).length },
+    { value: REPORT_STATUS.completed, label: 'Completed', count: searched.value.filter((r) => r.status === REPORT_STATUS.completed).length },
   ]);
 
   const visible = computed(() =>

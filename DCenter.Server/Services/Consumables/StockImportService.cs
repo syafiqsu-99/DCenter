@@ -11,7 +11,7 @@ namespace DCenter.Server.Services;
 
 public class StockImportService(WeldReportContext db, ConsumableItemService items, ConsumableLedger ledger)
 {
-    public const long MaxFileBytes = 2 * 1024 * 1024;
+    public const long MaxFileBytes = CsvText.MaxUploadBytes;
     private const int MaxRows = 5000;
 
     public const string StatusReady = "Ready";

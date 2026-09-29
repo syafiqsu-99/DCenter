@@ -3,7 +3,8 @@ import api from '@/utils/api'
 import { useBpvcStore } from '@/store/bpvcStore'
 import { useWpsStore } from '@/store/wpsStore'
 import { todayIso } from '@/utils/date'
-import { errorText } from '@/utils/consumables'
+import { errorText } from '@/utils/errors'
+import { MAX_JOINTS } from '@/utils/constants'
 
 function blankMaterial(col) {
   return { id: 0, columnNumber: col, process: '', size: '', type: '', manuf: '', heatLot: '' }
@@ -529,7 +530,7 @@ export const useReportStore = defineStore('report', {
     },
 
     setJointCount(n) {
-      const count = Math.min(50, Math.max(1, Math.round(n) || 1))
+      const count = Math.min(MAX_JOINTS, Math.max(1, Math.round(n) || 1))
       const joints = this.report.joints
       if (joints.length > count) joints.length = count
       else while (joints.length < count) joints.push(blankJoint(joints.length))

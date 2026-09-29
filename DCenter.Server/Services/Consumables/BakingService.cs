@@ -254,7 +254,7 @@ public class BakingService(WeldReportContext db, ConsumableLedger ledger, Consum
         var total = await q.CountAsync(ct);
         var ids = await q.OrderByDescending(b => b.Id)
             .Skip(Math.Max(p.Skip, 0))
-            .Take(Math.Clamp(p.Take, 1, 200))
+            .Take(Math.Clamp(p.Take, 1, T.MaxPageSize))
             .Select(b => b.Id)
             .ToListAsync(ct);
         var rows = await RecordsAsync(ids, ct);
@@ -274,7 +274,7 @@ public class BakingService(WeldReportContext db, ConsumableLedger ledger, Consum
         }
 
         var total = await q.CountAsync(ct);
-        var rows = await HoldingsAsync(q.OrderByDescending(h => h.Id).Skip(Math.Max(p.Skip, 0)).Take(Math.Clamp(p.Take, 1, 200)), ct);
+        var rows = await HoldingsAsync(q.OrderByDescending(h => h.Id).Skip(Math.Max(p.Skip, 0)).Take(Math.Clamp(p.Take, 1, T.MaxPageSize)), ct);
         return new HoldingPage(rows, total);
     }
 

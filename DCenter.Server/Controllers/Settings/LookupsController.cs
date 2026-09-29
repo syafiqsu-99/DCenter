@@ -3,7 +3,6 @@ using DCenter.Server.Entities;
 using DCenter.Server.Models;
 using DCenter.Server.Services;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 
 namespace DCenter.Server.Controllers;
@@ -12,7 +11,8 @@ namespace DCenter.Server.Controllers;
 [Route("api/[controller]")]
 public class LookupsController(WeldReportContext db) : ControllerBase
 {
-    public static readonly string[] Categories = ["Process", "Size", "Type", "Manuf"];
+    public static readonly string[] Categories =
+        ["Process", ConsumableItemService.LookupSize, ConsumableItemService.LookupType, ConsumableItemService.LookupBrand];
     private static readonly string[] Headers = ["Category", "Value", "SortOrder", "IsActive"];
 
     [HttpGet]
@@ -84,7 +84,7 @@ public class LookupsController(WeldReportContext db) : ControllerBase
             await db.SaveChangesAsync(ct);
             return true;
         }
-        catch (DbUpdateException ex) when (ex.InnerException is SqlException { Number: 2601 or 2627 })
+        catch (DbUpdateException ex) when (ReportSaveRules.IsDuplicateKey(ex))
         {
             return false;
         }
@@ -124,7 +124,7 @@ public class LookupsController(WeldReportContext db) : ControllerBase
 
     [SupervisorOnly]
     [HttpPost("import")]
-    [RequestSizeLimit(CsvText.MaxUploadBytes + 64 * 1024)]
+    [RequestSizeLimit(CsvText.RequestLimitBytes)]
     public async Task<ActionResult<object>> Import(IFormFile file, CancellationToken ct)
     {
         if (file is null || file.Length == 0) return BadRequest("No file uploaded.");

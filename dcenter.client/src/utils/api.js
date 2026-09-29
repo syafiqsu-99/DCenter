@@ -1,8 +1,9 @@
+import { SUPERVISOR_HEADER } from '@/utils/constants';
+
 const defaults = { baseURL: '/api', headers: {}, onUnauthorized: null };
 const TIMEOUT_MS = 60000;
 const DOWNLOAD_TIMEOUT_MS = 120000;
 const TIMEOUT_MESSAGE = 'The server did not respond in time. Check today\'s entries before trying again, in case it was saved.';
-const SUPERVISOR_HEADER = 'X-Supervisor-Token';
 
 function buildUrl(url, params) {
   const target = new URL(defaults.baseURL + url, window.location.origin);
