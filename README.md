@@ -10,6 +10,18 @@ Internal web app for the Emerson / Fisher weld shop. It has three modules:
 
 Welders use the app without logging in. Consumables opens on **Welder View**. A supervisor password unlocks the other Consumables tabs and Settings.
 
+### Settings CSV import/export
+
+The WPS, MRN and BPVC IX tables export to CSV and import it back. Import finds columns by header name, so column order doesn't matter. Each row is matched on its key columns (case and extra spaces ignored). If the key matches an existing row, the other columns update that row. If the key is new, the row is added. Rows missing a required key value are skipped. Add/Edit in the UI rejects a key that already exists.
+
+| Table | Key columns | Updated on import |
+|---|---|---|
+| WPS | `WpsNo`, `PNo` | `BaseMetal`, `Process` |
+| MRN | `MRN`, `SpecNo` | `Form`, `FullSpecification` |
+| BPVC IX | `SpecNo`, `Designation` (grade), `UnsNo`, `PNo` | all other columns |
+
+The Weld Report reads only BPVC `SpecNo`, `Designation`/`UnsNo` and `PNo`, to fill P-No. and narrow the WPS list. Older exports with a `SpecNoRaw` column still import: `SpecNoRaw` is read as `SpecNo`, and the old normalised `SpecNo` column is used only when `SpecNoRaw` is blank.
+
 ## Solution layout
 
 ```

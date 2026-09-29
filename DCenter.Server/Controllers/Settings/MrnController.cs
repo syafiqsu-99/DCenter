@@ -1,30 +1,50 @@
-﻿using DCenter.Server.Data;
+using DCenter.Server.Data;
 using DCenter.Server.Entities;
 using DCenter.Server.Models;
 using DCenter.Server.Services;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using static DCenter.Server.Services.ReferenceCsv;
 
 namespace DCenter.Server.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
-public class MrnController(WeldReportContext db) : ControllerBase
+public class MrnController(WeldReportContext db, ILogger<MrnController> logger) : ControllerBase
 {
+    private static readonly Column[] Columns =
+    [
+        new("MRN", Required: true, Key: true),
+        new("SpecNo", Required: true, Key: true, "SpecNoRaw", "SpecNo"),
+        new("Form", Required: false, Key: false),
+        new("FullSpecification", Required: false, Key: false),
+    ];
+
+    private static string?[] Values(MrnSpec m) => [m.Mrn, m.SpecNo, m.Form, m.FullSpecification];
+
+    private static string?[] DtoValues(MrnSpecUpsert d) => [d.Mrn, d.SpecNo, d.Form, d.FullSpecification];
+
+    private static void Write(MrnSpec m, string?[] v)
+        => (m.Mrn, m.SpecNo, m.Form, m.FullSpecification) = (Clean(v[0]) ?? "", Clean(v[1]) ?? "", Clean(v[2]), Clean(v[3]));
+
+    private static MrnSpecDto ToDto(MrnSpec m) => new(m.Id, m.Mrn, m.SpecNo, m.Form, m.FullSpecification);
+
     [HttpGet]
     public async Task<ActionResult<List<MrnSpecDto>>> GetAll(CancellationToken ct)
-    => Ok(await db.MrnSpecs.OrderBy(m => m.Mrn).ThenBy(m => m.SpecNo)
-        .Select(m => new MrnSpecDto(m.Id, m.Mrn, m.Form, m.FullSpecification, m.SpecNo, m.SpecNoRaw))
-        .ToListAsync(ct));
+        => Ok(await db.MrnSpecs.AsNoTracking().OrderBy(m => m.Mrn).ThenBy(m => m.SpecNo)
+            .Select(m => new MrnSpecDto(m.Id, m.Mrn, m.SpecNo, m.Form, m.FullSpecification))
+            .ToListAsync(ct));
 
     [SupervisorOnly]
     [HttpPost]
     public async Task<ActionResult<MrnSpecDto>> Create(MrnSpecUpsert dto, CancellationToken ct)
     {
-        var m = new MrnSpec { Mrn = dto.Mrn, Form = dto.Form, FullSpecification = dto.FullSpecification, SpecNo = dto.SpecNo, SpecNoRaw = dto.SpecNoRaw };
+        if (await ValidateAsync(dto, 0, ct) is { } error) return error;
+        var m = new MrnSpec();
+        Write(m, DtoValues(dto));
         db.MrnSpecs.Add(m);
         await db.SaveChangesAsync(ct);
-        return Ok(new MrnSpecDto(m.Id, m.Mrn, m.Form, m.FullSpecification, m.SpecNo, m.SpecNoRaw));
+        return Ok(ToDto(m));
     }
 
     [SupervisorOnly]
@@ -33,7 +53,8 @@ public class MrnController(WeldReportContext db) : ControllerBase
     {
         var m = await db.MrnSpecs.FindAsync([id], ct);
         if (m is null) return NotFound();
-        (m.Mrn, m.Form, m.FullSpecification, m.SpecNo, m.SpecNoRaw) = (dto.Mrn, dto.Form, dto.FullSpecification, dto.SpecNo, dto.SpecNoRaw);
+        if (await ValidateAsync(dto, id, ct) is { } error) return error;
+        Write(m, DtoValues(dto));
         await db.SaveChangesAsync(ct);
         return NoContent();
     }
@@ -49,52 +70,52 @@ public class MrnController(WeldReportContext db) : ControllerBase
         return NoContent();
     }
 
-    private static string RowKey(MrnSpec m) => string.Join('\u001f', new[]
+    private async Task<ObjectResult?> ValidateAsync(MrnSpecUpsert dto, int excludeId, CancellationToken ct)
     {
-        m.Mrn, m.Form, m.FullSpecification, m.SpecNoRaw, m.SpecNo,
-    }.Select(v => v ?? ""));
+        var (mrn, specNo) = (Clean(dto.Mrn), Clean(dto.SpecNo));
+        if (mrn is null || specNo is null) return BadRequest("MRN and Spec No. are required.");
+
+        var key = KeyOf(Columns, DtoValues(dto));
+        var candidates = await db.MrnSpecs.AsNoTracking()
+            .Where(m => m.Id != excludeId && m.Mrn == mrn && m.SpecNo == specNo)
+            .ToListAsync(ct);
+        return candidates.Any(m => KeyOf(Columns, Values(m)) == key)
+            ? Conflict($"A row with this {KeyLabel(Columns)} already exists. Edit that row instead.")
+            : null;
+    }
 
     [HttpGet("export")]
     public async Task<IActionResult> Export(CancellationToken ct)
     {
-        var items = await db.MrnSpecs.OrderBy(m => m.Mrn).ThenBy(m => m.SpecNo).ToListAsync(ct);
-        var csv = CsvText.ToCsv(
-            ["MRN", "Form", "FullSpecification", "SpecNoRaw", "SpecNo"],
-            items.Select(m => new string?[] { m.Mrn, m.Form, m.FullSpecification, m.SpecNoRaw, m.SpecNo }));
-        return File(System.Text.Encoding.UTF8.GetBytes(csv), "text/csv", "mrn.csv");
+        var items = await db.MrnSpecs.AsNoTracking().OrderBy(m => m.Mrn).ThenBy(m => m.SpecNo).ToListAsync(ct);
+        return File(ReferenceCsv.Export(Columns, items.Select(Values)), "text/csv; charset=utf-8", "mrn.csv");
     }
 
     [SupervisorOnly]
     [HttpPost("import")]
     [RequestSizeLimit(CsvText.MaxUploadBytes + 64 * 1024)]
-    public async Task<ActionResult<object>> Import(IFormFile file, CancellationToken ct)
+    public async Task<ActionResult<ImportCounts>> Import(IFormFile? file, CancellationToken ct)
     {
-        if (file is null || file.Length == 0) return BadRequest("No file uploaded.");
-        if (file.Length > CsvText.MaxUploadBytes) return BadRequest("The file is larger than 2 MB.");
+        var sheet = await ReadAsync(file, Columns, ct);
+        if (sheet.Errors.Count > 0) return BadRequest(string.Join(" ", sheet.Errors));
 
-        int added = 0, skipped = 0;
-        var seen = (await db.MrnSpecs.ToListAsync(ct)).Select(RowKey).ToHashSet();
-
-        foreach (var f in await CsvText.ReadRowsAsync(file, ct))
+        var existing = await db.MrnSpecs.ToListAsync(ct);
+        var counts = Upsert(Columns, sheet.Rows, existing, Values, Write, () =>
         {
-            var mrn = f.Field(0);
-            var specNo = f.Field(4);
-            if (mrn.Length == 0 || specNo.Length == 0) { skipped++; continue; }
-
-            var m = new MrnSpec
-            {
-                Mrn = mrn,
-                Form = f.Field(1),
-                FullSpecification = f.Field(2),
-                SpecNoRaw = f.Field(3),
-                SpecNo = specNo,
-            };
-            if (!seen.Add(RowKey(m))) { skipped++; continue; }
+            var m = new MrnSpec();
             db.MrnSpecs.Add(m);
-            added++;
-        }
+            return m;
+        });
 
-        await db.SaveChangesAsync(ct);
-        return Ok(new { added, updated = 0, skipped });
+        try
+        {
+            await db.SaveChangesAsync(ct);
+        }
+        catch (DbUpdateException ex)
+        {
+            logger.LogError(ex, "MRN import failed to save");
+            return Conflict("The import could not be saved because the table changed at the same time. Try the import again.");
+        }
+        return Ok(counts);
     }
 }

@@ -1,20 +1,34 @@
-﻿using DCenter.Server.Data;
+using DCenter.Server.Data;
 using DCenter.Server.Entities;
 using DCenter.Server.Models;
 using DCenter.Server.Services;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using static DCenter.Server.Services.ReferenceCsv;
 
 namespace DCenter.Server.Controllers;
 
 // WPS_NO reference table. One row per WPS/P-No pair.
 [ApiController]
 [Route("api/[controller]")]
-public class WpsController(WeldReportContext db) : ControllerBase
+public class WpsController(WeldReportContext db, ILogger<WpsController> logger) : ControllerBase
 {
+    private static readonly Column[] Columns =
+    [
+        new("WpsNo", Required: true, Key: true),
+        new("PNo", Required: true, Key: true),
+        new("BaseMetal", Required: false, Key: false),
+        new("Process", Required: false, Key: false),
+    ];
+
+    private static string?[] Values(WpsItem w) => [w.WpsNo, w.PNo, w.BaseMetal, w.Process];
+
+    private static void Write(WpsItem w, string?[] v)
+        => (w.WpsNo, w.PNo, w.BaseMetal, w.Process) = (Clean(v[0]) ?? "", Clean(v[1]) ?? "", Clean(v[2]), Clean(v[3]));
+
     [HttpGet]
     public async Task<ActionResult<List<WpsDto>>> GetAll(CancellationToken ct)
-        => Ok(await db.WpsItems.OrderBy(w => w.WpsNo).ThenBy(w => w.PNo)
+        => Ok(await db.WpsItems.AsNoTracking().OrderBy(w => w.WpsNo).ThenBy(w => w.PNo)
             .Select(w => new WpsDto(w.Id, w.WpsNo, w.BaseMetal, w.Process, w.PNo))
             .ToListAsync(ct));
 
@@ -22,7 +36,9 @@ public class WpsController(WeldReportContext db) : ControllerBase
     [HttpPost]
     public async Task<ActionResult<WpsDto>> Create(WpsUpsert dto, CancellationToken ct)
     {
-        var w = new WpsItem { WpsNo = dto.WpsNo, BaseMetal = dto.BaseMetal, Process = dto.Process, PNo = dto.PNo };
+        if (await ValidateAsync(dto, 0, ct) is { } error) return error;
+        var w = new WpsItem();
+        Write(w, [dto.WpsNo, dto.PNo, dto.BaseMetal, dto.Process]);
         db.WpsItems.Add(w);
         await db.SaveChangesAsync(ct);
         return Ok(new WpsDto(w.Id, w.WpsNo, w.BaseMetal, w.Process, w.PNo));
@@ -34,7 +50,8 @@ public class WpsController(WeldReportContext db) : ControllerBase
     {
         var w = await db.WpsItems.FindAsync([id], ct);
         if (w is null) return NotFound();
-        (w.WpsNo, w.BaseMetal, w.Process, w.PNo) = (dto.WpsNo, dto.BaseMetal, dto.Process, dto.PNo);
+        if (await ValidateAsync(dto, id, ct) is { } error) return error;
+        Write(w, [dto.WpsNo, dto.PNo, dto.BaseMetal, dto.Process]);
         await db.SaveChangesAsync(ct);
         return NoContent();
     }
@@ -50,49 +67,47 @@ public class WpsController(WeldReportContext db) : ControllerBase
         return NoContent();
     }
 
-    // GET /api/wps/export -> CSV download.
+    private async Task<ObjectResult?> ValidateAsync(WpsUpsert dto, int excludeId, CancellationToken ct)
+    {
+        var (wpsNo, pNo) = (Clean(dto.WpsNo), Clean(dto.PNo));
+        if (wpsNo is null || pNo is null) return BadRequest("WPS No. and P-No. are required.");
+        return await db.WpsItems.AnyAsync(w => w.Id != excludeId && w.WpsNo == wpsNo && w.PNo == pNo, ct)
+            ? Conflict($"A row with this {KeyLabel(Columns)} already exists. Edit that row instead.")
+            : null;
+    }
+
     [HttpGet("export")]
     public async Task<IActionResult> Export(CancellationToken ct)
     {
-        var items = await db.WpsItems.OrderBy(w => w.WpsNo).ThenBy(w => w.PNo).ToListAsync(ct);
-        var csv = CsvText.ToCsv(
-            ["WpsNo", "BaseMetal", "Process", "PNo"],
-            items.Select(w => new string?[] { w.WpsNo, w.BaseMetal, w.Process, w.PNo }));
-        return File(System.Text.Encoding.UTF8.GetBytes(csv), "text/csv", "wps.csv");
+        var items = await db.WpsItems.AsNoTracking().OrderBy(w => w.WpsNo).ThenBy(w => w.PNo).ToListAsync(ct);
+        return File(ReferenceCsv.Export(Columns, items.Select(Values)), "text/csv; charset=utf-8", "wps.csv");
     }
 
-    // POST /api/wps/import (multipart file, columns: WpsNo,BaseMetal,Process,PNo) -> upsert by (WpsNo, PNo).
     [SupervisorOnly]
     [HttpPost("import")]
     [RequestSizeLimit(CsvText.MaxUploadBytes + 64 * 1024)]
-    public async Task<ActionResult<object>> Import(IFormFile file, CancellationToken ct)
+    public async Task<ActionResult<ImportCounts>> Import(IFormFile? file, CancellationToken ct)
     {
-        if (file is null || file.Length == 0) return BadRequest("No file uploaded.");
-        if (file.Length > CsvText.MaxUploadBytes) return BadRequest("The file is larger than 2 MB.");
+        var sheet = await ReadAsync(file, Columns, ct);
+        if (sheet.Errors.Count > 0) return BadRequest(string.Join(" ", sheet.Errors));
 
-        int added = 0, updated = 0, skipped = 0;
-        var existing = await db.WpsItems.ToDictionaryAsync(w => (w.WpsNo, w.PNo), ct);
-
-        foreach (var f in await CsvText.ReadRowsAsync(file, ct))
+        var existing = await db.WpsItems.ToListAsync(ct);
+        var counts = Upsert(Columns, sheet.Rows, existing, Values, Write, () =>
         {
-            var (wpsNo, pNo) = (f.Field(0), f.Field(3));
-            if (wpsNo.Length == 0 || pNo.Length == 0) { skipped++; continue; }
+            var w = new WpsItem();
+            db.WpsItems.Add(w);
+            return w;
+        });
 
-            if (existing.TryGetValue((wpsNo, pNo), out var w))
-            {
-                (w.BaseMetal, w.Process) = (f.Field(1), f.Field(2));
-                updated++;
-            }
-            else
-            {
-                var w2 = new WpsItem { WpsNo = wpsNo, BaseMetal = f.Field(1), Process = f.Field(2), PNo = pNo };
-                db.WpsItems.Add(w2);
-                existing[(wpsNo, pNo)] = w2;
-                added++;
-            }
+        try
+        {
+            await db.SaveChangesAsync(ct);
         }
-
-        await db.SaveChangesAsync(ct);
-        return Ok(new { added, updated, skipped });
+        catch (DbUpdateException ex)
+        {
+            logger.LogError(ex, "WPS import failed to save");
+            return Conflict("The import could not be saved because the table changed at the same time. Try the import again.");
+        }
+        return Ok(counts);
     }
 }
