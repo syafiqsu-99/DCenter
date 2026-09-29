@@ -34,7 +34,8 @@
 <script setup>
   import { nextTick, ref, watch } from 'vue'
   import { useConsumableStore } from '@/store/consumableStore'
-  import { debounce, errorText } from '@/utils/consumables'
+  import { errorText } from '@/utils/errors'
+  import { debounce } from '@/utils/timing'
 
   const NAME_KEY = 'dcenter.consumables.supervisorName'
 

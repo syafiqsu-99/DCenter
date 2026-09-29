@@ -20,8 +20,8 @@ public sealed record ReceiverRef(string WelderName, bool IsActive);
 public sealed record StockLine(int LotId, decimal Kg);
 
 public class ConsumableGuards(
-    WeldReportContext db, ConsumableLedger ledger, IHttpContextAccessor http, SupervisorAuth supervisors,
-    IOptions<ConsumableOptions> options)
+    WeldReportContext db, ConsumableLedger ledger, ISupervisorContext supervisor,
+    IOptions<ConsumableOptions> options, TimeProvider time)
 {
     public static string? BackdateError(DateOnly date, DateOnly today, bool supervisor, int days)
     {
@@ -33,18 +33,19 @@ public class ConsumableGuards(
 
     // Supervisors may back-date freely; everyone else is limited to the configured window.
     public string? CheckBackdate(DateOnly date)
-    {
-        var request = http.HttpContext?.Request;
-        var supervisor = request is not null && supervisors.FromRequest(request) is not null;
-        return BackdateError(date, T.Today, supervisor, options.Value.WelderBackdateDays);
-    }
+        => BackdateError(date, Today, supervisor.IsSupervisor, options.Value.WelderBackdateDays);
 
-    public static (string? User, DateOnly Date, string? Error) Common(string? enteredBy, DateOnly? txnDate)
+    public DateOnly Today => time.Today();
+
+    public (string? User, DateOnly Date, string? Error) Common(string? enteredBy, DateOnly? txnDate)
+        => Common(enteredBy, txnDate, Today);
+
+    public static (string? User, DateOnly Date, string? Error) Common(string? enteredBy, DateOnly? txnDate, DateOnly today)
     {
         var user = T.FreeText(enteredBy, 100);
         if (user is null) return (null, default, "Select the welder or unlock Supervisor Mode before saving.");
-        var date = txnDate ?? T.Today;
-        if (date > T.Today) return (user, date, "Date cannot be in the future.");
+        var date = txnDate ?? today;
+        if (date > today) return (user, date, "Date cannot be in the future.");
         return (user, date, null);
     }
 
@@ -162,8 +163,8 @@ public class ConsumableGuards(
     {
         var window = ledger.Live()
             .Where(m => m.WelderId == welderId && m.Lot.ItemId == itemId && m.TxnDate >= since && m.TxnDate <= until);
-        var picked = await window.Where(m => m.TxnType == Cat.TxnIssue).SumAsync(m => (decimal?)m.QuantityKg, ct) ?? 0m;
-        var returned = await window.Where(m => m.TxnType == Cat.TxnReturn).SumAsync(m => (decimal?)m.QuantityKg, ct) ?? 0m;
-        return picked - returned;
+        return await window
+            .Where(m => m.TxnType == Cat.TxnIssue || m.TxnType == Cat.TxnReturn)
+            .SumAsync(m => (decimal?)(m.TxnType == Cat.TxnIssue ? m.QuantityKg : -m.QuantityKg), ct) ?? 0m;
     }
 }

@@ -66,7 +66,6 @@ public static class StockCatalog
         [StatusQueued, StatusBaking, StatusBaked, StatusRebakeQueued, StatusRebaking, StatusRebaked];
 
     public const string UnassignedBin = "Unassigned";
-    public const string MigratedReference = "MIGRATED";
     public const string PersonInChargeLookup = "ConsumablePIC";
 
     public static string DiaSpec(string diameter, string specification) => $"{diameter} {specification}".Trim();

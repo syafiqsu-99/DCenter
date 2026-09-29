@@ -12,9 +12,12 @@
       <input ref="fileInput" type="file" accept=".csv" hidden @change="importCsv" />
       <v-btn color="primary" prepend-icon="mdi-plus" @click="openNew">Add</v-btn>
     </v-card-title>
+    <v-card-subtitle v-if="keyLabel" class="text-wrap pb-2">
+      Import matches rows on {{ keyLabel }}. A new key adds a row; changes in other columns update the existing row.
+    </v-card-subtitle>
 
-    <v-alert v-if="importMsg" type="info" variant="tonal" density="compact" class="mx-4"
-             closable @click:close="importMsg = ''">{{ importMsg }}</v-alert>
+    <v-alert v-if="importResult" :type="importResult.type" variant="tonal" density="compact" class="mx-4 mb-2"
+             closable @click:close="importResult = null">{{ importResult.text }}</v-alert>
 
     <div class="card-table-area">
       <v-data-table-virtual :headers="headers" :items="filteredItems" :loading="loading"
@@ -52,6 +55,7 @@
                             variant="outlined" density="comfortable" hide-details="auto" />
             </v-col>
           </v-row>
+          <v-alert v-if="saveError" type="error" variant="tonal" density="compact" class="mt-3">{{ saveError }}</v-alert>
         </v-card-text>
         <v-divider />
         <v-card-actions class="px-4 py-3">
@@ -65,122 +69,144 @@
 </template>
 
 <script setup>
-  import { computed, onMounted, ref, useTemplateRef } from 'vue';
-  import api from '@/utils/api';
-  import ConfirmDeleteDialog from '@/components/common/ConfirmDeleteDialog.vue';
+  import { computed, onMounted, ref, useTemplateRef } from 'vue'
+  import { useCrudApi } from '@/composables/useCrudApi'
+  import { errorText } from '@/utils/errors'
+  import { saveBlob } from '@/utils/files'
+  import ConfirmDeleteDialog from '@/components/common/ConfirmDeleteDialog.vue'
 
   const props = defineProps({
     title: { type: String, required: true },
     apiBase: { type: String, required: true },
     fields: { type: Array, required: true },
-  });
+    importKey: { type: Array, default: () => [] },
+  })
 
-  const items = ref([]);
-  const search = ref('');
-  const loading = ref(false);
-  const saving = ref(false);
-  const importing = ref(false);
-  const importMsg = ref('');
-  const dialog = ref(false);
-  const editing = ref(null);
-  const fileInput = useTemplateRef('fileInput');
-  const selectedId = ref(null);
-  const confirmDelete = ref(false);
-  const pendingDelete = ref(null);
-  const deleting = ref(false);
+  const crud = useCrudApi(props.apiBase)
+  const items = ref([])
+  const search = ref('')
+  const loading = ref(false)
+  const saving = ref(false)
+  const importing = ref(false)
+  const importResult = ref(null)
+  const saveError = ref('')
+  const dialog = ref(false)
+  const editing = ref(null)
+  const fileInput = useTemplateRef('fileInput')
+  const selectedId = ref(null)
+  const confirmDelete = ref(false)
+  const pendingDelete = ref(null)
+  const deleting = ref(false)
+
+  const keyLabel = computed(() => props.importKey
+    .map((k) => props.fields.find((f) => f.key === k)?.label ?? k)
+    .join(' + '))
 
   const headers = computed(() => [
     ...props.fields.map((f) => ({ title: f.label, key: f.key, width: f.width ?? '180px' })),
     { title: '', key: 'actions', width: '120px', sortable: false, align: 'end' },
-  ]);
+  ])
 
   const rowProps = ({ item }) => ({
     class: selectedId.value === item.id ? 'bg-blue-grey-lighten-5' : '',
-  });
+  })
 
   const filteredItems = computed(() => {
-    const q = search.value?.trim().toLowerCase();
-    if (!q) return items.value;
+    const q = search.value?.trim().toLowerCase()
+    if (!q) return items.value
     return items.value.filter((row) =>
-      props.fields.some((f) => (row[f.key] ?? '').toString().toLowerCase().includes(q)));
-  });
+      props.fields.some((f) => (row[f.key] ?? '').toString().toLowerCase().includes(q)))
+  })
 
   function blank() {
-    return Object.fromEntries([['id', 0], ...props.fields.map((f) => [f.key, ''])]);
+    return Object.fromEntries([['id', 0], ...props.fields.map((f) => [f.key, ''])])
   }
 
   async function load() {
-    loading.value = true;
+    loading.value = true
     try {
-      const { data } = await api.get(props.apiBase);
-      items.value = data;
+      items.value = await crud.list()
+    } catch (err) {
+      importResult.value = { type: 'error', text: errorText(err, 'Could not load this table. Reload the page to try again.') }
     } finally {
-      loading.value = false;
+      loading.value = false
     }
   }
 
   function openNew() {
-    editing.value = blank();
-    dialog.value = true;
+    editing.value = blank()
+    saveError.value = ''
+    dialog.value = true
   }
 
   function openEdit(row) {
-    editing.value = { ...row };
-    dialog.value = true;
+    editing.value = { ...row }
+    saveError.value = ''
+    dialog.value = true
   }
 
   async function save() {
-    saving.value = true;
+    saving.value = true
+    saveError.value = ''
     try {
-      if (editing.value.id) await api.put(`${props.apiBase}/${editing.value.id}`, editing.value);
-      else await api.post(props.apiBase, editing.value);
-      dialog.value = false;
-      await load();
+      if (editing.value.id) await crud.update(editing.value.id, editing.value)
+      else await crud.create(editing.value)
+      dialog.value = false
+      await load()
+    } catch (err) {
+      saveError.value = errorText(err, 'Could not save this row. Try again.')
     } finally {
-      saving.value = false;
+      saving.value = false
     }
   }
 
   function askDelete(row) {
-    pendingDelete.value = row;
-    confirmDelete.value = true;
+    pendingDelete.value = row
+    confirmDelete.value = true
   }
 
   async function doDelete() {
-    if (!pendingDelete.value) return;
-    deleting.value = true;
+    if (!pendingDelete.value) return
+    deleting.value = true
     try {
-      await api.delete(`${props.apiBase}/${pendingDelete.value.id}`);
-      await load();
+      await crud.remove(pendingDelete.value.id)
+      await load()
+    } catch (err) {
+      importResult.value = { type: 'error', text: errorText(err, 'Could not delete this row. Reload and try again.') }
     } finally {
-      deleting.value = false;
-      confirmDelete.value = false;
-      pendingDelete.value = null;
+      deleting.value = false
+      confirmDelete.value = false
+      pendingDelete.value = null
     }
   }
 
-  function exportCsv() {
-    window.open(`${api.defaults.baseURL}${props.apiBase}/export`, '_blank');
+  async function exportCsv() {
+    try {
+      saveBlob(await crud.exportBlob(), `${props.apiBase.replace('/', '')}.csv`)
+    } catch (err) {
+      importResult.value = { type: 'error', text: errorText(err, 'Could not export this table.') }
+    }
   }
 
   async function importCsv(e) {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    importing.value = true;
-    importMsg.value = '';
+    const file = e.target.files?.[0]
+    if (!file) return
+    importing.value = true
+    importResult.value = null
     try {
-      const form = new FormData();
-      form.append('file', file);
-      const { data } = await api.post(`${props.apiBase}/import`, form);
-      importMsg.value = `Import complete — ${data.added} added, ${data.updated} updated, ${data.skipped} skipped.`;
-      await load();
-    } catch {
-      importMsg.value = 'Import failed. Check the CSV column order.';
+      const data = await crud.importCsv(file)
+      importResult.value = {
+        type: 'success',
+        text: `Import complete — ${data.added} added, ${data.updated} updated, ${data.unchanged} unchanged, ${data.skipped} skipped (missing or too-long values).`,
+      }
+      await load()
+    } catch (err) {
+      importResult.value = { type: 'error', text: errorText(err, 'Import failed. Export the table to see the expected columns.') }
     } finally {
-      importing.value = false;
-      e.target.value = '';
+      importing.value = false
+      e.target.value = ''
     }
   }
 
-  onMounted(load);
+  onMounted(load)
 </script>

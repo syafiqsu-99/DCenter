@@ -16,8 +16,8 @@
 </template>
 
 <script setup>
-  import { storeToRefs } from 'pinia';
-  import { useReportStore } from '@/store/reportStore';
+  import { storeToRefs } from 'pinia'
+  import { useReportStore } from '@/store/reportStore'
 
-  const { recent, savedByWorkOrder } = storeToRefs(useReportStore());
+  const { recent, savedByWorkOrder } = storeToRefs(useReportStore())
 </script>

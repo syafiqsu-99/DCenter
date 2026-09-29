@@ -10,7 +10,7 @@ namespace DCenter.Server.Services;
 
 public record SupervisorPasswordStatus(string Source, DateTime? UpdatedAt, string? UpdatedBy);
 
-public class SupervisorPasswordService(WeldReportContext db, IOptions<ConsumableOptions> options)
+public class SupervisorPasswordService(WeldReportContext db, IOptions<ConsumableOptions> options, TimeProvider time)
 {
     public const string SourceDatabase = "Database";
     public const string SourceEnvironment = "Environment";
@@ -72,7 +72,7 @@ public class SupervisorPasswordService(WeldReportContext db, IOptions<Consumable
         }
         row.PasswordHash = Hash(next);
         row.UpdatedBy = user;
-        row.UpdatedAt = DateTime.Now;
+        row.UpdatedAt = time.LocalNow();
         await db.SaveChangesAsync(ct);
 
         return ServiceResult<SupervisorPasswordStatus>.Ok(new SupervisorPasswordStatus(SourceDatabase, row.UpdatedAt, row.UpdatedBy));

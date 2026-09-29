@@ -3,12 +3,12 @@ import globals from 'globals'
 import js from '@eslint/js'
 import pluginVue from 'eslint-plugin-vue'
 import pluginOxlint from 'eslint-plugin-oxlint'
-import vueTsConfig from '@vue/eslint-config-typescript'
+import stylistic from '@stylistic/eslint-plugin'
 
 export default defineConfig([
   {
     name: 'app/files-to-lint',
-    files: ['**/*.{vue,js,mjs,jsx,ts,tsx}'],
+    files: ['**/*.{vue,js,mjs,jsx}'],
   },
 
   globalIgnores(['**/dist/**', '**/dist-ssr/**', '**/coverage/**']),
@@ -23,7 +23,15 @@ export default defineConfig([
 
   js.configs.recommended,
   ...pluginVue.configs['flat/essential'],
-  ...vueTsConfig(),
+
+  {
+    plugins: { '@stylistic': stylistic },
+    rules: {
+      'vue/valid-v-slot': ['error', { allowModifiers: true }],
+      '@stylistic/semi': ['error', 'never'],
+      '@stylistic/quotes': ['error', 'single', { avoidEscape: true }],
+    },
+  },
 
   ...pluginOxlint.buildFromOxlintConfigFile('.oxlintrc.json'),
 ])

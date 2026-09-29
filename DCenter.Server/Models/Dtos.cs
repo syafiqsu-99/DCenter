@@ -72,18 +72,18 @@ public record ReportStatusEventDto(string Action, DateTime OccurredAt, string? D
 public record WpsDto(int Id, string WpsNo, string? BaseMetal, string? Process, string PNo);
 public record WpsUpsert(string WpsNo, string? BaseMetal, string? Process, string PNo);
 
-public record MrnSpecDto(int Id, string Mrn, string? Form, string? FullSpecification, string SpecNo, string? SpecNoRaw);
-public record MrnSpecUpsert(string Mrn, string? Form, string? FullSpecification, string SpecNo, string? SpecNoRaw);
+public record MrnSpecDto(int Id, string Mrn, string SpecNo, string? Form, string? FullSpecification);
+public record MrnSpecUpsert(string Mrn, string SpecNo, string? Form, string? FullSpecification);
 
 public record BpvcMaterialDto(
     int Id, string SpecNo, string? Designation, string? UnsNo, string? MinTensile, string PNo,
     string? GroupNo, string? IsoGroup, string? BrazingPNo, string? NominalComposition,
-    string? TypicalProductForm, string? NominalThicknessLimits, string? SpecNoRaw);
+    string? TypicalProductForm, string? NominalThicknessLimits);
 
 public record BpvcMaterialUpsert(
     string SpecNo, string? Designation, string? UnsNo, string? MinTensile, string PNo,
     string? GroupNo, string? IsoGroup, string? BrazingPNo, string? NominalComposition,
-    string? TypicalProductForm, string? NominalThicknessLimits, string? SpecNoRaw);
+    string? TypicalProductForm, string? NominalThicknessLimits);
 public record ReportKpis(
     int OpenDrafts, int CompletedThisMonth, int JointsThisMonth,
     int StaleDrafts, int MissingDateWelded, int StaleDays, string MonthLabel);

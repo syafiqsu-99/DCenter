@@ -72,7 +72,8 @@ a {
   .page-card > .v-card-text,
   .page-card > .v-card-item,
   .settings-panel-card > .v-card-text,
-  .settings-panel-card > .v-card-item {
+  .settings-panel-card > .v-card-item,
+  .settings-panel-card > .v-alert {
     flex: 0 0 auto;
   }
 

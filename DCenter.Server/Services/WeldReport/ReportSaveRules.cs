@@ -7,6 +7,10 @@ public static class ReportSaveRules
 {
     public const int UniqueIndexViolation = 2601;
     public const int UniqueConstraintViolation = 2627;
+    public const int MaxWorkOrderLength = 100;
+
+    public static bool IsTruncation(Exception ex)
+        => ex.InnerException is Microsoft.Data.SqlClient.SqlException { Number: 2628 or 8152 };
 
     // Null when the save may proceed; otherwise the reason it must be refused.
     public static string? Conflict(Report? existing, ReportDto dto)

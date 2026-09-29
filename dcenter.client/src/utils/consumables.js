@@ -1,4 +1,4 @@
-import { todayIso } from '@/utils/date'
+import { pad, todayIso } from '@/utils/date'
 export const COLUMN = {
   requestor: 'Requestor',
   receivedBy: 'Received By',
@@ -94,6 +94,9 @@ export function formatDiameter(value) {
 }
 
 export { todayIso }
+export { errorText } from '@/utils/errors'
+export { debounce } from '@/utils/timing'
+export { downloadCsv, saveBlob } from '@/utils/files'
 
 export function monthStartIso() {
   return `${todayIso().slice(0, 8)}01`
@@ -128,7 +131,6 @@ export function elapsed(fromIso, toIso) {
 export function toLocalInput(iso) {
   if (!iso) return ''
   const d = new Date(iso)
-  const pad = (n) => String(n).padStart(2, '0')
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
 }
 
@@ -140,49 +142,7 @@ export function categoryParam(value) {
   return value && value !== ALL ? value : undefined
 }
 
-export function errorText(e, fallback) {
-  const data = e?.response?.data
-  if (typeof data === 'string' && data.trim()) return data
-  if (data?.errors) return Object.values(data.errors).flat().join(' ')
-  if (data?.title) return data.title
-  return fallback
-}
-
-export function debounce(fn, ms = 250) {
-  let timer = null
-  return (...args) => {
-    clearTimeout(timer)
-    timer = setTimeout(() => fn(...args), ms)
-  }
-}
-
-export function csvCell(value) {
-  const text = String(value ?? '')
-  return /[",\r\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text
-}
-
-export function downloadCsv(fileName, rows) {
-  const content = '\uFEFF' + rows.map((r) => r.map(csvCell).join(',')).join('\r\n')
-  const url = URL.createObjectURL(new Blob([content], { type: 'text/csv;charset=utf-8' }))
-  const a = document.createElement('a')
-  a.href = url
-  a.download = fileName
-  a.click()
-  URL.revokeObjectURL(url)
-}
-
 export function openPrint(router, kind, query = {}) {
   const clean = Object.fromEntries(Object.entries(query).filter(([, v]) => v !== null && v !== undefined && v !== ''))
   window.open(router.resolve({ name: 'consumable-print', params: { kind }, query: clean }).href, '_blank')
-}
-
-export function saveBlob(blob, fileName) {
-  const url = URL.createObjectURL(blob)
-  const link = document.createElement('a')
-  link.href = url
-  link.download = fileName
-  document.body.appendChild(link)
-  link.click()
-  link.remove()
-  setTimeout(() => URL.revokeObjectURL(url), 1000)
 }

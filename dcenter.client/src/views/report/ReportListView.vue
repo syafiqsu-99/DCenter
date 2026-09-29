@@ -7,7 +7,7 @@
 </template>
 
 <script setup>
-  import RecentReportsBar from '@/components/report/RecentReportsBar.vue';
-  import SavedReportsCard from '@/components/report/SavedReportsCard.vue';
-  import WorkOrderBrowser from '@/components/report/WorkOrderBrowser.vue';
+  import RecentReportsBar from '@/components/report/RecentReportsBar.vue'
+  import SavedReportsCard from '@/components/report/SavedReportsCard.vue'
+  import WorkOrderBrowser from '@/components/report/WorkOrderBrowser.vue'
 </script>

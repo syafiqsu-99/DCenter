@@ -5,6 +5,11 @@ public record ServiceResult<T>(T? Value, int Status, string? Error)
     public bool Succeeded => Error is null;
     public static ServiceResult<T> Ok(T value) => new(value, StatusCodes.Status200OK, null);
     public static ServiceResult<T> Fail(string error, int status = StatusCodes.Status400BadRequest) => new(default, status, error);
+
+    // Not found without a message body; the API answers with the standard 404 problem response.
+    public static ServiceResult<T> NotFound() => new(default, StatusCodes.Status404NotFound, string.Empty);
+
+    public ServiceResult<TOther> As<TOther>() => new(default, Status, Error);
 }
 
 public record StockCatalogDto(

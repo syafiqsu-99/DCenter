@@ -6,6 +6,6 @@
 </template>
 
 <script setup>
-  import TraceSearchBar from '@/components/report/trace/TraceSearchBar.vue';
-  import TraceResultsTable from '@/components/report/trace/TraceResultsTable.vue';
+  import TraceSearchBar from '@/components/report/trace/TraceSearchBar.vue'
+  import TraceResultsTable from '@/components/report/trace/TraceResultsTable.vue'
 </script>

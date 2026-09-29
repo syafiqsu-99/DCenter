@@ -48,8 +48,9 @@
   import { onMounted, reactive, ref, watch } from 'vue'
   import { useFillHeight } from '@/composables/useFillHeight'
   import { useRouter } from 'vue-router'
+  import { usePagedList } from '@/composables/usePagedList'
   import { useConsumableStore } from '@/store/consumableStore'
-  import { COLUMN, debounce, downloadCsv, errorText, fmtDate, fmtDateTime, kg, monthStartIso, openPrint, todayIso } from '@/utils/consumables'
+  import { COLUMN, debounce, downloadCsv, fmtDate, fmtDateTime, kg, monthStartIso, openPrint, todayIso } from '@/utils/consumables'
 
   const tableArea = ref(null)
   const tableHeight = useFillHeight(tableArea)
@@ -59,12 +60,10 @@
   const router = useRouter()
   const field = { variant: 'outlined', density: 'compact', hideDetails: true }
   const filters = reactive({ from: monthStartIso(), to: todayIso(), q: '' })
-  const items = ref([])
-  const total = ref(0)
-  const loading = ref(false)
-  const loadingMore = ref(false)
-  const error = ref('')
-  let token = 0
+  const { items, total, loading, loadingMore, error, reload, loadMore } = usePagedList(
+    (skip) => store.loadHoldingRecords(params(skip)),
+    { load: 'Could not load holding records.', more: 'Could not load more records.' },
+  )
 
   const headers = [
     { title: 'Holding No', key: 'holdingNo', width: '10%' },
@@ -81,35 +80,6 @@
 
   function params(skip) {
     return { from: filters.from || undefined, to: filters.to || undefined, q: (filters.q ?? '').trim() || undefined, skip, take: PAGE_SIZE }
-  }
-
-  async function reload() {
-    const current = ++token
-    loading.value = true
-    error.value = ''
-    try {
-      const page = await store.loadHoldingRecords(params(0))
-      if (current !== token) return
-      items.value = page.items
-      total.value = page.total
-    } catch (e) {
-      if (current === token) error.value = errorText(e, 'Could not load holding records.')
-    } finally {
-      if (current === token) loading.value = false
-    }
-  }
-
-  async function loadMore() {
-    loadingMore.value = true
-    try {
-      const page = await store.loadHoldingRecords(params(items.value.length))
-      items.value = [...items.value, ...page.items]
-      total.value = page.total
-    } catch (e) {
-      error.value = errorText(e, 'Could not load more records.')
-    } finally {
-      loadingMore.value = false
-    }
   }
 
   function printRecords() {

@@ -145,47 +145,44 @@
 </template>
 
 <script setup>
-  import { computed, ref, watch } from 'vue';
-  import { storeToRefs } from 'pinia';
-  import { useReportStore } from '@/store/reportStore';
-  import { useLookupStore } from '@/store/lookupStore';
-  import { useProcessTypeStore } from '@/store/processTypeStore';
-  import { useWpsStore } from '@/store/wpsStore';
-  import { useWelderStore } from '@/store/welderStore';
+  import { computed, ref } from 'vue'
+  import { storeToRefs } from 'pinia'
+  import { useReportStore } from '@/store/reportStore'
+  import { useLookupStore } from '@/store/lookupStore'
+  import { useProcessTypeStore } from '@/store/processTypeStore'
+  import { useWpsStore } from '@/store/wpsStore'
+  import { useWelderStore } from '@/store/welderStore'
 
   const wpsStore = useWpsStore()
-  wpsStore.load();
+  wpsStore.load()
 
   const props = defineProps({
-    joint: { type: Object, required: true },
-  });
+    index: { type: Number, required: true },
+  })
 
   const processTypeStore = useProcessTypeStore()
   processTypeStore.load()
 
   function typeOpt(col) {
-    const linked = processTypeStore.typesForProcess(props.joint.materials[col].process)
+    const linked = processTypeStore.typesForProcess(joint.value.materials[col].process)
     const base = linked ?? (options.value['Type'] ?? [])
-    const current = props.joint.materials[col].type
+    const current = joint.value.materials[col].type
     return current && !base.includes(current) ? [current, ...base] : base
   }
 
-  const f = computed(() => ({ density: 'compact', variant: 'plain', hideDetails: true, readonly: reportStore.isComplete }));
-  const allowAll = () => true;
+  const f = computed(() => ({ density: 'compact', variant: 'plain', hideDetails: true, readonly: reportStore.isComplete }))
+  const allowAll = () => true
 
-  const reportStore = useReportStore();
-  const { rightParts } = storeToRefs(reportStore);
+  const reportStore = useReportStore()
+  const { rightParts } = storeToRefs(reportStore)
+  const joint = computed(() => reportStore.report.joints[props.index])
 
-  const lookupStore = useLookupStore();
-  const { options } = storeToRefs(lookupStore);
+  const lookupStore = useLookupStore()
+  const { options } = storeToRefs(lookupStore)
 
   function opt(category, current) {
-    const list = options.value[category] ?? [];
-    return current && !list.includes(current) ? [current, ...list] : list;
-  }
-
-  function isEmpty(v) {
-    return v === null || v === undefined || v === '';
+    const list = options.value[category] ?? []
+    return current && !list.includes(current) ? [current, ...list] : list
   }
 
   function partNoTitle(p) {
@@ -195,7 +192,7 @@
     return typeof p === 'string' ? p : (p?.desc ?? '')
   }
   function setPart(side, field, v) {
-    const j = props.joint
+    const j = joint.value
     const noKey = `partNo${side}`
     const descKey = `partDesc${side}`
     if (v && typeof v === 'object') {
@@ -213,12 +210,12 @@
     }
   }
 
-  const welderStore = useWelderStore();
-  const { items: welderItems } = storeToRefs(welderStore);
+  const welderStore = useWelderStore()
+  const { items: welderItems } = storeToRefs(welderStore)
   function searchWelders(q) {
-    welderStore.search(q);
+    welderStore.search(q)
   }
-  searchWelders('');
+  searchWelders('')
 
   function welderNameTitle(w) {
     return typeof w === 'string' ? w : (w?.welderName ?? '')
@@ -227,7 +224,7 @@
     return typeof w === 'string' ? w : (w?.welderNo ?? '')
   }
   function setWelder(field, v) {
-    const j = props.joint
+    const j = joint.value
     if (v && typeof v === 'object') {
       j.welderName = v.welderName ?? ''
       j.welderNo = v.welderNo ?? ''
@@ -259,11 +256,11 @@
     wpsQuery.value = q || ''
   }
 
-  const wrap = 'background:#fff;padding:12px;border:1px solid #000;margin-bottom:16px;overflow-x:auto;';
-  const titleStyle = 'font-weight:bold;font-size:14px;margin-bottom:6px;';
-  const tbl = 'border-collapse:collapse;width:100%;table-layout:fixed;';
-  const cell = 'border:1px solid #000;padding:0 4px;font-size:12px;vertical-align:middle;height:26px;';
-  const lbl = 'border:1px solid #000;padding:0 4px;font-size:12px;font-weight:bold;white-space:nowrap;vertical-align:middle;';
-  const hdr = 'border:1px solid #000;padding:2px 4px;font-size:12px;font-weight:bold;text-align:center;';
-  const hdrC = 'border:1px solid #000;';
+  const wrap = 'background:#fff;padding:12px;border:1px solid #000;margin-bottom:16px;overflow-x:auto;'
+  const titleStyle = 'font-weight:bold;font-size:14px;margin-bottom:6px;'
+  const tbl = 'border-collapse:collapse;width:100%;table-layout:fixed;'
+  const cell = 'border:1px solid #000;padding:0 4px;font-size:12px;vertical-align:middle;height:26px;'
+  const lbl = 'border:1px solid #000;padding:0 4px;font-size:12px;font-weight:bold;white-space:nowrap;vertical-align:middle;'
+  const hdr = 'border:1px solid #000;padding:2px 4px;font-size:12px;font-weight:bold;text-align:center;'
+  const hdrC = 'border:1px solid #000;'
 </script>
