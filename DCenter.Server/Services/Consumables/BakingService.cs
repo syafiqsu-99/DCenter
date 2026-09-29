@@ -8,13 +8,14 @@ using T = DCenter.Server.Services.ConsumableText;
 
 namespace DCenter.Server.Services;
 
-public class BakingService(WeldReportContext db, ConsumableLedger ledger, ConsumableItemService items, ConsumableGuards guards)
+public class BakingService(
+    WeldReportContext db, ConsumableLedger ledger, ConsumableItemService items, ConsumableGuards guards, TimeProvider time)
 {
     private static readonly TimeSpan ClockTolerance = TimeSpan.FromMinutes(5);
 
     public async Task<ServiceResult<BakingResult>> SendToBakeAsync(SendToBakeRequest r, string? enteredBy, CancellationToken ct)
     {
-        var (user, date, error) = G.Common(enteredBy, r.BakingDate);
+        var (user, date, error) = guards.Common(enteredBy, r.BakingDate);
         if (error is not null) return Fail<BakingResult>(error);
         if (guards.CheckBackdate(date) is string backdate) return Fail<BakingResult>(backdate);
 
@@ -32,9 +33,7 @@ public class BakingService(WeldReportContext db, ConsumableLedger ledger, Consum
         if (item is null) return Fail<BakingResult>("Consumable not found.", StatusCodes.Status404NotFound);
         if (!item.IsElectrode) return Fail<BakingResult>("Only electrodes are sent for baking.");
 
-        var normal = (await ledger.LotStagesForItemAsync(item.Id, ct))
-            .Select(l => (LotId: l.LotId, Available: l.Totals.NormalKg))
-            .ToList();
+        var normal = await ledger.NormalLotsAsync(item.Id, ct);
         var (lines, takeError) = G.Take(normal, r.LotId, qty, "Normal storage");
         if (lines is null) return Fail<BakingResult>(takeError!, StatusCodes.Status409Conflict);
 
@@ -85,7 +84,7 @@ public class BakingService(WeldReportContext db, ConsumableLedger ledger, Consum
 
     public async Task<ServiceResult<BakingRecordDto>> UpdateAsync(int id, BakingUpdate u, string? enteredBy, CancellationToken ct)
     {
-        var (_, _, error) = G.Common(enteredBy, u.BakingDate);
+        var (_, _, error) = guards.Common(enteredBy, u.BakingDate);
         if (error is not null) return Fail<BakingRecordDto>(error);
 
         var pic = T.FreeText(u.PersonInCharge, 100);
@@ -128,7 +127,7 @@ public class BakingService(WeldReportContext db, ConsumableLedger ledger, Consum
 
     public async Task<ServiceResult<PlaceResult>> PlaceAsync(PlaceRequest r, string? enteredBy, CancellationToken ct)
     {
-        var (user, date, error) = G.Common(enteredBy, r.HoldingDate);
+        var (user, date, error) = guards.Common(enteredBy, r.HoldingDate);
         if (error is not null) return Fail<PlaceResult>(error);
         if (guards.CheckBackdate(date) is string backdate) return Fail<PlaceResult>(backdate);
 
@@ -254,7 +253,7 @@ public class BakingService(WeldReportContext db, ConsumableLedger ledger, Consum
         var total = await q.CountAsync(ct);
         var ids = await q.OrderByDescending(b => b.Id)
             .Skip(Math.Max(p.Skip, 0))
-            .Take(Math.Clamp(p.Take, 1, 200))
+            .Take(Math.Clamp(p.Take, 1, T.MaxPageSize))
             .Select(b => b.Id)
             .ToListAsync(ct);
         var rows = await RecordsAsync(ids, ct);
@@ -274,20 +273,20 @@ public class BakingService(WeldReportContext db, ConsumableLedger ledger, Consum
         }
 
         var total = await q.CountAsync(ct);
-        var rows = await HoldingsAsync(q.OrderByDescending(h => h.Id).Skip(Math.Max(p.Skip, 0)).Take(Math.Clamp(p.Take, 1, 200)), ct);
+        var rows = await HoldingsAsync(q.OrderByDescending(h => h.Id).Skip(Math.Max(p.Skip, 0)).Take(Math.Clamp(p.Take, 1, T.MaxPageSize)), ct);
         return new HoldingPage(rows, total);
     }
 
     private async Task<ServiceResult<BakingResult>> StampAsync(BakingTimesRequest r, string? enteredBy, bool start, CancellationToken ct)
     {
-        var (_, _, error) = G.Common(enteredBy, null);
+        var (_, _, error) = guards.Common(enteredBy, null);
         if (error is not null) return Fail<BakingResult>(error);
 
         var ids = (r.Ids ?? new List<int>()).Distinct().ToList();
         if (ids.Count == 0) return Fail<BakingResult>("Select at least one baking record.");
 
-        var at = r.At ?? DateTime.Now;
-        if (at > DateTime.Now + ClockTolerance) return Fail<BakingResult>("The time cannot be in the future.");
+        var at = r.At ?? time.LocalNow();
+        if (at > time.LocalNow() + ClockTolerance) return Fail<BakingResult>("The time cannot be in the future.");
         if (guards.CheckBackdate(DateOnly.FromDateTime(at)) is string backdate) return Fail<BakingResult>(backdate);
 
         await using var tx = await db.Database.BeginTransactionAsync(ct);
@@ -333,9 +332,9 @@ public class BakingService(WeldReportContext db, ConsumableLedger ledger, Consum
         return ServiceResult<BakingResult>.Ok(new BakingResult(null, await RecordsAsync(ids, ct)));
     }
 
-    private static string? CheckTimes(DateTime? bakeStart, DateTime? bakeStop, DateTime? rebakeStart, DateTime? rebakeStop)
+    private string? CheckTimes(DateTime? bakeStart, DateTime? bakeStop, DateTime? rebakeStart, DateTime? rebakeStop)
     {
-        var limit = DateTime.Now + ClockTolerance;
+        var limit = time.LocalNow() + ClockTolerance;
         if (new[] { bakeStart, bakeStop, rebakeStart, rebakeStop }.Any(t => t > limit)) return "Times cannot be in the future.";
         if (bakeStop is not null && (bakeStart is null || bakeStop <= bakeStart)) return "Bake stop must be after bake start.";
         if (rebakeStart is not null && (bakeStop is null || rebakeStart <= bakeStop)) return "Re-bake start must be after the first bake stopped.";

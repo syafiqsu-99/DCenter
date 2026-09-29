@@ -5,11 +5,17 @@ public static class ReferenceCsv
     public sealed record Column(string Header, bool Required, bool Key, params string[] Aliases)
     {
         public IEnumerable<string> Names => Aliases.Length > 0 ? Aliases : [Header];
+
+        public int MaxLength { get; init; } = int.MaxValue;
+
+        public string Label { get; init; } = Header;
     }
 
     public sealed record Sheet(List<string?[]> Rows, List<string> Errors);
 
     public sealed record ImportCounts(int Added, int Updated, int Unchanged, int Skipped);
+
+    public const string ImportSaveConflict = "The import could not be saved because the table changed at the same time. Try the import again.";
 
     public static string? Clean(string? value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
 
@@ -23,6 +29,15 @@ public static class ReferenceCsv
 
     public static string KeyOf(IReadOnlyList<Column> columns, string?[] values)
         => Key([.. columns.Select((c, i) => (c, i)).Where(x => x.c.Key).Select(x => values[x.i])]);
+
+    // The first value that is longer than its column allows, as a message for the user; null when all fit.
+    public static string? LengthError(IReadOnlyList<Column> columns, string?[] values)
+    {
+        for (var i = 0; i < columns.Count; i++)
+            if ((values[i]?.Trim().Length ?? 0) > columns[i].MaxLength)
+                return $"{columns[i].Label} is limited to {columns[i].MaxLength} characters.";
+        return null;
+    }
 
     public static string KeyLabel(IReadOnlyList<Column> columns)
         => string.Join(" / ", columns.Where(c => c.Key).Select(c => c.Header));
@@ -69,6 +84,7 @@ public static class ReferenceCsv
     {
         if (file is null || file.Length == 0) return new Sheet([], ["No file uploaded. Choose a CSV file and try again."]);
         if (file.Length > CsvText.MaxUploadBytes) return new Sheet([], ["The file is larger than 2 MB. Split it into smaller files and import each one."]);
+        if (!file.FileName.EndsWith(".csv", StringComparison.OrdinalIgnoreCase)) return new Sheet([], ["Only .csv files can be imported."]);
 
         using var buffer = new MemoryStream();
         await file.CopyToAsync(buffer, ct);
@@ -99,7 +115,8 @@ public static class ReferenceCsv
 
         foreach (var values in rows)
         {
-            if (columns.Select((c, i) => (c, i)).Any(x => x.c.Required && string.IsNullOrEmpty(values[x.i])))
+            if (columns.Select((c, i) => (c, i)).Any(x => x.c.Required && string.IsNullOrEmpty(values[x.i]))
+                || LengthError(columns, values) is not null)
             {
                 skipped++;
                 continue;
@@ -124,6 +141,35 @@ public static class ReferenceCsv
         }
 
         return new ImportCounts(added, updated, unchanged, skipped);
+    }
+
+    public sealed record ImportPlan<T>(ImportCounts Counts, List<T> Updated, List<T> Added);
+
+    // Upsert over rows loaded from the database, returning which existing rows changed and which are new
+    // (in file order) so they can be written in one call.
+    public static ImportPlan<T> UpsertPlan<T>(
+        IReadOnlyList<Column> columns,
+        IEnumerable<string?[]> rows,
+        IEnumerable<T> existing,
+        Func<T, string?[]> read,
+        Action<T, string?[]> write,
+        Func<T> create) where T : class
+    {
+        var added = new List<T>();
+        var updated = new List<T>();
+        var seen = new HashSet<T>(ReferenceEqualityComparer.Instance);
+        var counts = Upsert(columns, rows, existing, read, (e, v) =>
+        {
+            write(e, v);
+            if (seen.Add(e)) updated.Add(e);
+        }, () =>
+        {
+            var e = create();
+            seen.Add(e);
+            added.Add(e);
+            return e;
+        });
+        return new ImportPlan<T>(counts, updated, added);
     }
 
     private static readonly TrimmedTextComparer SameText = new();

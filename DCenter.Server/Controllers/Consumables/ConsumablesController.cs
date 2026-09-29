@@ -1,6 +1,7 @@
 using DCenter.Server.Models;
 using DCenter.Server.Services;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 
 namespace DCenter.Server.Controllers;
 
@@ -8,7 +9,7 @@ namespace DCenter.Server.Controllers;
 [Route("api/consumables")]
 public class ConsumablesController(
     ConsumableItemService items, ConsumableMovementService movements, ConsumableQueryService queries,
-    ConsumableImportService imports, StockImportService stockImports) : ConsumableControllerBase
+    ConsumableImportService imports, StockImportService stockImports, TimeProvider time) : ConsumableControllerBase
 {
     [HttpGet("catalog")]
     public ActionResult<StockCatalogDto> Catalog() => Ok(queries.GetCatalog());
@@ -44,6 +45,10 @@ public class ConsumablesController(
         catch (TimeoutException ex)
         {
             return Conflict(ex.Message);
+        }
+        catch (DbUpdateException ex)
+        {
+            return SaveFailed(ex, $"{Request.Method} {Request.Path}");
         }
     }
 
@@ -147,13 +152,13 @@ public class ConsumablesController(
     public async Task<IActionResult> ExportItems([FromQuery] bool template = false, CancellationToken ct = default)
     {
         var bytes = await imports.ExportAsync(template, ct);
-        var name = template ? "Consumables template.csv" : $"Consumables {DateTime.Now:yyyy-MM-dd}.csv";
+        var name = template ? "Consumables template.csv" : $"Consumables {time.LocalNow():yyyy-MM-dd}.csv";
         return File(bytes, "text/csv; charset=utf-8", name);
     }
 
     [HttpPost("items/import")]
     [SupervisorOnly]
-    [RequestSizeLimit(ConsumableImportService.MaxFileBytes + 64 * 1024)]
+    [RequestSizeLimit(CsvText.RequestLimitBytes)]
     public async Task<ActionResult<ImportResultDto>> ImportItems(
         IFormFile? file, [FromQuery] bool commit = false, [FromQuery] bool skipInvalid = false, CancellationToken ct = default)
     {
@@ -168,11 +173,11 @@ public class ConsumablesController(
     [HttpGet("stock-import/template")]
     [SupervisorOnly]
     public IActionResult StockImportTemplate()
-        => File(StockImportService.Template(), "text/csv; charset=utf-8", "Opening stock template.csv");
+        => File(StockImportService.Template(time.Today()), "text/csv; charset=utf-8", "Opening stock template.csv");
 
     [HttpPost("stock-import")]
     [SupervisorOnly]
-    [RequestSizeLimit(StockImportService.MaxFileBytes + 64 * 1024)]
+    [RequestSizeLimit(CsvText.RequestLimitBytes)]
     public async Task<ActionResult<StockImportResultDto>> ImportStock(
         IFormFile? file, [FromQuery] bool commit = false, [FromQuery] bool skipInvalid = false, CancellationToken ct = default)
     {

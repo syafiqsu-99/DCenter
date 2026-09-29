@@ -8,6 +8,8 @@
     </v-card-item>
 
     <v-card-text class="px-0">
+      <v-alert v-if="error" type="error" variant="tonal" density="compact" class="mb-3"
+               closable @click:close="error = ''">{{ error }}</v-alert>
       <v-row dense>
         <v-col cols="12" sm="4">
           <v-select v-model="process" :items="processOptions" label="Process"
@@ -48,60 +50,70 @@
 </template>
 
 <script setup>
-import { computed, onMounted, ref, watch } from 'vue';
-  import { storeToRefs } from 'pinia';
-  import api from '@/utils/api';
-  import { useLookupStore } from '@/store/lookupStore';
+  import { computed, onMounted, ref, watch } from 'vue'
+  import { storeToRefs } from 'pinia'
+  import { useCrudApi } from '@/composables/useCrudApi'
+  import { useLookupStore } from '@/store/lookupStore'
+  import { errorText } from '@/utils/errors'
 
-  const lookupStore = useLookupStore();
-  const { options } = storeToRefs(lookupStore);
+  const lookupStore = useLookupStore()
+  const { options } = storeToRefs(lookupStore)
 
-  const links = ref([]);
-  const process = ref(null);
+  const links = ref([])
+  const error = ref('')
+  const process = ref(null)
   const typesToAdd = ref([])
-  const adding = ref(false);
-  const deletingId = ref(null);
+  const adding = ref(false)
+  const deletingId = ref(null)
 
-  const processOptions = computed(() => options.value.Process ?? []);
-  const typeOptions = computed(() => options.value.Type ?? []);
+  const processOptions = computed(() => options.value.Process ?? [])
+  const typeOptions = computed(() => options.value.Type ?? [])
 
-  const linkedForProcess = computed(() => links.value.filter((l) => l.process === process.value));
-  const linkedTypes = computed(() => linkedForProcess.value.map((l) => l.type));
-  const addableTypes = computed(() => typeOptions.value.filter((t) => !linkedTypes.value.includes(t)));
+  const linkedForProcess = computed(() => links.value.filter((l) => l.process === process.value))
+  const linkedTypes = computed(() => linkedForProcess.value.map((l) => l.type))
+  const addableTypes = computed(() => typeOptions.value.filter((t) => !linkedTypes.value.includes(t)))
+
+  const linksApi = useCrudApi('/processtypelinks')
 
   async function load() {
-    const { data } = await api.get('/processtypelinks');
-    links.value = data;
+    links.value = await linksApi.list()
   }
 
-  watch(process, () => { typesToAdd.value = [] });
+  watch(process, () => { typesToAdd.value = [] })
 
   async function addLinks() {
     if (!process.value || !typesToAdd.value.length) return
     adding.value = true
     try {
       for (const type of typesToAdd.value) {
-        const { data } = await api.post('/processtypelinks', { process: process.value, type })
-        links.value.push(data)
+        links.value.push(await linksApi.create({ process: process.value, type }))
       }
       typesToAdd.value = []
+    } catch (e) {
+      error.value = errorText(e, 'Could not add the link.')
     } finally {
       adding.value = false
     }
   }
 
   async function removeLink(link) {
-    deletingId.value = link.id;
+    deletingId.value = link.id
     try {
-      await api.delete(`/processtypelinks/${link.id}`);
-      links.value = links.value.filter((l) => l.id !== link.id);
+      await linksApi.remove(link.id)
+      links.value = links.value.filter((l) => l.id !== link.id)
+    } catch (e) {
+      error.value = errorText(e, 'Could not remove the link.')
     } finally {
-      deletingId.value = null;
+      deletingId.value = null
     }
   }
 
   onMounted(async () => {
-    await lookupStore.load();
-    await load();
-  });
+    try {
+      await lookupStore.load()
+      await load()
+    } catch (e) {
+      error.value = errorText(e, 'Could not load the process and type lists. Reload the page to try again.')
+    }
+  })
 </script>

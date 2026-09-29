@@ -9,7 +9,7 @@ using T = DCenter.Server.Services.ConsumableText;
 
 namespace DCenter.Server.Services;
 
-public class StockCountService(WeldReportContext db, ConsumableLedger ledger, ConsumableGuards guards)
+public class StockCountService(WeldReportContext db, ConsumableLedger ledger, ConsumableGuards guards, TimeProvider time)
 {
     private const int MaxLines = 2000;
 
@@ -57,12 +57,12 @@ public class StockCountService(WeldReportContext db, ConsumableLedger ledger, Co
             .ThenBy(l => l.LotId)
             .ToList();
 
-        return ServiceResult<CountSheetDto>.Ok(new CountSheetDto(stage, cat, DateTime.Now, lines));
+        return ServiceResult<CountSheetDto>.Ok(new CountSheetDto(stage, cat, time.LocalNow(), lines));
     }
 
     public async Task<ServiceResult<StockCountDto>> PostAsync(StockCountRequest r, string? enteredBy, CancellationToken ct)
     {
-        var (user, date, error) = G.Common(enteredBy, r.CountDate);
+        var (user, date, error) = guards.Common(enteredBy, r.CountDate);
         if (error is not null) return Fail(error);
 
         var stage = Scope(r.Scope);
@@ -126,13 +126,15 @@ public class StockCountService(WeldReportContext db, ConsumableLedger ledger, Co
 
         if (stage == Cat.Activated)
         {
+            var itemsById = new Dictionary<int, ItemRef?>();
             foreach (var gainBin in changed
                          .Where(l => l.Counted > l.System && l.CompartmentId is not null)
                          .Select(l => new { l.ItemId, CompartmentId = l.CompartmentId!.Value })
                          .Distinct()
                          .OrderBy(x => x.CompartmentId))
             {
-                var item = await guards.ItemAsync(gainBin.ItemId, ct);
+                if (!itemsById.TryGetValue(gainBin.ItemId, out var item))
+                    itemsById[gainBin.ItemId] = item = await guards.ItemAsync(gainBin.ItemId, ct);
                 if (item is null) return Fail("A count line refers to a consumable that no longer exists. Reload the count sheet.");
                 var compartmentError = await guards.CheckCompartmentAsync(item, gainBin.CompartmentId, ct);
                 if (compartmentError is not null) return Fail(compartmentError, StatusCodes.Status409Conflict);
@@ -195,7 +197,7 @@ public class StockCountService(WeldReportContext db, ConsumableLedger ledger, Co
         if (to is DateOnly t) q = q.Where(c => c.CountDate <= t);
         if (Scope(scope) is string stage) q = q.Where(c => c.Scope == stage);
         var total = await q.CountAsync(ct);
-        var rows = await ToDtosAsync(q.OrderByDescending(c => c.Id).Skip(Math.Max(skip, 0)).Take(Math.Clamp(take, 1, 200)), ct);
+        var rows = await ToDtosAsync(q.OrderByDescending(c => c.Id).Skip(Math.Max(skip, 0)).Take(Math.Clamp(take, 1, T.MaxPageSize)), ct);
         return new StockCountPage(rows, total);
     }
 

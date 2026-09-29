@@ -1,7 +1,7 @@
-import { createRouter, createWebHistory } from 'vue-router';
-import { useConsumableStore } from '@/store/consumableStore';
+import { createRouter, createWebHistory } from 'vue-router'
+import { useConsumableStore } from '@/store/consumableStore'
 
-const supervisor = { supervisor: true };
+const supervisor = { supervisor: true }
 
 const routes = [
   { path: '/', name: 'home', meta: { fullBleed: true, bare: true }, component: () => import('@/views/home/HomeView.vue') },
@@ -44,24 +44,24 @@ const routes = [
     component: () => import('@/views/consumables/ConsumablePrintView.vue'),
   },
   { path: '/settings', name: 'settings', meta: supervisor, component: () => import('@/views/settings/SettingsView.vue') },
-];
+]
 
 const router = createRouter({
   history: createWebHistory(),
   routes,
-});
+})
 
-const needsSupervisor = (route) => route.matched.some((r) => r.meta.supervisor);
+const needsSupervisor = (route) => route.matched.some((r) => r.meta.supervisor)
 
 router.beforeEach((to, from) => {
-  if (!needsSupervisor(to)) return true;
-  const store = useConsumableStore();
-  if (!store.supervisor) store.init();
-  store.tick();
-  if (store.isSupervisor) return true;
-  const unlock = { unlock: '1', next: to.fullPath };
-  if (from.matched.length && !needsSupervisor(from)) return { path: from.path, query: { ...from.query, ...unlock } };
-  return { name: 'consumable-welder', query: unlock };
-});
+  if (!needsSupervisor(to)) return true
+  const store = useConsumableStore()
+  if (!store.supervisor) store.init()
+  store.tick()
+  if (store.isSupervisor) return true
+  const unlock = { unlock: '1', next: to.fullPath }
+  if (from.matched.length && !needsSupervisor(from)) return { path: from.path, query: { ...from.query, ...unlock } }
+  return { name: 'consumable-welder', query: unlock }
+})
 
-export default router;
+export default router

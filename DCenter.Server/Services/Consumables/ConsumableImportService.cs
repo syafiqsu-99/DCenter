@@ -1,5 +1,4 @@
 using System.Globalization;
-using System.Text;
 using DCenter.Server.Data;
 using DCenter.Server.Entities;
 using DCenter.Server.Models;
@@ -11,7 +10,7 @@ namespace DCenter.Server.Services;
 
 public class ConsumableImportService(WeldReportContext db, ConsumableItemService items, ConsumableLedger ledger)
 {
-    public const long MaxFileBytes = 2 * 1024 * 1024;
+    public const long MaxFileBytes = CsvText.MaxUploadBytes;
     private const int MaxRows = 5000;
 
     public const string ActionCreate = "Create";
@@ -197,7 +196,7 @@ public class ConsumableImportService(WeldReportContext db, ConsumableItemService
         }
 
         if (input is not null && input.Category == Cat.ElectrodeFiller && input.HoldingOvenType is null)
-            messages.Add("Warning: no holding oven type — electrodes cannot be placed in an oven until it is set.");
+            messages.Add($"{T.WarningPrefix} no holding oven type — electrodes cannot be placed in an oven until it is set.");
 
         if (input is not null)
         {
@@ -252,23 +251,9 @@ public class ConsumableImportService(WeldReportContext db, ConsumableItemService
     }
 
     private static (Dictionary<Col, int> Columns, List<string> Errors) MapHeader(List<string> header)
-    {
-        var columns = new Dictionary<Col, int>();
-        var errors = new List<string>();
-        for (var i = 0; i < header.Count; i++)
-        {
-            var name = new string(header[i].Split('(')[0].Where(char.IsLetter).ToArray());
-            if (name.EndsWith("kg", StringComparison.OrdinalIgnoreCase)) name = name[..^2];
-            if (!Aliases.TryGetValue(name, out var col)) continue;
-            if (!columns.TryAdd(col, i)) errors.Add($"Column \"{header[i]}\" appears more than once.");
-        }
-        foreach (var required in new[] { Col.Category, Col.Specification, Col.Diameter })
-            if (!columns.ContainsKey(required))
-                errors.Add($"Missing required column \"{Header[(int)required]}\". Download the template to see the expected columns.");
-        return (columns, errors);
-    }
+        => CsvText.MapHeader(header, Aliases, [Col.Category, Col.Specification, Col.Diameter], Header, stripKgSuffix: true);
 
-    private static string Key(string specification, string diameter) => $"{specification}|{diameter}".ToUpperInvariant();
+    private static string Key(string specification, string diameter) => T.ItemKey(specification, diameter);
 
     private static string Num(decimal value) => value.ToString("0.##", CultureInfo.InvariantCulture);
 

@@ -1,6 +1,7 @@
 using DCenter.Server.Models;
 using DCenter.Server.Services;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Options;
 
 namespace DCenter.Server.Controllers;
 
@@ -8,9 +9,12 @@ namespace DCenter.Server.Controllers;
 [Route("api/[controller]")]
 public class ReportsController(
     ReportService reports,
+    ReportInsightsService insights,
     PdfReportService pdf,
     ExcelReportService excel,
     SupervisorAuth supervisors,
+    TimeProvider time,
+    IOptions<WeldReportOptions> weldReportOptions,
     ILogger<ReportsController> logger) : ControllerBase
 {
     [HttpGet]
@@ -19,15 +23,15 @@ public class ReportsController(
 
     [HttpGet("dashboard")]
     public async Task<ActionResult<ReportDashboardDto>> Dashboard([FromQuery] int months = 6, CancellationToken ct = default)
-        => Ok(await reports.GetDashboardAsync(months, ct));
+        => Ok(await insights.GetDashboardAsync(months, ct));
 
     [HttpGet("trace")]
     public async Task<ActionResult<TraceResponse>> Trace([FromQuery] string? field, [FromQuery] string? q, CancellationToken ct)
     {
         var term = q?.Trim() ?? "";
-        if (field is null || !ReportService.TraceFields.Contains(field)) return BadRequest("Unknown search field.");
+        if (field is null || !ReportInsightsService.TraceFields.Contains(field)) return BadRequest("Unknown search field.");
         if (term.Length < 2) return BadRequest("Type at least 2 characters to search.");
-        return Ok(await reports.TraceAsync(field, term, ct));
+        return Ok(await insights.TraceAsync(field, term, ct));
     }
 
     [HttpGet("{workOrderNumber}")]
@@ -80,6 +84,8 @@ public class ReportsController(
     {
         if (string.IsNullOrWhiteSpace(dto.WorkOrderNumber))
             return BadRequest("Work order number is required.");
+        if (dto.WorkOrderNumber.Length > ReportSaveRules.MaxWorkOrderLength)
+            return BadRequest($"Work order number is limited to {ReportSaveRules.MaxWorkOrderLength} characters.");
         if (dto.DateWelded is null)
             return BadRequest("Date welded is required to save a report.");
         if (dto.Joints.Count > ReportSaveRules.MaxJoints)
@@ -94,21 +100,45 @@ public class ReportsController(
         }
     }
 
-    [HttpGet("{workOrderNumber}/pdf")]
-    public async Task<IActionResult> Pdf(string workOrderNumber, CancellationToken ct)
+    private string DefaultEngineer => weldReportOptions.Value.DefaultEngineer;
+
+    [HttpGet("{workOrderNumber}/signoff")]
+    public async Task<ActionResult<ReportSignOff>> SignOff(string workOrderNumber, CancellationToken ct)
     {
         var r = await reports.GetEntityAsync(workOrderNumber, ct);
         if (r is null) return NotFound();
-        var bytes = pdf.Generate(r);
+        return Ok(ReportSignOffRules.Defaults(r, time.Today(), DefaultEngineer));
+    }
+
+    [HttpGet("{workOrderNumber}/pdf")]
+    public Task<IActionResult> Pdf(string workOrderNumber, CancellationToken ct)
+        => PdfFile(workOrderNumber, null, ct);
+
+    [HttpPost("{workOrderNumber}/pdf")]
+    public Task<IActionResult> PdfWithSignOff(string workOrderNumber, ReportSignOff signOff, CancellationToken ct)
+        => PdfFile(workOrderNumber, signOff, ct);
+
+    [HttpGet("{workOrderNumber}/excel")]
+    public Task<IActionResult> Excel(string workOrderNumber, CancellationToken ct)
+        => ExcelFile(workOrderNumber, null, ct);
+
+    [HttpPost("{workOrderNumber}/excel")]
+    public Task<IActionResult> ExcelWithSignOff(string workOrderNumber, ReportSignOff signOff, CancellationToken ct)
+        => ExcelFile(workOrderNumber, signOff, ct);
+
+    private async Task<IActionResult> PdfFile(string workOrderNumber, ReportSignOff? signOff, CancellationToken ct)
+    {
+        var r = await reports.GetEntityAsync(workOrderNumber, ct);
+        if (r is null) return NotFound();
+        var bytes = pdf.Generate(r, ReportSignOffRules.Resolve(r, signOff, time.Today(), DefaultEngineer));
         return File(bytes, "application/pdf");
     }
 
-    [HttpGet("{workOrderNumber}/excel")]
-    public async Task<IActionResult> Excel(string workOrderNumber, CancellationToken ct)
+    private async Task<IActionResult> ExcelFile(string workOrderNumber, ReportSignOff? signOff, CancellationToken ct)
     {
         var r = await reports.GetEntityAsync(workOrderNumber, ct);
         if (r is null) return NotFound();
-        var bytes = excel.Generate(r);
+        var bytes = excel.Generate(r, ReportSignOffRules.Resolve(r, signOff, time.Today(), DefaultEngineer));
         return File(bytes,
             "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
             $"WeldOrderCard_{workOrderNumber}.xlsx");

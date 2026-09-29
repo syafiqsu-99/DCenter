@@ -15,17 +15,17 @@
 </template>
 
 <script setup>
-  import { storeToRefs } from 'pinia';
-  import { useRoute } from 'vue-router';
-  import { useReportStore } from '@/store/reportStore';
+  import { storeToRefs } from 'pinia'
+  import { useRoute } from 'vue-router'
+  import { useReportStore } from '@/store/reportStore'
 
-  const route = useRoute();
-  const store = useReportStore();
-  const { error } = storeToRefs(store);
+  const route = useRoute()
+  const store = useReportStore()
+  const { error } = storeToRefs(store)
 
   const tabs = [
     { name: 'report-list', label: 'Reports', icon: 'mdi-file-document-multiple-outline' },
     { name: 'report-dashboard', label: 'Dashboard', icon: 'mdi-view-dashboard-outline' },
     { name: 'report-trace', label: 'Traceability', icon: 'mdi-magnify-scan' },
-  ];
+  ]
 </script>

@@ -5,8 +5,6 @@ Chart.register(BarElement, CategoryScale, LinearScale, Legend, Tooltip, LineCont
 export const TYPE_COLORS = ['#1565C0', '#EF6C00', '#2E7D32', '#6A1B9A']
 export const IN_COLOR = '#2E7D32'
 export const OUT_COLOR = '#1565C0'
-export const BALANCE_COLOR = '#1565C0'
-export const LOW_COLOR = '#EF6C00'
 export const NORMAL_COLOR = '#78909C'
 export const ACTIVATED_COLOR = '#1565C0'
 export const BAKING_COLOR = '#EF6C00'

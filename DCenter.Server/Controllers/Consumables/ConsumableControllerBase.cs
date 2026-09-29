@@ -46,10 +46,17 @@ public abstract class ConsumableControllerBase : ControllerBase
         }
         catch (DbUpdateException ex)
         {
-            HttpContext.RequestServices.GetRequiredService<ILogger<ConsumableControllerBase>>()
-                .LogWarning(ex, "Database update failed for {Scope}", scope);
-            return Conflict("Someone else saved a change at the same moment, so this was not recorded. Please try again.");
+            return SaveFailed(ex, scope);
         }
+    }
+
+    protected ObjectResult SaveFailed(DbUpdateException ex, string scope)
+    {
+        HttpContext.RequestServices.GetRequiredService<ILogger<ConsumableControllerBase>>()
+            .LogWarning(ex, "Database update failed for {Scope}", scope);
+        return ReportSaveRules.IsTruncation(ex)
+            ? BadRequest("One of the values is longer than the system allows, so nothing was saved. Shorten it and try again.")
+            : Conflict("Someone else saved a change at the same moment, so this was not recorded. Please try again.");
     }
 
     protected ActionResult<T> ToAction<T>(ServiceResult<T> result)

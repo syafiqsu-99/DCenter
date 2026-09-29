@@ -1,10 +1,12 @@
 <template>
-  <v-chip v-if="status" :color="status === 'Completed' ? 'success' : 'warning'" size="small" variant="tonal">
+  <v-chip v-if="status" :color="status === REPORT_STATUS.completed ? 'success' : 'warning'" size="small" variant="tonal">
     {{ status }}
   </v-chip>
   <span v-else class="text-medium-emphasis">—</span>
 </template>
 
 <script setup>
-  defineProps({ status: { type: String, default: '' } });
+  import { REPORT_STATUS } from '@/utils/constants'
+
+  defineProps({ status: { type: String, default: '' } })
 </script>

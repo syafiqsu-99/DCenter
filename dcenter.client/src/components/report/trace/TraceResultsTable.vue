@@ -37,14 +37,15 @@
 </template>
 
 <script setup>
-  import { computed } from 'vue';
-  import { storeToRefs } from 'pinia';
-  import { useRouter } from 'vue-router';
-  import { useReportStore } from '@/store/reportStore';
-  import ReportStatusChip from '@/components/report/ReportStatusChip.vue';
+  import { computed } from 'vue'
+  import { storeToRefs } from 'pinia'
+  import { useRouter } from 'vue-router'
+  import { useReportInsightsStore } from '@/store/reportInsightsStore'
+  import ReportStatusChip from '@/components/report/ReportStatusChip.vue'
+  import { downloadCsv as saveCsv } from '@/utils/files'
 
-  const router = useRouter();
-  const { traceResults, traceTruncated, traceSearched, loadingTrace, traceField, traceQuery } = storeToRefs(useReportStore());
+  const router = useRouter()
+  const { traceResults, traceTruncated, traceSearched, loadingTrace, traceField, traceQuery } = storeToRefs(useReportInsightsStore())
 
   const headers = [
     { title: 'Work Order Number', key: 'workOrderNumber', width: '150px' },
@@ -56,33 +57,21 @@
     { title: 'Welder', key: 'welder', sortable: false },
     { title: 'Part heat no.', key: 'heat', sortable: false },
     { title: 'Electrode heat/lot', key: 'heatLots' },
-  ];
+  ]
 
-  const reportCount = computed(() => new Set(traceResults.value.map((r) => r.workOrderNumber)).size);
+  const reportCount = computed(() => new Set(traceResults.value.map((r) => r.workOrderNumber)).size)
   const noDataText = computed(() =>
-    traceSearched.value ? 'No joints match this search.' : 'Type at least 2 characters to search.');
+    traceSearched.value ? 'No joints match this search.' : 'Type at least 2 characters to search.')
 
   function open(workOrderNumber) {
-    router.push({ name: 'report-editor', params: { workOrderNumber } });
-  }
-
-  function csvCell(v) {
-    let s = (v ?? '').toString();
-    if (/^[=+\-@\t\r]/.test(s)) s = `'${s}`;
-    return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+    router.push({ name: 'report-editor', params: { workOrderNumber } })
   }
 
   function downloadCsv() {
     const cols = ['workOrderNumber', 'partNo', 'status', 'dateWelded', 'jointNumber', 'wpsNo',
-      'welderName', 'welderNo', 'heatNumberLeft', 'heatNumberRight', 'heatLots'];
-    const lines = [cols.join(','), ...traceResults.value.map((r) => cols.map((c) => csvCell(r[c])).join(','))];
-    const blob = new Blob([`﻿${lines.join('\r\n')}`], { type: 'text/csv;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `trace-${traceField.value}-${traceQuery.value.trim().replace(/[^\w.-]+/g, '_')}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
+      'welderName', 'welderNo', 'heatNumberLeft', 'heatNumberRight', 'heatLots']
+    const rows = traceResults.value.map((r) => cols.map((c) => r[c]))
+    saveCsv(`trace-${traceField.value}-${traceQuery.value.trim().replace(/[^\w.-]+/g, '_')}.csv`, [cols, ...rows])
   }
 </script>
 

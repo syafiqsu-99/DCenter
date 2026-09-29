@@ -34,7 +34,7 @@ public sealed record LotStageRow(int LotId, int ItemId, StageTotals Totals);
 
 public sealed record BinRow(int LotId, int ItemId, int? CompartmentId, decimal Kg);
 
-public class ConsumableLedger(WeldReportContext db)
+public class ConsumableLedger(WeldReportContext db, TimeProvider time)
 {
     public IQueryable<ConsumableMovement> Live()
         => db.ConsumableMovements.AsNoTracking().Where(m => !m.IsVoided && m.TxnType != Cat.TxnVoid);
@@ -62,6 +62,9 @@ public class ConsumableLedger(WeldReportContext db)
     public Task<List<LotStageRow>> LotStagesForItemAsync(int itemId, CancellationToken ct)
         => LotStagesAsync(m => m.Lot.ItemId == itemId, ct);
 
+    public async Task<List<(int LotId, decimal Available)>> NormalLotsAsync(int itemId, CancellationToken ct)
+        => (await LotStagesForItemAsync(itemId, ct)).Select(l => (LotId: l.LotId, Available: l.Totals.NormalKg)).ToList();
+
     public async Task<List<BinRow>> ActivatedBinsAsync(Expression<Func<ConsumableMovement, bool>>? filter, CancellationToken ct)
     {
         var q = Live();
@@ -84,11 +87,10 @@ public class ConsumableLedger(WeldReportContext db)
             .ToList();
     }
 
-    public async Task<Dictionary<int, decimal>> BakingBalancesAsync(List<int>? recordIds, CancellationToken ct)
+    public async Task<Dictionary<int, decimal>> BakingBalancesAsync(List<int> recordIds, CancellationToken ct)
     {
-        var q = Live().Where(m => m.BakingRecordId != null);
-        if (recordIds is not null) q = q.Where(m => recordIds.Contains(m.BakingRecordId!.Value));
-        var rows = await q
+        var rows = await Live().Where(m => m.BakingRecordId != null)
+            .Where(m => recordIds.Contains(m.BakingRecordId!.Value))
             .GroupBy(m => m.BakingRecordId)
             .Select(g => new
             {
@@ -138,11 +140,9 @@ public class ConsumableLedger(WeldReportContext db)
         return balance > 0 ? Cat.StatusBaked : Cat.StatusClosed;
     }
 
-    public async Task<Dictionary<int, StageTotals>> ItemTotalsAsync(List<int>? itemIds, CancellationToken ct)
+    public async Task<Dictionary<int, StageTotals>> ItemTotalsAsync(List<int> itemIds, CancellationToken ct)
     {
-        var rows = itemIds is null
-            ? await LotStagesAsync(null, ct)
-            : await LotStagesAsync(m => itemIds.Contains(m.Lot.ItemId), ct);
+        var rows = await LotStagesAsync(m => itemIds.Contains(m.Lot.ItemId), ct);
         return rows.GroupBy(r => r.ItemId).ToDictionary(g => g.Key, g => StageTotals.Sum(g.Select(x => x.Totals)));
     }
 
@@ -182,7 +182,7 @@ public class ConsumableLedger(WeldReportContext db)
         command.CommandText = $"SELECT NEXT VALUE FOR [dbo].[{sequence}]";
         command.Transaction = db.Database.CurrentTransaction?.GetDbTransaction();
         var next = Convert.ToInt64(await command.ExecuteScalarAsync(ct));
-        return $"{prefix}-{DateTime.Now:yy}-{next.ToString(pattern)}";
+        return $"{prefix}-{time.LocalNow():yy}-{next.ToString(pattern)}";
     }
 
     public static IQueryable<TransactionDto> Project(IQueryable<ConsumableMovement> q)

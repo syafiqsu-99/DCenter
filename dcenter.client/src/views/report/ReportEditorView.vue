@@ -12,33 +12,33 @@
 </template>
 
 <script setup>
-  import { watch } from 'vue';
-  import { storeToRefs } from 'pinia';
-  import { useRoute, useRouter } from 'vue-router';
-  import { useReportStore } from '@/store/reportStore';
-  import ReportForm from '@/components/report/ReportForm.vue';
-  import ReportActions from '@/components/report/ReportActions.vue';
+  import { watch } from 'vue'
+  import { storeToRefs } from 'pinia'
+  import { useRoute, useRouter } from 'vue-router'
+  import { useReportStore } from '@/store/reportStore'
+  import ReportForm from '@/components/report/ReportForm.vue'
+  import ReportActions from '@/components/report/ReportActions.vue'
 
-  const route = useRoute();
-  const router = useRouter();
-  const store = useReportStore();
-  const { confirmed, report, loading, mode } = storeToRefs(store);
+  const route = useRoute()
+  const router = useRouter()
+  const store = useReportStore()
+  const { confirmed, report, loading, mode } = storeToRefs(store)
 
   watch(
     () => [route.name, route.params.workOrderNumber, route.params.source],
     ([name, wo, source]) => {
-      if (name === 'report-editor') store.loadForWorkOrder(wo);
-      else if (name === 'report-duplicate' && !(confirmed.value && mode.value === 'duplicate')) store.duplicateReport(source);
+      if (name === 'report-editor') store.loadForWorkOrder(wo)
+      else if (name === 'report-duplicate' && !(confirmed.value && mode.value === 'duplicate')) store.duplicateReport(source)
     },
     { immediate: true },
-  );
+  )
 
   watch(
     () => [mode.value, report.value?.workOrderNumber],
     ([m, wo]) => {
       if (route.name === 'report-duplicate' && m === 'saved' && wo) {
-        router.replace({ name: 'report-editor', params: { workOrderNumber: wo } });
+        router.replace({ name: 'report-editor', params: { workOrderNumber: wo } })
       }
     },
-  );
+  )
 </script>

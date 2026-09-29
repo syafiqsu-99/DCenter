@@ -5,6 +5,8 @@ namespace DCenter.Server.Tests;
 
 public class ConsumableGuardsTests
 {
+    private static readonly DateOnly Today = new(2026, 3, 15);
+
     private static ItemRef Electrode => new(1, Cat.ElectrodeFiller, "3.20 E7018", null, true, Cat.OvenMildSteel);
     private static ItemRef Filler => new(2, Cat.BarePowderFiller, "2.40 ER70S-6", null, true, null);
 
@@ -54,25 +56,23 @@ public class ConsumableGuardsTests
     [Fact]
     public void Common_RequiresAUser()
     {
-        Assert.NotNull(ConsumableGuards.Common("  ", null).Error);
+        Assert.NotNull(ConsumableGuards.Common("  ", null, Today).Error);
     }
 
     [Fact]
     public void Common_RejectsFutureDates()
     {
-        var tomorrow = DateOnly.FromDateTime(DateTime.Now).AddDays(1);
-
-        Assert.Equal("Date cannot be in the future.", ConsumableGuards.Common("Ali", tomorrow).Error);
+        Assert.Equal("Date cannot be in the future.", ConsumableGuards.Common("Ali", Today.AddDays(1), Today).Error);
     }
 
     [Fact]
     public void Common_DefaultsToToday()
     {
-        var (user, date, error) = ConsumableGuards.Common(" Ali  Bin ", null);
+        var (user, date, error) = ConsumableGuards.Common(" Ali  Bin ", null, Today);
 
         Assert.Null(error);
         Assert.Equal("Ali Bin", user);
-        Assert.Equal(DateOnly.FromDateTime(DateTime.Now), date);
+        Assert.Equal(Today, date);
     }
 
     [Theory]
@@ -113,7 +113,7 @@ public class ConsumableGuardsTests
     [InlineData("", "Ali", false)]
     public void DuplicateWelderNumber_IsRefusedOnlyWhenAlreadyRegistered(string number, string? registeredTo, bool refused)
     {
-        var error = DCenter.Server.Controllers.WeldersController.DuplicateNumberError(number, registeredTo);
+        var error = WelderService.DuplicateNumberError(number, registeredTo);
 
         Assert.Equal(refused, error is not null);
     }

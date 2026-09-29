@@ -3,7 +3,8 @@ import api from '@/utils/api'
 import { useBpvcStore } from '@/store/bpvcStore'
 import { useWpsStore } from '@/store/wpsStore'
 import { todayIso } from '@/utils/date'
-import { errorText } from '@/utils/consumables'
+import { errorText } from '@/utils/errors'
+import { MAX_JOINTS } from '@/utils/constants'
 
 function blankMaterial(col) {
   return { id: 0, columnNumber: col, process: '', size: '', type: '', manuf: '', heatLot: '' }
@@ -124,7 +125,8 @@ async function fetchChildren(items) {
     for (const [key, links] of grouped) childrenByItem.set(key, links)
   }))
 }
-let traceToken = 0
+let reportToken = 0
+let autofillToken = 0
 let woOptionTimer = null
 let woOptionToken = 0
 
@@ -137,7 +139,6 @@ export const useReportStore = defineStore('report', {
     loadingRows: false,
     loadingMoreRows: false,
     confirmed: false,
-    resolvedWorkOrder: '',
     report: null,
     loading: false,
     saving: false,
@@ -159,17 +160,6 @@ export const useReportStore = defineStore('report', {
     autoPNo: blankAutoPNo(),
     recent: readRecent(),
     listTab: 'all',
-    dashboard: null,
-    dashboardMonths: 6,
-    loadingDashboard: false,
-    dashboardError: '',
-    traceField: 'welder',
-    traceQuery: '',
-    traceResults: [],
-    traceTruncated: false,
-    traceSearched: false,
-    loadingTrace: false,
-    traceError: '',
   }),
 
   getters: {
@@ -228,6 +218,20 @@ export const useReportStore = defineStore('report', {
   },
 
   actions: {
+    // Without a sign-off the file prints the defaults (used for the PDF preview).
+    async fetchReportFile(workOrderNumber, kind, signOff = null) {
+      const url = `/reports/${encodeURIComponent(workOrderNumber)}/${kind}`
+      const { data } = signOff
+        ? await api.post(url, signOff, { responseType: 'blob' })
+        : await api.get(url, { responseType: 'blob' })
+      return data
+    },
+
+    async fetchSignOff(workOrderNumber) {
+      const { data } = await api.get(`/reports/${encodeURIComponent(workOrderNumber)}/signoff`)
+      return data
+    },
+
     setSearchInput(value) {
       this.searchInput = value ?? ''
       clearTimeout(searchTimer)
@@ -383,31 +387,31 @@ export const useReportStore = defineStore('report', {
       }
     },
 
+    // null when the work order does not exist; connection or server errors are thrown so they are not
+    // reported to the user as "not found".
     async fetchHeader(workOrderNumber) {
-      try {
-        const { data } = await api.get(`/workorders/${encodeURIComponent(workOrderNumber)}/header`)
-        return data && typeof data === 'object'
-          ? { assemblyItem: data.partNo, assemblyDesc: data.description }
-          : null
-      } catch {
-        return null
-      }
+      const { data } = await api.get(`/workorders/${encodeURIComponent(workOrderNumber)}/header`)
+      return data && typeof data === 'object'
+        ? { assemblyItem: data.partNo, assemblyDesc: data.description }
+        : null
     },
 
     async loadForWorkOrder(workOrderNumber, { force = false } = {}) {
       const wo = (workOrderNumber ?? '').trim()
       if (!wo) return false
       if (!force && this.confirmed && this.report?.workOrderNumber === wo) return true
-      this.resolvedWorkOrder = wo
+      const token = ++reportToken
       this.loading = true
       this.error = ''
       this.conflict = false
       this.history = []
       try {
         const res = await api.get(`/reports/${encodeURIComponent(wo)}`)
+        if (token !== reportToken) return false
         const isNew = res.status === 204 || !res.data
         if (isNew) {
           const summary = this.searchResults.find((r) => r.workOrderNumber === wo) ?? await this.fetchHeader(wo)
+          if (token !== reportToken) return false
           if (!summary) {
             this.backToList()
             this.error = `Work order ${wo} was not found.`
@@ -427,11 +431,12 @@ export const useReportStore = defineStore('report', {
         this.loadTree(wo).catch(() => {})
         return true
       } catch {
+        if (token !== reportToken) return false
         this.backToList()
         this.error = `Could not open the report for ${wo}.`
         return false
       } finally {
-        this.loading = false
+        if (token === reportToken) this.loading = false
       }
     },
 
@@ -492,7 +497,6 @@ export const useReportStore = defineStore('report', {
         const { data } = await api.post('/reports', this.report)
         this.report = normalizeJoints(data)
         this.mode = 'saved'
-        this.resolvedWorkOrder = this.report.workOrderNumber
         this.markPristine()
         this.rememberRecent(this.report.workOrderNumber)
         await this.loadSavedReports()
@@ -532,7 +536,7 @@ export const useReportStore = defineStore('report', {
     },
 
     setJointCount(n) {
-      const count = Math.min(50, Math.max(1, Math.round(n) || 1))
+      const count = Math.min(MAX_JOINTS, Math.max(1, Math.round(n) || 1))
       const joints = this.report.joints
       if (joints.length > count) joints.length = count
       else while (joints.length < count) joints.push(blankJoint(joints.length))
@@ -573,7 +577,6 @@ export const useReportStore = defineStore('report', {
     backToList() {
       this.confirmed = false
       this.report = null
-      this.resolvedWorkOrder = ''
       this.history = []
       this.conflict = false
       this.savedSnapshot = ''
@@ -596,10 +599,12 @@ export const useReportStore = defineStore('report', {
     },
 
     async duplicateReport(workOrderNumber) {
+      const token = ++reportToken
       this.loading = true
       this.error = ''
       try {
         const res = await api.get(`/reports/${encodeURIComponent(workOrderNumber)}`)
+        if (token !== reportToken) return false
         if (res.status === 204 || !res.data) {
           this.error = 'That report no longer exists.'
           return false
@@ -621,7 +626,6 @@ export const useReportStore = defineStore('report', {
             materials: (j.materials ?? []).map((m) => ({ ...m, id: 0 })),
           })),
         }
-        this.resolvedWorkOrder = ''
         this.mode = 'duplicate'
         this.confirmed = true
         this.history = []
@@ -632,10 +636,10 @@ export const useReportStore = defineStore('report', {
         this.ensureRefData()
         return true
       } catch {
-        this.error = 'Could not duplicate the report.'
+        if (token === reportToken) this.error = 'Could not duplicate the report.'
         return false
       } finally {
-        this.loading = false
+        if (token === reportToken) this.loading = false
       }
     },
 
@@ -649,8 +653,11 @@ export const useReportStore = defineStore('report', {
         : ''
       if (!wo) { this.reportParts = []; return }
       this.loadReportParts(wo)
+      const token = ++autofillToken
+      const report = this.report
       try {
         const { data } = await api.get(`/workorders/${encodeURIComponent(wo)}/header`)
+        if (token !== autofillToken || this.report !== report) return
         if (data && typeof data === 'object') {
           this.report.partNo = data.partNo ?? ''
           this.report.description = data.description ?? ''
@@ -660,45 +667,6 @@ export const useReportStore = defineStore('report', {
       }
     },
 
-    async loadDashboard(months = this.dashboardMonths) {
-      this.dashboardMonths = months
-      this.loadingDashboard = true
-      this.dashboardError = ''
-      try {
-        const { data } = await api.get('/reports/dashboard', { params: { months } })
-        this.dashboard = data
-      } catch {
-        this.dashboardError = 'Could not load the report dashboard.'
-      } finally {
-        this.loadingDashboard = false
-      }
-    },
-
-    async searchTrace() {
-      const q = this.traceQuery.trim()
-      if (q.length < MIN_QUERY_LENGTH) {
-        this.traceResults = []
-        this.traceTruncated = false
-        this.traceSearched = false
-        return
-      }
-      const token = ++traceToken
-      this.loadingTrace = true
-      this.traceError = ''
-      try {
-        const { data } = await api.get('/reports/trace', { params: { field: this.traceField, q } })
-        if (token !== traceToken) return
-        this.traceResults = data.items ?? []
-        this.traceTruncated = !!data.truncated
-        this.traceSearched = true
-      } catch (e) {
-        if (token !== traceToken) return
-        this.traceError = typeof e.response?.data === 'string' && e.response.data ? e.response.data : 'Search failed.'
-        this.traceResults = []
-      } finally {
-        if (token === traceToken) this.loadingTrace = false
-      }
-    },
 
     markPristine() {
       this.savedSnapshot = this.report ? JSON.stringify(this.report) : ''

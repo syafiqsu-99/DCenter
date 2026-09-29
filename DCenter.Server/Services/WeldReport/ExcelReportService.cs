@@ -14,7 +14,7 @@ public class ExcelReportService
     // Fit-to-width only ever scales down, so the joint page breaks stay valid wherever the sheet prints.
     private const double ColumnWidth = 3.29;
 
-    public byte[] Generate(Report r)
+    internal byte[] Generate(Report r, ResolvedSignOff signOff)
     {
         using var wb = new XLWorkbook();
         var ws = wb.Worksheets.Add("Weld Order Card");
@@ -29,7 +29,7 @@ public class ExcelReportService
 
         var weldDate = WeldCardLayout.FormatDate(r.DateWelded);
         var joints = r.Joints.OrderBy(x => x.JointNumber)
-            .Select(j => WeldCardLayout.Joint(j, weldDate))
+            .Select(j => WeldCardLayout.Joint(j, weldDate, signOff))
             .ToList();
         var pageStarts = WeldCardLayout.PageStarts(
             WeldCardLayout.BannerHeight + header.Height, joints.Select(s => s.Height)).ToHashSet();

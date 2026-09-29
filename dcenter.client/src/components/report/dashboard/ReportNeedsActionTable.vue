@@ -20,14 +20,14 @@
 </template>
 
 <script setup>
-  import { computed } from 'vue';
-  import { storeToRefs } from 'pinia';
-  import { useRouter } from 'vue-router';
-  import { useReportStore } from '@/store/reportStore';
+  import { computed } from 'vue'
+  import { storeToRefs } from 'pinia'
+  import { useRouter } from 'vue-router'
+  import { useReportInsightsStore } from '@/store/reportInsightsStore'
 
-  const router = useRouter();
-  const { dashboard, loadingDashboard } = storeToRefs(useReportStore());
-  const rows = computed(() => dashboard.value?.needsAction ?? []);
+  const router = useRouter()
+  const { dashboard, loadingDashboard } = storeToRefs(useReportInsightsStore())
+  const rows = computed(() => dashboard.value?.needsAction ?? [])
 
   const headers = [
     { title: 'Work Order Number', key: 'workOrderNumber', width: '150px' },
@@ -36,10 +36,10 @@
     { title: 'Joints', key: 'jointCount', width: '80px', align: 'center' },
     { title: 'Reason', key: 'reason', width: '230px' },
     { title: 'Last updated', key: 'updatedAt', width: '180px' },
-  ];
+  ]
 
   function open(workOrderNumber) {
-    router.push({ name: 'report-editor', params: { workOrderNumber } });
+    router.push({ name: 'report-editor', params: { workOrderNumber } })
   }
 </script>
 

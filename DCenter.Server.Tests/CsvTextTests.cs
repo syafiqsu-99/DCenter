@@ -57,4 +57,26 @@ public class CsvTextTests
     {
         Assert.Equal("Café", CsvText.Decode([0x43, 0x61, 0x66, 0xE9]));
     }
+
+    private enum TestCol { Spec, Qty }
+
+    [Fact]
+    public void MapHeader_MatchesByLettersAndReportsProblems()
+    {
+        var aliases = new Dictionary<string, TestCol>(StringComparer.OrdinalIgnoreCase) { ["Specification"] = TestCol.Spec, ["Qty"] = TestCol.Qty };
+        string[] names = ["Specification", "Qty (KG)"];
+
+        var (columns, errors) = CsvText.MapHeader(["Qty (KG)", " specification "], aliases, [TestCol.Spec, TestCol.Qty], names);
+        Assert.Empty(errors);
+        Assert.Equal(1, columns[TestCol.Spec]);
+        Assert.Equal(0, columns[TestCol.Qty]);
+
+        var (_, withKg) = CsvText.MapHeader(["QtyKG", "Specification"], aliases, [TestCol.Qty], names, stripKgSuffix: true);
+        Assert.Empty(withKg);
+
+        var (_, problems) = CsvText.MapHeader(["Qty", "Qty"], aliases, [TestCol.Spec], names);
+        Assert.Equal(2, problems.Count);
+        Assert.Contains(problems, e => e.Contains("appears more than once"));
+        Assert.Contains(problems, e => e.Contains("Missing required column \"Specification\""));
+    }
 }
