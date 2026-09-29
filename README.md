@@ -72,6 +72,7 @@ Secrets and connection strings belong in environment variables, not in `appsetti
 | `Consumables__WelderBackdateDays` | Optional: how many days back welders may date entries (default 7; supervisors are not limited) |
 | `DataProtection__KeysPath` | Optional: folder for session-signing keys (default `DCenter.Server/App_Data/keys`; the IIS app pool needs write access) |
 | `DCenter__AutoMigrate` | Optional: apply pending EF Core migrations at startup (default `true`; set `false` when a DBA applies scripts) |
+| `WeldReport__DefaultEngineer` | Optional: Engineer / Supervisor name prefilled on the Weld Order Card PDF and Excel (default `Aizat Karim`) |
 | `Consumables__SupervisorSessionHours` | Optional: lifetime of one supervisor token before it must be refreshed (default 12, 1–24) |
 | `Consumables__SupervisorMaxSessionHours` | Optional: a supervisor must log in again this many hours after the original login, however often the session was refreshed (default 24) |
 

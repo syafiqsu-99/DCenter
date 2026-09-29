@@ -1,6 +1,7 @@
 using DCenter.Server.Models;
 using DCenter.Server.Services;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Options;
 
 namespace DCenter.Server.Controllers;
 
@@ -12,6 +13,8 @@ public class ReportsController(
     PdfReportService pdf,
     ExcelReportService excel,
     SupervisorAuth supervisors,
+    TimeProvider time,
+    IOptions<WeldReportOptions> weldReportOptions,
     ILogger<ReportsController> logger) : ControllerBase
 {
     [HttpGet]
@@ -97,21 +100,45 @@ public class ReportsController(
         }
     }
 
-    [HttpGet("{workOrderNumber}/pdf")]
-    public async Task<IActionResult> Pdf(string workOrderNumber, CancellationToken ct)
+    private string DefaultEngineer => weldReportOptions.Value.DefaultEngineer;
+
+    [HttpGet("{workOrderNumber}/signoff")]
+    public async Task<ActionResult<ReportSignOff>> SignOff(string workOrderNumber, CancellationToken ct)
     {
         var r = await reports.GetEntityAsync(workOrderNumber, ct);
         if (r is null) return NotFound();
-        var bytes = pdf.Generate(r);
+        return Ok(ReportSignOffRules.Defaults(r, time.Today(), DefaultEngineer));
+    }
+
+    [HttpGet("{workOrderNumber}/pdf")]
+    public Task<IActionResult> Pdf(string workOrderNumber, CancellationToken ct)
+        => PdfFile(workOrderNumber, null, ct);
+
+    [HttpPost("{workOrderNumber}/pdf")]
+    public Task<IActionResult> PdfWithSignOff(string workOrderNumber, ReportSignOff signOff, CancellationToken ct)
+        => PdfFile(workOrderNumber, signOff, ct);
+
+    [HttpGet("{workOrderNumber}/excel")]
+    public Task<IActionResult> Excel(string workOrderNumber, CancellationToken ct)
+        => ExcelFile(workOrderNumber, null, ct);
+
+    [HttpPost("{workOrderNumber}/excel")]
+    public Task<IActionResult> ExcelWithSignOff(string workOrderNumber, ReportSignOff signOff, CancellationToken ct)
+        => ExcelFile(workOrderNumber, signOff, ct);
+
+    private async Task<IActionResult> PdfFile(string workOrderNumber, ReportSignOff? signOff, CancellationToken ct)
+    {
+        var r = await reports.GetEntityAsync(workOrderNumber, ct);
+        if (r is null) return NotFound();
+        var bytes = pdf.Generate(r, ReportSignOffRules.Resolve(r, signOff, time.Today(), DefaultEngineer));
         return File(bytes, "application/pdf");
     }
 
-    [HttpGet("{workOrderNumber}/excel")]
-    public async Task<IActionResult> Excel(string workOrderNumber, CancellationToken ct)
+    private async Task<IActionResult> ExcelFile(string workOrderNumber, ReportSignOff? signOff, CancellationToken ct)
     {
         var r = await reports.GetEntityAsync(workOrderNumber, ct);
         if (r is null) return NotFound();
-        var bytes = excel.Generate(r);
+        var bytes = excel.Generate(r, ReportSignOffRules.Resolve(r, signOff, time.Today(), DefaultEngineer));
         return File(bytes,
             "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
             $"WeldOrderCard_{workOrderNumber}.xlsx");

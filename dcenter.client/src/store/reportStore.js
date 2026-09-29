@@ -218,8 +218,17 @@ export const useReportStore = defineStore('report', {
   },
 
   actions: {
-    async fetchReportFile(workOrderNumber, kind) {
-      const { data } = await api.get(`/reports/${encodeURIComponent(workOrderNumber)}/${kind}`, { responseType: 'blob' })
+    // Without a sign-off the file prints the defaults (used for the PDF preview).
+    async fetchReportFile(workOrderNumber, kind, signOff = null) {
+      const url = `/reports/${encodeURIComponent(workOrderNumber)}/${kind}`
+      const { data } = signOff
+        ? await api.post(url, signOff, { responseType: 'blob' })
+        : await api.get(url, { responseType: 'blob' })
+      return data
+    },
+
+    async fetchSignOff(workOrderNumber) {
+      const { data } = await api.get(`/reports/${encodeURIComponent(workOrderNumber)}/signoff`)
       return data
     },
 

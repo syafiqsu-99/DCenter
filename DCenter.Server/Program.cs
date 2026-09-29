@@ -47,6 +47,7 @@ builder.Services.AddSingleton<IdempotencyGate>();
 builder.Services.AddScoped<WorkOrderSearchService>();
 builder.Services.AddScoped<ReportService>();
 builder.Services.AddScoped<ReportInsightsService>();
+builder.Services.Configure<WeldReportOptions>(builder.Configuration.GetSection(WeldReportOptions.Section));
 builder.Services.AddScoped<PdfReportService>();
 builder.Services.AddScoped<ExcelReportService>();
 builder.Services.Configure<ConsumableOptions>(builder.Configuration.GetSection(ConsumableOptions.Section));

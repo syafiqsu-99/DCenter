@@ -5,7 +5,7 @@
       <v-toolbar density="comfortable" color="surface">
         <v-toolbar-title class="text-subtitle-1">PDF preview — {{ workOrderNumber }}</v-toolbar-title>
         <v-spacer />
-        <v-btn variant="text" prepend-icon="mdi-download" :disabled="!pdfUrl" @click="download">Download</v-btn>
+        <v-btn variant="text" prepend-icon="mdi-download" :disabled="!pdfUrl" @click="signOffOpen = true">Download</v-btn>
         <v-btn icon="mdi-close" aria-label="Close PDF preview" @click="emit('update:modelValue', false)" />
       </v-toolbar>
       <v-divider />
@@ -16,6 +16,8 @@
         <v-alert v-else-if="error" type="error" variant="tonal" max-width="480">{{ error }}</v-alert>
       </div>
     </v-card>
+    <ReportSignOffDialog v-model="signOffOpen" :work-order-number="workOrderNumber" confirm-label="Download PDF"
+                         :busy="downloading" @confirm="download" />
   </v-dialog>
 </template>
 
@@ -23,6 +25,8 @@
   import { ref, watch } from 'vue'
   import { useReportStore } from '@/store/reportStore'
   import { reportFileName } from '@/utils/fileName'
+  import { saveBlob } from '@/utils/files'
+  import ReportSignOffDialog from '@/components/report/ReportSignOffDialog.vue'
 
   const props = defineProps({
     modelValue: { type: Boolean, default: false },
@@ -35,6 +39,8 @@
   const pdfUrl = ref('')
   const loading = ref(false)
   const error = ref('')
+  const signOffOpen = ref(false)
+  const downloading = ref(false)
   let requestId = 0
   const reportStore = useReportStore()
 
@@ -61,13 +67,17 @@
     loading.value = false
   }
 
-  function download() {
-    if (!pdfUrl.value) return
-    const name = reportFileName(props.workOrderNumber, props.partNo, props.description)
-    const a = document.createElement('a')
-    a.href = pdfUrl.value
-    a.download = `${name}.pdf`
-    a.click()
+  async function download(signOff) {
+    downloading.value = true
+    try {
+      const blob = await reportStore.fetchReportFile(props.workOrderNumber, 'pdf', signOff)
+      saveBlob(blob, `${reportFileName(props.workOrderNumber, props.partNo, props.description)}.pdf`)
+      signOffOpen.value = false
+    } catch {
+      error.value = 'Could not download the PDF.'
+    } finally {
+      downloading.value = false
+    }
   }
 
   watch(() => props.modelValue, (open) => {
