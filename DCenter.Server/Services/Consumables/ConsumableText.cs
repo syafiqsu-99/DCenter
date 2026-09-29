@@ -6,7 +6,6 @@ namespace DCenter.Server.Services;
 
 internal static partial class ConsumableText
 {
-    public static DateOnly Today => DateOnly.FromDateTime(DateTime.Now);
 
     public static decimal RoundKg(decimal value) => Math.Round(value, 2, MidpointRounding.AwayFromZero);
 
@@ -61,6 +60,10 @@ internal static partial class ConsumableText
         => message.StartsWith(WarningPrefix, StringComparison.Ordinal) || message.StartsWith(StandardizedPrefix, StringComparison.Ordinal);
 
     public const string WarningPrefix = "Warning:";
+
+    public const int MaxPageSize = 200;
+
+    public static string ItemKey(string specification, string diameter) => $"{specification}|{diameter}".ToUpperInvariant();
 
     public static (string? Value, string? Suggestion) MatchOption(string? raw, IReadOnlyList<string> options)
     {

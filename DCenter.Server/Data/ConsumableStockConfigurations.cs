@@ -34,6 +34,7 @@ public static class ConsumableStockModel
         b.ApplyConfiguration(new HoldingRecordConfiguration());
         b.ApplyConfiguration(new StockCountConfiguration());
         b.ApplyConfiguration(new SupervisorCredentialConfiguration());
+        b.ApplyConfiguration(new SupervisorRevokedTokenConfiguration());
 
         b.Entity<Welder>(e =>
         {
@@ -152,6 +153,7 @@ public class ConsumableMovementConfiguration : IEntityTypeConfiguration<Consumab
             .IncludeProperties(x => new { x.LotId, x.QuantityKg, x.IsVoided, x.TxnType });
         e.HasIndex(x => x.BakingRecordId).HasFilter("[BakingRecordId] IS NOT NULL");
         e.HasIndex(x => x.CreatedAt);
+        e.HasIndex(x => x.ReferenceNo).HasFilter("[ReferenceNo] IS NOT NULL");
     }
 }
 
@@ -283,5 +285,16 @@ public class SupervisorCredentialConfiguration : IEntityTypeConfiguration<Superv
         e.Property(x => x.Id).ValueGeneratedNever();
         e.Property(x => x.PasswordHash).HasMaxLength(200).IsRequired();
         e.Property(x => x.UpdatedBy).HasMaxLength(100);
+    }
+}
+
+public class SupervisorRevokedTokenConfiguration : IEntityTypeConfiguration<SupervisorRevokedToken>
+{
+    public void Configure(EntityTypeBuilder<SupervisorRevokedToken> e)
+    {
+        e.ToTable("DCenter_SupervisorRevokedTokens");
+        e.HasKey(x => x.Fingerprint);
+        e.Property(x => x.Fingerprint).HasMaxLength(64).IsUnicode(false);
+        e.HasIndex(x => x.ExpiresAt);
     }
 }

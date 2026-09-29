@@ -8,6 +8,7 @@ namespace DCenter.Server.Controllers;
 [Route("api/[controller]")]
 public class ReportsController(
     ReportService reports,
+    ReportInsightsService insights,
     PdfReportService pdf,
     ExcelReportService excel,
     SupervisorAuth supervisors,
@@ -19,15 +20,15 @@ public class ReportsController(
 
     [HttpGet("dashboard")]
     public async Task<ActionResult<ReportDashboardDto>> Dashboard([FromQuery] int months = 6, CancellationToken ct = default)
-        => Ok(await reports.GetDashboardAsync(months, ct));
+        => Ok(await insights.GetDashboardAsync(months, ct));
 
     [HttpGet("trace")]
     public async Task<ActionResult<TraceResponse>> Trace([FromQuery] string? field, [FromQuery] string? q, CancellationToken ct)
     {
         var term = q?.Trim() ?? "";
-        if (field is null || !ReportService.TraceFields.Contains(field)) return BadRequest("Unknown search field.");
+        if (field is null || !ReportInsightsService.TraceFields.Contains(field)) return BadRequest("Unknown search field.");
         if (term.Length < 2) return BadRequest("Type at least 2 characters to search.");
-        return Ok(await reports.TraceAsync(field, term, ct));
+        return Ok(await insights.TraceAsync(field, term, ct));
     }
 
     [HttpGet("{workOrderNumber}")]
@@ -80,6 +81,8 @@ public class ReportsController(
     {
         if (string.IsNullOrWhiteSpace(dto.WorkOrderNumber))
             return BadRequest("Work order number is required.");
+        if (dto.WorkOrderNumber.Length > ReportSaveRules.MaxWorkOrderLength)
+            return BadRequest($"Work order number is limited to {ReportSaveRules.MaxWorkOrderLength} characters.");
         if (dto.DateWelded is null)
             return BadRequest("Date welded is required to save a report.");
         if (dto.Joints.Count > ReportSaveRules.MaxJoints)

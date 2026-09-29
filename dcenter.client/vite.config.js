@@ -1,23 +1,23 @@
-import { fileURLToPath, URL } from 'node:url';
+import { fileURLToPath, URL } from 'node:url'
 
-import { defineConfig } from 'vite';
-import plugin from '@vitejs/plugin-vue';
-import fs from 'fs';
-import path from 'path';
-import child_process from 'child_process';
-import { env } from 'process';
+import { defineConfig } from 'vite'
+import plugin from '@vitejs/plugin-vue'
+import fs from 'fs'
+import path from 'path'
+import child_process from 'child_process'
+import { env } from 'process'
 
 const baseFolder =
     env.APPDATA !== undefined && env.APPDATA !== ''
         ? `${env.APPDATA}/ASP.NET/https`
-        : `${env.HOME}/.aspnet/https`;
+        : `${env.HOME}/.aspnet/https`
 
-const certificateName = "dcenter.client";
-const certFilePath = path.join(baseFolder, `${certificateName}.pem`);
-const keyFilePath = path.join(baseFolder, `${certificateName}.key`);
+const certificateName = 'dcenter.client'
+const certFilePath = path.join(baseFolder, `${certificateName}.pem`)
+const keyFilePath = path.join(baseFolder, `${certificateName}.key`)
 
 if (!fs.existsSync(baseFolder)) {
-    fs.mkdirSync(baseFolder, { recursive: true });
+    fs.mkdirSync(baseFolder, { recursive: true })
 }
 
 if (!fs.existsSync(certFilePath) || !fs.existsSync(keyFilePath)) {
@@ -30,12 +30,12 @@ if (!fs.existsSync(certFilePath) || !fs.existsSync(keyFilePath)) {
         'Pem',
         '--no-password',
     ], { stdio: 'inherit', }).status) {
-        throw new Error("Could not create certificate.");
+        throw new Error('Could not create certificate.')
     }
 }
 
 const target = env.ASPNETCORE_HTTPS_PORT ? `https://localhost:${env.ASPNETCORE_HTTPS_PORT}` :
-    env.ASPNETCORE_URLS ? env.ASPNETCORE_URLS.split(';')[0] : 'https://localhost:7260';
+    env.ASPNETCORE_URLS ? env.ASPNETCORE_URLS.split(';')[0] : 'https://localhost:7260'
 
 export default defineConfig({
     plugins: [plugin()],
@@ -48,10 +48,10 @@ export default defineConfig({
         rollupOptions: {
             output: {
                 manualChunks(id) {
-                    if (!id.includes('node_modules')) return;
-                    if (id.includes('vuetify')) return 'vuetify';
-                    if (id.includes('@mdi')) return 'icons';
-                    if (/[\\/]node_modules[\\/](vue|vue-router|pinia|@vue)[\\/]/.test(id)) return 'vue';
+                    if (!id.includes('node_modules')) return
+                    if (id.includes('vuetify')) return 'vuetify'
+                    if (id.includes('@mdi')) return 'icons'
+                    if (/[\\/]node_modules[\\/](vue|vue-router|pinia|@vue)[\\/]/.test(id)) return 'vue'
                 }
             }
         },

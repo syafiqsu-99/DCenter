@@ -153,10 +153,6 @@ namespace DCenter.Server.Migrations
                         .HasMaxLength(100)
                         .HasColumnType("nvarchar(100)");
 
-                    b.Property<string>("SpecNoRaw")
-                        .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)");
-
                     b.Property<string>("TypicalProductForm")
                         .HasMaxLength(200)
                         .HasColumnType("nvarchar(200)");
@@ -167,7 +163,7 @@ namespace DCenter.Server.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("SpecNo", "PNo");
+                    b.HasIndex("SpecNo", "Designation", "UnsNo", "PNo");
 
                     b.ToTable("DCenter_BpvcIx", (string)null);
                 });
@@ -366,6 +362,9 @@ namespace DCenter.Server.Migrations
                     b.HasIndex("LotId");
 
                     SqlServerIndexBuilderExtensions.IncludeProperties(b.HasIndex("LotId"), new[] { "TxnType", "FromStage", "ToStage", "QuantityKg", "IsVoided" });
+
+                    b.HasIndex("ReferenceNo")
+                        .HasFilter("[ReferenceNo] IS NOT NULL");
 
                     b.HasIndex("ToCompartmentId")
                         .HasFilter("[ToCompartmentId] IS NOT NULL");
@@ -626,13 +625,9 @@ namespace DCenter.Server.Migrations
                         .HasMaxLength(100)
                         .HasColumnType("nvarchar(100)");
 
-                    b.Property<string>("SpecNoRaw")
-                        .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)");
-
                     b.HasKey("Id");
 
-                    b.HasIndex("Mrn");
+                    b.HasIndex("Mrn", "SpecNo");
 
                     b.ToTable("DCenter_MrnSpecs", (string)null);
                 });
@@ -1092,6 +1087,8 @@ namespace DCenter.Server.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("UpdatedAt");
+
                     b.HasIndex("WorkOrderNumber")
                         .IsUnique();
 
@@ -1222,6 +1219,23 @@ namespace DCenter.Server.Migrations
                         });
                 });
 
+            modelBuilder.Entity("DCenter.Server.Entities.SupervisorRevokedToken", b =>
+                {
+                    b.Property<string>("Fingerprint")
+                        .HasMaxLength(64)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(64)");
+
+                    b.Property<DateTimeOffset>("ExpiresAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.HasKey("Fingerprint");
+
+                    b.HasIndex("ExpiresAt");
+
+                    b.ToTable("DCenter_SupervisorRevokedTokens", (string)null);
+                });
+
             modelBuilder.Entity("DCenter.Server.Entities.Welder", b =>
                 {
                     b.Property<int>("Id")
@@ -1291,8 +1305,6 @@ namespace DCenter.Server.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("PNo");
-
-                    b.HasIndex("WpsNo");
 
                     b.HasIndex("WpsNo", "PNo")
                         .IsUnique();

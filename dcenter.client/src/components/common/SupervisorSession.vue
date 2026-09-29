@@ -7,6 +7,7 @@
   import { onBeforeUnmount, onMounted, ref, watch } from 'vue'
   import { useRoute, useRouter } from 'vue-router'
   import { useConsumableStore } from '@/store/consumableStore'
+  import { useSupervisorStore } from '@/store/supervisorStore'
   import SupervisorUnlockDialog from '@/components/common/SupervisorUnlockDialog.vue'
 
   const SESSION_CHECK_MS = 60 * 1000
@@ -14,6 +15,7 @@
   const route = useRoute()
   const router = useRouter()
   const store = useConsumableStore()
+  const session = useSupervisorStore()
   const open = ref(false)
   const notice = ref(false)
   const noticeText = ref('')
@@ -23,7 +25,9 @@
   const onSupervisorPage = () => route.matched.some((r) => r.meta.supervisor)
 
   function withoutUnlockQuery() {
-    const { unlock, next, ...rest } = route.query
+    const rest = { ...route.query }
+    delete rest.unlock
+    delete rest.next
     return { path: route.path, query: rest }
   }
 
@@ -56,8 +60,8 @@
 
   watch(() => store.isSupervisor, (supervisor) => {
     if (supervisor) return
-    const relogin = store.reloginPrompt
-    store.reloginPrompt = false
+    const relogin = session.reloginPrompt
+    session.reloginPrompt = false
     if (relogin) show('success', 'Supervisor password changed. Log in again with the new password.')
     else show('info', 'Logged out.')
     if (onSupervisorPage()) router.push({ name: 'consumable-welder', query: relogin ? { unlock: '1' } : {} })

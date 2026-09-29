@@ -7,6 +7,7 @@
     <SpaRoot>..\dcenter.client</SpaRoot>
     <SpaProxyLaunchCommand>npm run dev</SpaProxyLaunchCommand>
     <SpaProxyServerUrl>https://localhost:64506</SpaProxyServerUrl>
+    <UserSecretsId>728e9966-ccba-4c97-a7a8-24028655cc77</UserSecretsId>
   </PropertyGroup>
 
   <ItemGroup>
@@ -16,9 +17,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="Microsoft.AspNetCore.SpaProxy">
-      <Version>10.*-*</Version>
-    </PackageReference>
+    <PackageReference Include="Microsoft.AspNetCore.SpaProxy" Version="10.0.12" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" Version="10.0.12" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.12">
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>

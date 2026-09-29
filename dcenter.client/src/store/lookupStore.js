@@ -1,7 +1,7 @@
-import { defineStore } from 'pinia';
-import api from '@/utils/api';
+import { defineStore } from 'pinia'
+import api from '@/utils/api'
 
-const CATEGORIES = ['Process', 'Size', 'Type', 'Manuf', 'ConsumablePIC'];
+const CATEGORIES = ['Process', 'Size', 'Type', 'Manuf', 'ConsumablePIC']
 
 export const useLookupStore = defineStore('lookup', {
   state: () => ({
@@ -11,20 +11,20 @@ export const useLookupStore = defineStore('lookup', {
 
   getters: {
     options: (s) => {
-      const map = Object.fromEntries(CATEGORIES.map((c) => [c, []]));
+      const map = Object.fromEntries(CATEGORIES.map((c) => [c, []]))
       for (const l of s.all) {
-        if (l.isActive && map[l.category]) map[l.category].push(l.value);
+        if (l.isActive && map[l.category]) map[l.category].push(l.value)
       }
-      return map;
+      return map
     },
   },
 
   actions: {
     async load(force = false) {
-      if (this.loaded && !force) return;
-      const { data } = await api.get('/lookups');
-      this.all = data;
-      this.loaded = true;
+      if (this.loaded && !force) return
+      const { data } = await api.get('/lookups')
+      this.all = data
+      this.loaded = true
     },
   },
-});
+})

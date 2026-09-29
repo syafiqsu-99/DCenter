@@ -65,6 +65,7 @@
   import { onMounted, reactive, ref, watch } from 'vue'
   import { useFillHeight } from '@/composables/useFillHeight'
   import { useRouter } from 'vue-router'
+  import { usePagedList } from '@/composables/usePagedList'
   import { useConsumableStore } from '@/store/consumableStore'
   import { BAKING_COLORS, BAKING_LABELS, COLUMN, debounce, downloadCsv, errorText, fmtDate, fmtDateTime, kg, monthStartIso, openPrint, stageFlow, todayIso } from '@/utils/consumables'
   import TxnTypeChip from '@/components/consumables/shared/TxnTypeChip.vue'
@@ -78,16 +79,14 @@
   const field = { variant: 'outlined', density: 'compact', hideDetails: true }
   const filters = reactive({ from: monthStartIso(), to: todayIso(), status: null, q: '' })
   const statusItems = Object.entries(BAKING_LABELS).map(([value, title]) => ({ value, title }))
-  const items = ref([])
-  const total = ref(0)
-  const loading = ref(false)
-  const loadingMore = ref(false)
-  const error = ref('')
+  const { items, total, loading, loadingMore, error, reload, loadMore } = usePagedList(
+    (skip) => store.loadBakingRecords(params(skip)),
+    { load: 'Could not load baking records.', more: 'Could not load more records.' },
+  )
   const historyOpen = ref(false)
   const historyRecord = ref(null)
   const historyItems = ref([])
   const historyLoading = ref(false)
-  let token = 0
 
   const headers = [
     { title: 'Baking No', key: 'bakingNo', width: '9%' },
@@ -121,35 +120,6 @@
       q: (filters.q ?? '').trim() || undefined,
       skip,
       take: PAGE_SIZE,
-    }
-  }
-
-  async function reload() {
-    const current = ++token
-    loading.value = true
-    error.value = ''
-    try {
-      const page = await store.loadBakingRecords(params(0))
-      if (current !== token) return
-      items.value = page.items
-      total.value = page.total
-    } catch (e) {
-      if (current === token) error.value = errorText(e, 'Could not load baking records.')
-    } finally {
-      if (current === token) loading.value = false
-    }
-  }
-
-  async function loadMore() {
-    loadingMore.value = true
-    try {
-      const page = await store.loadBakingRecords(params(items.value.length))
-      items.value = [...items.value, ...page.items]
-      total.value = page.total
-    } catch (e) {
-      error.value = errorText(e, 'Could not load more records.')
-    } finally {
-      loadingMore.value = false
     }
   }
 

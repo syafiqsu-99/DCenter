@@ -1,4 +1,4 @@
-using DCenter.Server.Entities;
+﻿using DCenter.Server.Entities;
 using Microsoft.EntityFrameworkCore;
 
 namespace DCenter.Server.Data;
@@ -24,6 +24,7 @@ public class WeldReportContext(DbContextOptions<WeldReportContext> options) : Db
     public DbSet<HoldingRecord> HoldingRecords => Set<HoldingRecord>();
     public DbSet<StockCount> StockCounts => Set<StockCount>();
     public DbSet<SupervisorCredential> SupervisorCredentials => Set<SupervisorCredential>();
+    public DbSet<SupervisorRevokedToken> SupervisorRevokedTokens => Set<SupervisorRevokedToken>();
 
     protected override void OnModelCreating(ModelBuilder b)
     {
@@ -53,7 +54,6 @@ public class WeldReportContext(DbContextOptions<WeldReportContext> options) : Db
             e.Property(x => x.BaseMetal).HasMaxLength(200);
             e.Property(x => x.Process).HasMaxLength(100);
             e.Property(x => x.PNo).HasMaxLength(50).IsRequired();
-            e.HasIndex(x => x.WpsNo);
             e.HasIndex(x => x.PNo);
             e.HasIndex(x => new { x.WpsNo, x.PNo }).IsUnique();
         });
@@ -63,6 +63,7 @@ public class WeldReportContext(DbContextOptions<WeldReportContext> options) : Db
             e.ToTable("DCenter_Reports");
             e.Property(x => x.WorkOrderNumber).HasMaxLength(100).IsRequired();
             e.HasIndex(x => x.WorkOrderNumber).IsUnique();
+            e.HasIndex(x => x.UpdatedAt);
             e.Property(x => x.RowVersion).IsRowVersion();
             e.HasMany(x => x.Joints)
              .WithOne(x => x.Report)
@@ -100,15 +101,13 @@ public class WeldReportContext(DbContextOptions<WeldReportContext> options) : Db
             e.Property(x => x.Form).HasMaxLength(200);
             e.Property(x => x.FullSpecification).HasMaxLength(400);
             e.Property(x => x.SpecNo).HasMaxLength(100).IsRequired();
-            e.Property(x => x.SpecNoRaw).HasMaxLength(100);
-            e.HasIndex(x => x.Mrn);
+            e.HasIndex(x => new { x.Mrn, x.SpecNo });
         });
 
         b.Entity<BpvcMaterial>(e =>
         {
             e.ToTable("DCenter_BpvcIx");
             e.Property(x => x.SpecNo).HasMaxLength(100).IsRequired();
-            e.Property(x => x.SpecNoRaw).HasMaxLength(100);
             e.Property(x => x.Designation).HasMaxLength(200);
             e.Property(x => x.UnsNo).HasMaxLength(100);
             e.Property(x => x.MinTensile).HasMaxLength(100);
@@ -119,7 +118,7 @@ public class WeldReportContext(DbContextOptions<WeldReportContext> options) : Db
             e.Property(x => x.NominalComposition).HasMaxLength(400);
             e.Property(x => x.TypicalProductForm).HasMaxLength(200);
             e.Property(x => x.NominalThicknessLimits).HasMaxLength(200);
-            e.HasIndex(x => new { x.SpecNo, x.PNo });
+            e.HasIndex(x => new { x.SpecNo, x.Designation, x.UnsNo, x.PNo });
         });
 
         b.Entity<ProcessTypeLink>(e =>

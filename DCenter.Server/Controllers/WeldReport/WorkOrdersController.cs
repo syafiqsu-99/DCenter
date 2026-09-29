@@ -14,9 +14,6 @@ public class WorkOrdersController(WorkOrderSearchService workOrders) : Controlle
     private const string NoSourceAccess =
         "The DCenter database login cannot read OracleBetsyDB. Grant it SELECT on the tables listed in Sql/DCenter/DCenter_SourceViews.sql.";
 
-    public record WorkOrderSearchResponse(List<WorkOrderSummary> Items, bool HasMore);
-    public record WorkOrderHeader(string WorkOrderNumber, string? PartNo, string? Description);
-
     [HttpGet("search")]
     public Task<ActionResult<WorkOrderSearchResponse>> Search(
         [FromQuery] string? q,
@@ -38,8 +35,6 @@ public class WorkOrdersController(WorkOrderSearchService workOrders) : Controlle
                 ? (ActionResult<WorkOrderHeader>)NoContent()
                 : Ok(new WorkOrderHeader(workOrderNumber, wo.AssemblyItem, wo.AssemblyDesc));
         });
-
-    public record BomChildrenRequest(List<string>? Items);
 
     [HttpPost("bom/children")]
     public Task<ActionResult<List<BomLinkDto>>> BomChildren(BomChildrenRequest request, CancellationToken ct)
@@ -69,6 +64,10 @@ public class WorkOrdersController(WorkOrderSearchService workOrders) : Controlle
         catch (SqlException ex) when (ex.Number is 229 or 916 or 4060)
         {
             return StatusCode(503, NoSourceAccess);
+        }
+        catch (OperationCanceledException) when (HttpContext.RequestAborted.IsCancellationRequested)
+        {
+            return StatusCode(StatusCodes.Status499ClientClosedRequest);
         }
     }
 

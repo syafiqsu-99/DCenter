@@ -60,7 +60,7 @@
               <v-divider class="my-1" />
               <v-list-item prepend-icon="mdi-delete-outline" title="Delete draft" base-color="error"
                            :subtitle="supervisor.isSupervisor ? undefined : 'Supervisor only'"
-                           :disabled="item.status === 'Completed' || !supervisor.isSupervisor" @click="askDelete(item)" />
+                           :disabled="item.status === REPORT_STATUS.completed || !supervisor.isSupervisor" @click="askDelete(item)" />
             </v-list>
           </v-menu>
         </template>
@@ -79,20 +79,21 @@
 </template>
 
 <script setup>
-  import { computed, onMounted, ref } from 'vue';
-  import { storeToRefs } from 'pinia';
-  import { useRouter } from 'vue-router';
-  import { useReportStore } from '@/store/reportStore';
-  import { useConsumableStore } from '@/store/consumableStore';
-  import ConfirmDeleteDialog from '@/components/common/ConfirmDeleteDialog.vue';
-  import ReportStatusChip from '@/components/report/ReportStatusChip.vue';
-  import ReportPdfDialog from '@/components/report/ReportPdfDialog.vue';
+  import { computed, onMounted, ref } from 'vue'
+  import { storeToRefs } from 'pinia'
+  import { useRouter } from 'vue-router'
+  import { useReportStore } from '@/store/reportStore'
+  import { useSupervisorStore } from '@/store/supervisorStore'
+  import ConfirmDeleteDialog from '@/components/common/ConfirmDeleteDialog.vue'
+  import ReportStatusChip from '@/components/report/ReportStatusChip.vue'
+  import { REPORT_STATUS } from '@/utils/constants'
+  import ReportPdfDialog from '@/components/report/ReportPdfDialog.vue'
 
-  const store = useReportStore();
-  const supervisor = useConsumableStore();
-  const router = useRouter();
-  const { savedReports, loadingSaved, listTab } = storeToRefs(store);
-  const savedSearch = ref('');
+  const store = useReportStore()
+  const supervisor = useSupervisorStore()
+  const router = useRouter()
+  const { savedReports, loadingSaved, listTab } = storeToRefs(store)
+  const savedSearch = ref('')
 
   const headers = [
     { title: 'Work Order Number', key: 'workOrderNumber', width: '150px' },
@@ -102,56 +103,56 @@
     { title: 'Status', key: 'status', width: '120px' },
     { title: 'Updated', key: 'updatedAt', width: '180px' },
     { title: '', key: 'actions', width: '100px', sortable: false, align: 'end' },
-  ];
+  ]
 
   const searched = computed(() => {
-    const q = savedSearch.value?.trim().toLowerCase();
-    if (!q) return savedReports.value;
+    const q = savedSearch.value?.trim().toLowerCase()
+    if (!q) return savedReports.value
     return savedReports.value.filter((r) =>
       (r.workOrderNumber ?? '').toLowerCase().includes(q) ||
       (r.partNo ?? '').toLowerCase().includes(q) ||
-      (r.description ?? '').toLowerCase().includes(q));
-  });
+      (r.description ?? '').toLowerCase().includes(q))
+  })
 
   const tabs = computed(() => [
     { value: 'all', label: 'All', count: searched.value.length },
-    { value: 'Draft', label: 'Drafts', count: searched.value.filter((r) => r.status === 'Draft').length },
-    { value: 'Completed', label: 'Completed', count: searched.value.filter((r) => r.status === 'Completed').length },
-  ]);
+    { value: REPORT_STATUS.draft, label: 'Drafts', count: searched.value.filter((r) => r.status === REPORT_STATUS.draft).length },
+    { value: REPORT_STATUS.completed, label: 'Completed', count: searched.value.filter((r) => r.status === REPORT_STATUS.completed).length },
+  ])
 
   const visible = computed(() =>
-    listTab.value === 'all' ? searched.value : searched.value.filter((r) => r.status === listTab.value));
+    listTab.value === 'all' ? searched.value : searched.value.filter((r) => r.status === listTab.value))
 
   function open(workOrderNumber) {
-    router.push({ name: 'report-editor', params: { workOrderNumber } });
+    router.push({ name: 'report-editor', params: { workOrderNumber } })
   }
 
-  const pdfDialog = ref(false);
-  const pdfReport = ref(null);
+  const pdfDialog = ref(false)
+  const pdfReport = ref(null)
 
   function viewPdf(item) {
-    pdfReport.value = item;
-    pdfDialog.value = true;
+    pdfReport.value = item
+    pdfDialog.value = true
   }
 
-  const confirmDialog = ref(false);
-  const pendingDelete = ref(null);
-  const deletingRow = ref(false);
+  const confirmDialog = ref(false)
+  const pendingDelete = ref(null)
+  const deletingRow = ref(false)
 
-  function askDelete(item) { pendingDelete.value = item; confirmDialog.value = true; }
+  function askDelete(item) { pendingDelete.value = item; confirmDialog.value = true }
 
   async function doDelete() {
-    if (!pendingDelete.value) return;
-    deletingRow.value = true;
-    try { await store.deleteSaved(pendingDelete.value.workOrderNumber); }
-    finally { deletingRow.value = false; confirmDialog.value = false; pendingDelete.value = null; }
+    if (!pendingDelete.value) return
+    deletingRow.value = true
+    try { await store.deleteSaved(pendingDelete.value.workOrderNumber) }
+    finally { deletingRow.value = false; confirmDialog.value = false; pendingDelete.value = null }
   }
 
-  function fmt(iso) { return iso ? new Date(iso).toLocaleString() : ''; }
+  function fmt(iso) { return iso ? new Date(iso).toLocaleString() : '' }
 
   onMounted(() => {
-    if (!store.savedReports.length) store.loadSavedReports().catch(() => {});
-  });
+    if (!store.savedReports.length) store.loadSavedReports().catch(() => {})
+  })
 </script>
 
 <style scoped>

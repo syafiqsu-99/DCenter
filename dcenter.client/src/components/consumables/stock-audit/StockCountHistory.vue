@@ -53,8 +53,9 @@
   import { onMounted, reactive, ref, watch } from 'vue'
   import { useFillHeight } from '@/composables/useFillHeight'
   import { useRouter } from 'vue-router'
+  import { usePagedList } from '@/composables/usePagedList'
   import { useConsumableStore } from '@/store/consumableStore'
-  import { debounce, errorText, fmtDate, fmtDateTime, kg, openPrint } from '@/utils/consumables'
+  import { debounce, fmtDate, fmtDateTime, kg, openPrint } from '@/utils/consumables'
   import VoidDialog from '@/components/consumables/shared/VoidDialog.vue'
 
   const tableArea = ref(null)
@@ -66,14 +67,12 @@
   const field = { variant: 'outlined', density: 'compact', hideDetails: true }
   const filters = reactive({ from: '', to: '', scope: null })
   const scopeItems = [{ title: 'Racks & ovens', value: 'Activated' }, { title: 'Main store', value: 'Normal' }]
-  const items = ref([])
-  const total = ref(0)
-  const loading = ref(false)
-  const loadingMore = ref(false)
-  const error = ref('')
+  const { items, total, loading, loadingMore, error, reload, loadMore } = usePagedList(
+    (skip) => store.loadStockCounts(params(skip)),
+    { load: 'Could not load stock counts.', more: 'Could not load more counts.' },
+  )
   const voidOpen = ref(false)
   const voidTarget = ref(null)
-  let token = 0
 
   const headers = [
     { title: 'Reference', key: 'referenceNo', width: '13%' },
@@ -90,35 +89,6 @@
 
   function params(skip) {
     return { from: filters.from || undefined, to: filters.to || undefined, scope: filters.scope || undefined, skip, take: PAGE_SIZE }
-  }
-
-  async function reload() {
-    const current = ++token
-    loading.value = true
-    error.value = ''
-    try {
-      const page = await store.loadStockCounts(params(0))
-      if (current !== token) return
-      items.value = page.items
-      total.value = page.total
-    } catch (e) {
-      if (current === token) error.value = errorText(e, 'Could not load stock counts.')
-    } finally {
-      if (current === token) loading.value = false
-    }
-  }
-
-  async function loadMore() {
-    loadingMore.value = true
-    try {
-      const page = await store.loadStockCounts(params(items.value.length))
-      items.value = [...items.value, ...page.items]
-      total.value = page.total
-    } catch (e) {
-      error.value = errorText(e, 'Could not load more counts.')
-    } finally {
-      loadingMore.value = false
-    }
   }
 
   function openVoid(count) {

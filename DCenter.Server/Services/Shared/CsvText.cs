@@ -6,10 +6,9 @@ namespace DCenter.Server.Services;
 public static class CsvText
 {
     public const long MaxUploadBytes = 2 * 1024 * 1024;
+    public const long RequestLimitBytes = MaxUploadBytes + 64 * 1024;
 
     public sealed record Row(int Line, List<string> Fields);
-
-    public static List<Row> Parse(string text) => Parse(text, out _);
 
     public static List<Row> Parse(string text, out string? error)
     {
@@ -84,26 +83,24 @@ public static class CsvText
         return rows;
     }
 
-    public static async Task<List<string[]>> ReadRowsAsync(IFormFile file, CancellationToken ct)
+    // Maps template columns by header name: letters only, ignoring anything from "(" on, so "Qty (KG)" matches "Qty".
+    public static (Dictionary<TCol, int> Columns, List<string> Errors) MapHeader<TCol>(
+        List<string> header, IReadOnlyDictionary<string, TCol> aliases, IEnumerable<TCol> required,
+        IReadOnlyList<string> headerNames, bool stripKgSuffix = false) where TCol : struct, Enum
     {
-        using var reader = new StreamReader(file.OpenReadStream());
-        return Parse(await reader.ReadToEndAsync(ct)).Skip(1).Select(r => r.Fields.ToArray()).ToList();
-    }
-
-    public static string Field(this string[] row, int i) => (row.ElementAtOrDefault(i) ?? "").Trim();
-
-    public static string ToCsv(string[] headers, IEnumerable<string?[]> rows)
-    {
-        var sb = new StringBuilder();
-        sb.AppendLine(string.Join(',', headers));
-        foreach (var row in rows) sb.AppendLine(string.Join(',', row.Select(Quote)));
-        return sb.ToString();
-    }
-
-    private static string Quote(string? value)
-    {
-        if (string.IsNullOrEmpty(value)) return "";
-        return value.IndexOfAny([',', '"', '\n', '\r']) >= 0 ? $"\"{value.Replace("\"", "\"\"")}\"" : value;
+        var columns = new Dictionary<TCol, int>();
+        var errors = new List<string>();
+        for (var i = 0; i < header.Count; i++)
+        {
+            var name = new string(header[i].Split('(')[0].Where(char.IsLetter).ToArray());
+            if (stripKgSuffix && name.EndsWith("kg", StringComparison.OrdinalIgnoreCase)) name = name[..^2];
+            if (!aliases.TryGetValue(name, out var col)) continue;
+            if (!columns.TryAdd(col, i)) errors.Add($"Column \"{header[i]}\" appears more than once.");
+        }
+        foreach (var column in required)
+            if (!columns.ContainsKey(column))
+                errors.Add($"Missing required column \"{headerNames[Convert.ToInt32(column, CultureInfo.InvariantCulture)]}\". Download the template to see the expected columns.");
+        return (columns, errors);
     }
 
     public static byte[] Write(IEnumerable<IEnumerable<string?>> rows)

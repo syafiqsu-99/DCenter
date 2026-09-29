@@ -19,29 +19,32 @@
 </template>
 
 <script setup>
-  import { computed } from 'vue';
-  import { useRouter } from 'vue-router';
-  import { useReportStore } from '@/store/reportStore';
+  import { computed } from 'vue'
+  import { useRouter } from 'vue-router'
+  import { useReportStore } from '@/store/reportStore'
+  import { useReportInsightsStore } from '@/store/reportInsightsStore'
+  import { REPORT_STATUS } from '@/utils/constants'
 
-  const store = useReportStore();
-  const router = useRouter();
-  const kpis = computed(() => store.dashboard?.kpis ?? null);
+  const store = useReportStore()
+  const insights = useReportInsightsStore()
+  const router = useRouter()
+  const kpis = computed(() => insights.dashboard?.kpis ?? null)
 
   function toList(tab) {
-    store.listTab = tab;
-    router.push({ name: 'report-list' });
+    store.listTab = tab
+    router.push({ name: 'report-list' })
   }
 
   const cards = computed(() => {
-    const k = kpis.value;
+    const k = kpis.value
     return [
       {
         label: 'Open drafts', value: k?.openDrafts ?? 0, sub: 'Reports not yet completed',
-        icon: 'mdi-file-document-edit-outline', iconColor: 'warning', go: () => toList('Draft'),
+        icon: 'mdi-file-document-edit-outline', iconColor: 'warning', go: () => toList(REPORT_STATUS.draft),
       },
       {
         label: 'Completed', value: k?.completedThisMonth ?? 0, sub: k?.monthLabel,
-        icon: 'mdi-file-check-outline', iconColor: 'success', go: () => toList('Completed'),
+        icon: 'mdi-file-check-outline', iconColor: 'success', go: () => toList(REPORT_STATUS.completed),
       },
       {
         label: 'Joints welded', value: k?.jointsThisMonth ?? 0, sub: k ? `${k.monthLabel}, by date welded` : '',
@@ -50,13 +53,13 @@
       {
         label: 'Stale drafts', value: k?.staleDrafts ?? 0, sub: k ? `No update for ${k.staleDays}+ days` : '',
         icon: 'mdi-timer-sand', iconColor: 'deep-orange', color: k?.staleDrafts ? 'deep-orange' : undefined,
-        go: () => toList('Draft'),
+        go: () => toList(REPORT_STATUS.draft),
       },
       {
         label: 'Missing date welded', value: k?.missingDateWelded ?? 0, sub: 'Drafts that cannot be completed yet',
         icon: 'mdi-calendar-alert', iconColor: 'error', color: k?.missingDateWelded ? 'error' : undefined,
-        go: () => toList('Draft'),
+        go: () => toList(REPORT_STATUS.draft),
       },
-    ];
-  });
+    ]
+  })
 </script>

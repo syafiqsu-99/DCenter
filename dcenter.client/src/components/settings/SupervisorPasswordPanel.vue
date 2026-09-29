@@ -39,7 +39,8 @@
 <script setup>
   import { computed, onMounted, ref } from 'vue'
   import { useConsumableStore } from '@/store/consumableStore'
-  import { errorText, fmtDateTime } from '@/utils/consumables'
+  import { fmtDateTime } from '@/utils/consumables'
+  import { errorText } from '@/utils/errors'
 
   const MIN_LENGTH = 8
   const MAX_LENGTH = 128

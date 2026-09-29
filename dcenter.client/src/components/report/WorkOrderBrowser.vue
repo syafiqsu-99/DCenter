@@ -96,31 +96,31 @@
 </template>
 
 <script setup>
-  import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
-  import { storeToRefs } from 'pinia';
-  import { useRouter } from 'vue-router';
-  import { useReportStore } from '@/store/reportStore';
-  import WorkOrderTree from '@/components/report/WorkOrderTree.vue';
-  import ReportStatusChip from '@/components/report/ReportStatusChip.vue';
+  import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+  import { storeToRefs } from 'pinia'
+  import { useRouter } from 'vue-router'
+  import { useReportStore } from '@/store/reportStore'
+  import WorkOrderTree from '@/components/report/WorkOrderTree.vue'
+  import ReportStatusChip from '@/components/report/ReportStatusChip.vue'
 
-  const store = useReportStore();
-  const router = useRouter();
+  const store = useReportStore()
+  const router = useRouter()
   const { searchInput, searchQuery, filteredRows, distinctWorkOrders, targetWorkOrder, loadingRows,
-    loadingMoreRows, hasMoreResults, savedByWorkOrder } = storeToRefs(store);
+    loadingMoreRows, hasMoreResults, savedByWorkOrder } = storeToRefs(store)
 
-  const tableArea = ref(null);
-  let scrollEl = null;
+  const tableArea = ref(null)
+  let scrollEl = null
 
   function onTableScroll() {
-    if (!scrollEl) return;
-    const remaining = scrollEl.scrollHeight - scrollEl.scrollTop - scrollEl.clientHeight;
-    if (remaining < 200) store.loadMoreWorkOrders();
+    if (!scrollEl) return
+    const remaining = scrollEl.scrollHeight - scrollEl.scrollTop - scrollEl.clientHeight
+    if (remaining < 200) store.loadMoreWorkOrders()
   }
 
   async function attachScroll() {
-    await nextTick();
-    scrollEl = tableArea.value?.querySelector('.v-table__wrapper');
-    scrollEl?.addEventListener('scroll', onTableScroll, { passive: true });
+    await nextTick()
+    scrollEl = tableArea.value?.querySelector('.v-table__wrapper')
+    scrollEl?.addEventListener('scroll', onTableScroll, { passive: true })
   }
 
   const headers = [
@@ -130,47 +130,47 @@
     { title: 'Report', key: 'status', width: '120px', sortable: false },
     { title: '', key: 'actions', width: '170px', sortable: false, align: 'end' },
     { title: '', key: 'data-table-expand', width: '0px', headerProps: { class: 'pa-0' }, cellProps: { class: 'pa-0' } },
-  ];
-  const expanded = ref([]);
-  watch(() => store.searchQuery, () => { expanded.value = []; });
+  ]
+  const expanded = ref([])
+  watch(() => store.searchQuery, () => { expanded.value = [] })
 
   const workOrderRowProps = ({ item }) => ({
     class: ['clickable-row', expanded.value.includes(item.workOrderNumber) ? 'bg-blue-grey-lighten-5' : ''],
-  });
+  })
 
   const ACTIONS = {
     Draft: { label: 'Open draft', icon: 'mdi-pencil-outline' },
     Completed: { label: 'View completed', icon: 'mdi-file-check-outline' },
     none: { label: 'Start report', icon: 'mdi-plus' },
-  };
-  function actionFor(workOrderNumber) {
-    return ACTIONS[savedByWorkOrder.value.get(workOrderNumber)?.status] ?? ACTIONS.none;
   }
-  const targetAction = computed(() => actionFor(targetWorkOrder.value));
+  function actionFor(workOrderNumber) {
+    return ACTIONS[savedByWorkOrder.value.get(workOrderNumber)?.status] ?? ACTIONS.none
+  }
+  const targetAction = computed(() => actionFor(targetWorkOrder.value))
 
   function open(workOrderNumber) {
-    router.push({ name: 'report-editor', params: { workOrderNumber } });
+    router.push({ name: 'report-editor', params: { workOrderNumber } })
   }
   function openTarget() {
-    if (targetWorkOrder.value) open(targetWorkOrder.value);
+    if (targetWorkOrder.value) open(targetWorkOrder.value)
   }
 
   const noDataText = computed(() =>
-    searchQuery.value ? 'No work orders match your search.' : 'No work orders found.');
+    searchQuery.value ? 'No work orders match your search.' : 'No work orders found.')
 
   function onRowClick(_event, { item }) {
-    const wo = item.workOrderNumber;
+    const wo = item.workOrderNumber
     expanded.value = expanded.value.includes(wo)
       ? expanded.value.filter((w) => w !== wo)
-      : [...expanded.value, wo];
+      : [...expanded.value, wo]
   }
 
   onMounted(async () => {
-    if (!store.searchResults.length) await store.runSearch(store.searchInput);
-    await attachScroll();
-  });
+    if (!store.searchResults.length) await store.runSearch(store.searchInput)
+    await attachScroll()
+  })
 
-  onBeforeUnmount(() => scrollEl?.removeEventListener('scroll', onTableScroll));
+  onBeforeUnmount(() => scrollEl?.removeEventListener('scroll', onTableScroll))
 </script>
 
 <style scoped>

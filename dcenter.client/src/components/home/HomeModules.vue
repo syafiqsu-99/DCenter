@@ -10,11 +10,11 @@
 
 <script setup>
   import { useRouter } from 'vue-router'
-  import { useConsumableStore } from '@/store/consumableStore'
+  import { useSupervisorStore } from '@/store/supervisorStore'
   import ModuleCard from '@/components/home/ModuleCard.vue'
 
   const router = useRouter()
-  const store = useConsumableStore()
+  const store = useSupervisorStore()
 </script>
 
 <style scoped>
