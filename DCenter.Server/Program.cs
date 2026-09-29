@@ -60,11 +60,13 @@ builder.Services.AddScoped<OvenService>();
 builder.Services.AddScoped<StockCountService>();
 var keysPath = builder.Configuration["DataProtection:KeysPath"]
     ?? Path.Combine(builder.Environment.ContentRootPath, "App_Data", "keys");
-builder.Services.AddDataProtection()
+var dataProtection = builder.Services.AddDataProtection()
     .SetApplicationName("DCenter")
     .PersistKeysToFileSystem(new DirectoryInfo(keysPath));
+if (OperatingSystem.IsWindows()) dataProtection.ProtectKeysWithDpapi(protectToLocalMachine: true);
 builder.Services.AddSingleton<SupervisorAuth>();
 builder.Services.AddScoped<ISupervisorContext, HttpSupervisorContext>();
+builder.Services.AddScoped<SupervisorRevocationStore>();
 builder.Services.AddScoped<ConsumableImportService>();
 builder.Services.AddScoped<StockImportService>();
 builder.Services.AddScoped<SupervisorPasswordService>();
@@ -117,32 +119,15 @@ try
         .Where(c => c.Id == SupervisorCredential.SingletonId)
         .Select(c => (DateTime?)c.UpdatedAt)
         .FirstOrDefaultAsync();
+    var supervisorAuth = app.Services.GetRequiredService<SupervisorAuth>();
     if (changedAt is DateTime changed)
-        app.Services.GetRequiredService<SupervisorAuth>()
-            .RevokeIssuedBefore(new DateTimeOffset(DateTime.SpecifyKind(changed, DateTimeKind.Local)));
+        supervisorAuth.RevokeIssuedBefore(new DateTimeOffset(DateTime.SpecifyKind(changed, DateTimeKind.Local)));
+    foreach (var entry in await scope.ServiceProvider.GetRequiredService<SupervisorRevocationStore>().LoadActiveAsync(CancellationToken.None))
+        supervisorAuth.Restore(entry);
 }
 catch (Exception ex)
 {
-    app.Logger.LogWarning(ex, "Could not read the supervisor password date; existing supervisor sessions stay valid until they expire.");
-}
-
-var clientDist = Path.Combine(builder.Environment.ContentRootPath, "..", "dcenter.client", "dist");
-if (Directory.Exists(clientDist))
-{
-    var provider = new PhysicalFileProvider(clientDist);
-    app.UseDefaultFiles(new DefaultFilesOptions { FileProvider = provider });
-    app.UseStaticFiles(new StaticFileOptions { FileProvider = provider });
-}
-else
-{
-    app.UseDefaultFiles();
-}
-
-if (app.Environment.IsDevelopment())
-{
-    app.UseSwagger();
-    app.UseSwaggerUI();
-    app.UseCors(DevCors);
+    app.Logger.LogWarning(ex, "Could not read the supervisor password date or stored logouts; existing supervisor sessions stay valid until they expire.");
 }
 
 app.UseExceptionHandler();
@@ -156,6 +141,29 @@ app.Use(async (context, next) =>
     await next();
 });
 app.UseHttpsRedirection();
+
+// Serve the SPA from dcenter.client/dist when it sits next to the server (local release build), otherwise from wwwroot
+// (published output). Placed after the error handler and security headers so static files get both.
+var clientDist = Path.Combine(builder.Environment.ContentRootPath, "..", "dcenter.client", "dist");
+if (Directory.Exists(clientDist))
+{
+    var provider = new PhysicalFileProvider(clientDist);
+    app.UseDefaultFiles(new DefaultFilesOptions { FileProvider = provider });
+    app.UseStaticFiles(new StaticFileOptions { FileProvider = provider });
+}
+else
+{
+    app.UseDefaultFiles();
+    app.UseStaticFiles();
+}
+
+if (app.Environment.IsDevelopment())
+{
+    app.UseSwagger();
+    app.UseSwaggerUI();
+    app.UseCors(DevCors);
+}
+
 app.UseRateLimiter();
 app.UseAuthorization();
 app.MapControllers();

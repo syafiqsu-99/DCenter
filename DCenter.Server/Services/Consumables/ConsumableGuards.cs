@@ -163,8 +163,8 @@ public class ConsumableGuards(
     {
         var window = ledger.Live()
             .Where(m => m.WelderId == welderId && m.Lot.ItemId == itemId && m.TxnDate >= since && m.TxnDate <= until);
-        var picked = await window.Where(m => m.TxnType == Cat.TxnIssue).SumAsync(m => (decimal?)m.QuantityKg, ct) ?? 0m;
-        var returned = await window.Where(m => m.TxnType == Cat.TxnReturn).SumAsync(m => (decimal?)m.QuantityKg, ct) ?? 0m;
-        return picked - returned;
+        return await window
+            .Where(m => m.TxnType == Cat.TxnIssue || m.TxnType == Cat.TxnReturn)
+            .SumAsync(m => (decimal?)(m.TxnType == Cat.TxnIssue ? m.QuantityKg : -m.QuantityKg), ct) ?? 0m;
     }
 }

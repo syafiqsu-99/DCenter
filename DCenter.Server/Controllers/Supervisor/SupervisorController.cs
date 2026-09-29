@@ -8,7 +8,8 @@ namespace DCenter.Server.Controllers;
 [ApiController]
 [Route("api/supervisor")]
 public class SupervisorController(
-    SupervisorAuth auth, SupervisorPasswordService passwords, TimeProvider time, ILogger<SupervisorController> logger)
+    SupervisorAuth auth, SupervisorPasswordService passwords, SupervisorRevocationStore revocations, TimeProvider time,
+    ILogger<SupervisorController> logger)
     : ControllerBase
 {
     public const string LoginRateLimit = "supervisor-login";
@@ -47,13 +48,24 @@ public class SupervisorController(
     }
 
     [HttpPost("logout")]
-    public IActionResult Logout()
+    public async Task<IActionResult> Logout(CancellationToken ct)
     {
         var session = auth.FromRequest(Request);
         if (session is not null)
         {
-            auth.Revoke(Request.Headers[SupervisorAuth.TokenHeader].ToString());
+            var revoked = auth.Revoke(Request.Headers[SupervisorAuth.TokenHeader].ToString());
             logger.LogInformation("Supervisor logout by {Name} from {Ip}", session.Name, HttpContext.Connection.RemoteIpAddress);
+            if (revoked is not null)
+            {
+                try
+                {
+                    await revocations.SaveAsync(revoked, ct);
+                }
+                catch (Exception ex) when (ex is not OperationCanceledException)
+                {
+                    logger.LogWarning(ex, "Could not store the logout of {Name}; it applies until the server restarts.", session.Name);
+                }
+            }
         }
         return NoContent();
     }
@@ -64,7 +76,9 @@ public class SupervisorController(
     {
         var session = auth.FromRequest(Request);
         if (session is null) return Unauthorized("Supervisor session has expired.");
-        var (token, expiresAt) = auth.Issue(session.Name);
+        if (!auth.CanRefresh(session))
+            return Unauthorized($"Supervisor sessions last at most {auth.MaxSessionHours} hours. Log in again to continue.");
+        var (token, expiresAt) = auth.Issue(session.Name, session.LoginAt);
         return Ok(new SupervisorSessionDto(session.Name, expiresAt, token));
     }
 

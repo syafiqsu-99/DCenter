@@ -126,13 +126,15 @@ public class StockCountService(WeldReportContext db, ConsumableLedger ledger, Co
 
         if (stage == Cat.Activated)
         {
+            var itemsById = new Dictionary<int, ItemRef?>();
             foreach (var gainBin in changed
                          .Where(l => l.Counted > l.System && l.CompartmentId is not null)
                          .Select(l => new { l.ItemId, CompartmentId = l.CompartmentId!.Value })
                          .Distinct()
                          .OrderBy(x => x.CompartmentId))
             {
-                var item = await guards.ItemAsync(gainBin.ItemId, ct);
+                if (!itemsById.TryGetValue(gainBin.ItemId, out var item))
+                    itemsById[gainBin.ItemId] = item = await guards.ItemAsync(gainBin.ItemId, ct);
                 if (item is null) return Fail("A count line refers to a consumable that no longer exists. Reload the count sheet.");
                 var compartmentError = await guards.CheckCompartmentAsync(item, gainBin.CompartmentId, ct);
                 if (compartmentError is not null) return Fail(compartmentError, StatusCodes.Status409Conflict);

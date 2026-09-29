@@ -9,6 +9,7 @@ public class ReportService(WeldReportContext db, TimeProvider time)
 {
     public async Task<Report?> GetEntityAsync(string workOrderNumber, CancellationToken ct)
         => await db.Reports
+            .AsNoTracking()
             .Include(r => r.Joints).ThenInclude(j => j.Materials)
             .FirstOrDefaultAsync(r => r.WorkOrderNumber == workOrderNumber, ct);
 

@@ -10,4 +10,5 @@ public class ConsumableOptions
     public int WelderBackdateDays { get; set; } = 7;
     public string? SupervisorPassword { get; set; }
     public int SupervisorSessionHours { get; set; } = 12;
+    public int SupervisorMaxSessionHours { get; set; } = 24;
 }

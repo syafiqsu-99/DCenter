@@ -81,6 +81,8 @@ public class ReportsController(
     {
         if (string.IsNullOrWhiteSpace(dto.WorkOrderNumber))
             return BadRequest("Work order number is required.");
+        if (dto.WorkOrderNumber.Length > ReportSaveRules.MaxWorkOrderLength)
+            return BadRequest($"Work order number is limited to {ReportSaveRules.MaxWorkOrderLength} characters.");
         if (dto.DateWelded is null)
             return BadRequest("Date welded is required to save a report.");
         if (dto.Joints.Count > ReportSaveRules.MaxJoints)

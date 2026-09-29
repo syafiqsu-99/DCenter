@@ -1,6 +1,7 @@
 using DCenter.Server.Models;
 using DCenter.Server.Services;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 
 namespace DCenter.Server.Controllers;
 
@@ -44,6 +45,10 @@ public class ConsumablesController(
         catch (TimeoutException ex)
         {
             return Conflict(ex.Message);
+        }
+        catch (DbUpdateException ex)
+        {
+            return SaveFailed(ex, $"{Request.Method} {Request.Path}");
         }
     }
 
