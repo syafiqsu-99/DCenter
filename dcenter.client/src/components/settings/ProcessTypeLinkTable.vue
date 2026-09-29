@@ -50,7 +50,7 @@
 <script setup>
 import { computed, onMounted, ref, watch } from 'vue';
   import { storeToRefs } from 'pinia';
-  import api from '@/utils/api';
+  import { useCrudApi } from '@/composables/useCrudApi';
   import { useLookupStore } from '@/store/lookupStore';
 
   const lookupStore = useLookupStore();
@@ -69,9 +69,10 @@ import { computed, onMounted, ref, watch } from 'vue';
   const linkedTypes = computed(() => linkedForProcess.value.map((l) => l.type));
   const addableTypes = computed(() => typeOptions.value.filter((t) => !linkedTypes.value.includes(t)));
 
+  const linksApi = useCrudApi('/processtypelinks');
+
   async function load() {
-    const { data } = await api.get('/processtypelinks');
-    links.value = data;
+    links.value = await linksApi.list();
   }
 
   watch(process, () => { typesToAdd.value = [] });
@@ -81,8 +82,7 @@ import { computed, onMounted, ref, watch } from 'vue';
     adding.value = true
     try {
       for (const type of typesToAdd.value) {
-        const { data } = await api.post('/processtypelinks', { process: process.value, type })
-        links.value.push(data)
+        links.value.push(await linksApi.create({ process: process.value, type }))
       }
       typesToAdd.value = []
     } finally {
@@ -93,7 +93,7 @@ import { computed, onMounted, ref, watch } from 'vue';
   async function removeLink(link) {
     deletingId.value = link.id;
     try {
-      await api.delete(`/processtypelinks/${link.id}`);
+      await linksApi.remove(link.id);
       links.value = links.value.filter((l) => l.id !== link.id);
     } finally {
       deletingId.value = null;

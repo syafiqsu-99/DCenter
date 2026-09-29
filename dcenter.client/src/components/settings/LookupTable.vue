@@ -96,7 +96,8 @@
 
 <script setup>
   import { computed, onMounted, ref, watch } from 'vue';
-  import api from '@/utils/api';
+  import { useCrudApi } from '@/composables/useCrudApi';
+  import { saveBlob } from '@/utils/files';
   import ConfirmDeleteDialog from '@/components/common/ConfirmDeleteDialog.vue';
 
   const categories = ['Process', 'Size', 'Type', 'Manuf'];
@@ -140,6 +141,8 @@
     onDrop: () => onDrop(item),
   });
 
+  const lookups = useCrudApi('/lookups');
+
   function blank() {
     return { id: 0, category: category.value, value: '', isActive: true };
   }
@@ -147,8 +150,7 @@
   async function load() {
     loading.value = true;
     try {
-      const { data } = await api.get('/lookups', { params: { category: category.value } });
-      items.value = data;
+      items.value = await lookups.list({ category: category.value });
     } finally {
       loading.value = false;
     }
@@ -172,8 +174,8 @@
     try {
       const sortOrder = editing.value.id ? editing.value.sortOrder : items.value.length
       const payload = { category: editing.value.category, value: editing.value.value, sortOrder, isActive: editing.value.isActive }
-      if (editing.value.id) await api.put(`/lookups/${editing.value.id}`, payload)
-      else await api.post('/lookups', payload)
+      if (editing.value.id) await lookups.update(editing.value.id, payload)
+      else await lookups.create(payload)
       dialog.value = false
       await load()
     } catch (e) {
@@ -193,7 +195,7 @@
     if (!pendingDelete.value) return;
     deleting.value = true;
     try {
-      await api.delete(`/lookups/${pendingDelete.value.id}`);
+      await lookups.remove(pendingDelete.value.id);
       await load();
     } finally {
       deleting.value = false;
@@ -212,17 +214,11 @@
     const [moved] = list.splice(from, 1);
     list.splice(to, 0, moved);
     items.value = list;
-    await api.put('/lookups/reorder', list.map((i) => i.id));
+    await lookups.put('reorder', list.map((i) => i.id));
   }
 
   async function exportCsv() {
-    const res = await api.get('/lookups/export', { responseType: 'blob' });
-    const url = URL.createObjectURL(res.data);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'dropdown-lists.csv';
-    a.click();
-    URL.revokeObjectURL(url);
+    saveBlob(await lookups.exportBlob(), 'dropdown-lists.csv');
   }
 
   async function importCsv(e) {
@@ -231,9 +227,7 @@
     importing.value = true;
     importMsg.value = '';
     try {
-      const form = new FormData();
-      form.append('file', file);
-      const { data } = await api.post('/lookups/import', form);
+      const data = await lookups.importCsv(file);
       importMsg.value = `Imported: ${data.added} added, ${data.updated} updated, ${data.skipped} skipped.`;
       await load();
     } catch (err) {

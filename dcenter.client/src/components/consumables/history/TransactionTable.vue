@@ -54,8 +54,9 @@
   import '@/components/consumables/shared/consumableTables.css'
   import { onMounted, ref, watch } from 'vue'
   import { useFillHeight } from '@/composables/useFillHeight'
+  import { usePagedList } from '@/composables/usePagedList'
   import { useConsumableStore } from '@/store/consumableStore'
-  import { COLUMN, TXN_LABELS, categoryParam, debounce, downloadCsv, errorText, fmtDate, fmtDateTime, kg, stageFlow, todayIso } from '@/utils/consumables'
+  import { COLUMN, TXN_LABELS, categoryParam, debounce, downloadCsv, fmtDate, fmtDateTime, kg, stageFlow, todayIso } from '@/utils/consumables'
   import TxnTypeChip from '@/components/consumables/shared/TxnTypeChip.vue'
   import VoidDialog from '@/components/consumables/shared/VoidDialog.vue'
 
@@ -64,14 +65,12 @@
   const PAGE_SIZE = 100
 
   const store = useConsumableStore()
-  const items = ref([])
-  const total = ref(0)
-  const loading = ref(false)
-  const loadingMore = ref(false)
-  const error = ref('')
+  const { items, total, loading, loadingMore, error, reload, loadMore } = usePagedList(
+    (skip) => store.loadTransactions(params(skip)),
+    { load: 'Could not load transactions.', more: 'Could not load more transactions.' },
+  )
   const voidOpen = ref(false)
   const voidTarget = ref(null)
-  let token = 0
 
   const headers = [
     { title: 'Txn No.', key: 'txnNo', sortable: false, width: '9%' },
@@ -99,35 +98,6 @@
       q: (f.q ?? '').trim() || undefined,
       skip,
       take: PAGE_SIZE,
-    }
-  }
-
-  async function reload() {
-    const current = ++token
-    loading.value = true
-    error.value = ''
-    try {
-      const page = await store.loadTransactions(params(0))
-      if (current !== token) return
-      items.value = page.items
-      total.value = page.total
-    } catch (e) {
-      if (current === token) error.value = errorText(e, 'Could not load transactions.')
-    } finally {
-      if (current === token) loading.value = false
-    }
-  }
-
-  async function loadMore() {
-    loadingMore.value = true
-    try {
-      const page = await store.loadTransactions(params(items.value.length))
-      items.value = [...items.value, ...page.items]
-      total.value = page.total
-    } catch (e) {
-      error.value = errorText(e, 'Could not load more transactions.')
-    } finally {
-      loadingMore.value = false
     }
   }
 

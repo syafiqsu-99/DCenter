@@ -91,7 +91,7 @@
 
 <script setup>
   import { computed, onMounted, ref } from 'vue'
-  import api from '@/utils/api'
+  import { useCrudApi } from '@/composables/useCrudApi'
   import { errorText } from '@/utils/errors'
   import ConfirmDeleteDialog from '@/components/common/ConfirmDeleteDialog.vue'
 
@@ -102,6 +102,7 @@
   ]
   const scopeFilterItems = [{ title: 'All scopes', value: null }, ...scopeItems]
 
+  const welders = useCrudApi('/welders')
   const items = ref([])
   const search = ref('')
   const scopeFilter = ref(null)
@@ -142,8 +143,7 @@
   async function load() {
     loading.value = true
     try {
-      const { data } = await api.get('/welders')
-      items.value = data
+      items.value = await welders.list()
     } catch (e) {
       error.value = errorText(e, 'Could not load welders.')
     } finally {
@@ -167,8 +167,8 @@
     saving.value = true
     dialogError.value = ''
     try {
-      if (editing.value.id) await api.put(`/welders/${editing.value.id}`, editing.value)
-      else await api.post('/welders', editing.value)
+      if (editing.value.id) await welders.update(editing.value.id, editing.value)
+      else await welders.create(editing.value)
       dialog.value = false
       await load()
     } catch (e) {
@@ -182,7 +182,7 @@
     bulkSaving.value = true
     error.value = ''
     try {
-      await api.put('/welders/scope', { ids: selected.value, usageScope })
+      await welders.put('scope', { ids: selected.value, usageScope })
       selected.value = []
       await load()
     } catch (e) {
@@ -201,7 +201,7 @@
     if (!pendingDelete.value) return
     deleting.value = true
     try {
-      await api.delete(`/welders/${pendingDelete.value.id}`)
+      await welders.remove(pendingDelete.value.id)
       await load()
     } catch (e) {
       error.value = errorText(e, 'Could not delete the welder.')

@@ -111,7 +111,8 @@
   import { useRouter } from 'vue-router';
   import { useReportStore } from '@/store/reportStore';
   import { useConsumableStore } from '@/store/consumableStore';
-  import api from '@/utils/api';
+  import { saveBlob } from '@/utils/files';
+  import { reportFileName } from '@/utils/fileName';
   import ConfirmDeleteDialog from '@/components/common/ConfirmDeleteDialog.vue';
   import ReportPdfDialog from '@/components/report/ReportPdfDialog.vue';
   import { REPORT_ACTION, REPORT_STATUS } from '@/utils/constants';
@@ -205,34 +206,13 @@
     else notify(store.error || 'Could not delete the draft.', 'error');
   }
 
-  function shortDesc(desc) {
-    return (desc ?? '').trim().split(/\s+/).slice(0, 6).join(' ').slice(0, 40)
-  }
-  function safeName(...parts) {
-    return (
-      parts
-        .map((p) => (p ?? '').toString().trim())
-        .filter(Boolean)
-        .join(' ')
-        .replace(/[\\/:*?"<>|]+/g, '')
-        .replace(/\s+/g, ' ')
-        .trim() || 'WeldOrderCard'
-    )
-  }
-
   async function downloadExcel() {
     if (unsavedBlocksOutput()) return
     excelLoading.value = true
     try {
-      const res = await api.get(`/reports/${encodeURIComponent(report.value.workOrderNumber)}/excel`, {
-        responseType: 'blob',
-      })
-      const url = URL.createObjectURL(res.data)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = `${safeName(report.value.workOrderNumber, report.value.partNo, shortDesc(report.value.description))}.xlsx`
-      a.click()
-      URL.revokeObjectURL(url)
+      const r = report.value
+      const blob = await store.fetchReportFile(r.workOrderNumber, 'excel')
+      saveBlob(blob, `${reportFileName(r.workOrderNumber, r.partNo, r.description)}.xlsx`)
     } catch {
       notify('Could not download the Excel file.', 'error')
     } finally {

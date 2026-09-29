@@ -21,7 +21,8 @@
 
 <script setup>
   import { ref, watch } from 'vue';
-  import api from '@/utils/api';
+  import { useReportStore } from '@/store/reportStore';
+  import { reportFileName } from '@/utils/fileName';
 
   const props = defineProps({
     modelValue: { type: Boolean, default: false },
@@ -35,15 +36,16 @@
   const loading = ref(false);
   const error = ref('');
   let requestId = 0;
+  const reportStore = useReportStore();
 
   async function load() {
     const current = ++requestId;
     loading.value = true;
     error.value = '';
     try {
-      const res = await api.get(`/reports/${encodeURIComponent(props.workOrderNumber)}/pdf`, { responseType: 'blob' });
+      const blob = await reportStore.fetchReportFile(props.workOrderNumber, 'pdf');
       if (current !== requestId || !props.modelValue) return;
-      pdfUrl.value = URL.createObjectURL(res.data);
+      pdfUrl.value = URL.createObjectURL(blob);
     } catch {
       if (current === requestId) error.value = 'Could not load the PDF.';
     } finally {
@@ -59,19 +61,9 @@
     loading.value = false;
   }
 
-  function shortDesc(desc) {
-    return (desc ?? '').trim().split(/\s+/).slice(0, 6).join(' ').slice(0, 40);
-  }
-
   function download() {
     if (!pdfUrl.value) return;
-    const name = [props.workOrderNumber, props.partNo, shortDesc(props.description)]
-      .map((p) => (p ?? '').toString().trim())
-      .filter(Boolean)
-      .join(' ')
-      .replace(/[\\/:*?"<>|]+/g, '')
-      .replace(/\s+/g, ' ')
-      .trim() || 'WeldOrderCard';
+    const name = reportFileName(props.workOrderNumber, props.partNo, props.description);
     const a = document.createElement('a');
     a.href = pdfUrl.value;
     a.download = `${name}.pdf`;

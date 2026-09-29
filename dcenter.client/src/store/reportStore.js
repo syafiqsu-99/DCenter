@@ -228,6 +228,11 @@ export const useReportStore = defineStore('report', {
   },
 
   actions: {
+    async fetchReportFile(workOrderNumber, kind) {
+      const { data } = await api.get(`/reports/${encodeURIComponent(workOrderNumber)}/${kind}`, { responseType: 'blob' })
+      return data
+    },
+
     setSearchInput(value) {
       this.searchInput = value ?? ''
       clearTimeout(searchTimer)

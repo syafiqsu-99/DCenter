@@ -71,6 +71,7 @@
 <script setup>
   import { computed, onMounted, ref, useTemplateRef } from 'vue';
   import api from '@/utils/api';
+  import { useCrudApi } from '@/composables/useCrudApi';
   import ConfirmDeleteDialog from '@/components/common/ConfirmDeleteDialog.vue';
 
   const props = defineProps({
@@ -80,6 +81,7 @@
     importKey: { type: Array, default: () => [] },
   });
 
+  const crud = useCrudApi(props.apiBase);
   const items = ref([]);
   const search = ref('');
   const loading = ref(false);
@@ -122,8 +124,7 @@
   async function load() {
     loading.value = true;
     try {
-      const { data } = await api.get(props.apiBase);
-      items.value = data;
+      items.value = await crud.list();
     } finally {
       loading.value = false;
     }
@@ -151,8 +152,8 @@
     saving.value = true;
     saveError.value = '';
     try {
-      if (editing.value.id) await api.put(`${props.apiBase}/${editing.value.id}`, editing.value);
-      else await api.post(props.apiBase, editing.value);
+      if (editing.value.id) await crud.update(editing.value.id, editing.value);
+      else await crud.create(editing.value);
       dialog.value = false;
       await load();
     } catch (err) {
@@ -171,7 +172,7 @@
     if (!pendingDelete.value) return;
     deleting.value = true;
     try {
-      await api.delete(`${props.apiBase}/${pendingDelete.value.id}`);
+      await crud.remove(pendingDelete.value.id);
       await load();
     } finally {
       deleting.value = false;
@@ -190,9 +191,7 @@
     importing.value = true;
     importResult.value = null;
     try {
-      const form = new FormData();
-      form.append('file', file);
-      const { data } = await api.post(`${props.apiBase}/import`, form);
+      const data = await crud.importCsv(file);
       importResult.value = {
         type: 'success',
         text: `Import complete — ${data.added} added, ${data.updated} updated, ${data.unchanged} unchanged, ${data.skipped} skipped (missing required values).`,
