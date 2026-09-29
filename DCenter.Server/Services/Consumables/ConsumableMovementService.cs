@@ -487,21 +487,10 @@ public class ConsumableMovementService(
         if (r.LotId is int requested && !await db.ConsumableItemLots.AnyAsync(l => l.Id == requested && l.ItemId == item.Id, ct))
             return Fail("The selected lot does not belong to this consumable.");
 
-        int? bin = null;
-        if (stage == Cat.Activated)
-        {
-            var (resolved, binError) = G.ResolveBin(item, r.CompartmentId);
-            if (binError is not null) return Fail(binError);
-            bin = resolved;
-        }
-        else if (r.CompartmentId is not null)
-        {
-            return Fail("Compartments apply to Activated storage only.");
-        }
+        var (bin, binError) = G.ResolveBin(item, r.CompartmentId);
+        if (binError is not null) return Fail(binError);
 
-        var available = stage == Cat.Normal
-            ? (await ledger.LotStagesForItemAsync(item.Id, ct)).Select(l => (LotId: l.LotId, Available: l.Totals.NormalKg)).ToList()
-            : await guards.BinLotsAsync(item.Id, bin, ct);
+        var available = await guards.BinLotsAsync(item.Id, bin, ct);
         var current = r.LotId is int lotId
             ? available.Where(l => l.LotId == lotId).Sum(l => l.Available)
             : available.Sum(l => l.Available);

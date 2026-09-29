@@ -84,11 +84,10 @@ public class ConsumableLedger(WeldReportContext db)
             .ToList();
     }
 
-    public async Task<Dictionary<int, decimal>> BakingBalancesAsync(List<int>? recordIds, CancellationToken ct)
+    public async Task<Dictionary<int, decimal>> BakingBalancesAsync(List<int> recordIds, CancellationToken ct)
     {
-        var q = Live().Where(m => m.BakingRecordId != null);
-        if (recordIds is not null) q = q.Where(m => recordIds.Contains(m.BakingRecordId!.Value));
-        var rows = await q
+        var rows = await Live().Where(m => m.BakingRecordId != null)
+            .Where(m => recordIds.Contains(m.BakingRecordId!.Value))
             .GroupBy(m => m.BakingRecordId)
             .Select(g => new
             {
@@ -138,11 +137,9 @@ public class ConsumableLedger(WeldReportContext db)
         return balance > 0 ? Cat.StatusBaked : Cat.StatusClosed;
     }
 
-    public async Task<Dictionary<int, StageTotals>> ItemTotalsAsync(List<int>? itemIds, CancellationToken ct)
+    public async Task<Dictionary<int, StageTotals>> ItemTotalsAsync(List<int> itemIds, CancellationToken ct)
     {
-        var rows = itemIds is null
-            ? await LotStagesAsync(null, ct)
-            : await LotStagesAsync(m => itemIds.Contains(m.Lot.ItemId), ct);
+        var rows = await LotStagesAsync(m => itemIds.Contains(m.Lot.ItemId), ct);
         return rows.GroupBy(r => r.ItemId).ToDictionary(g => g.Key, g => StageTotals.Sum(g.Select(x => x.Totals)));
     }
 

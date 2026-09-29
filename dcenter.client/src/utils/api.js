@@ -27,7 +27,7 @@ async function parseBody(res, responseType) {
 }
 
 async function request(method, url, { params, body, headers, responseType, timeoutMs } = {}) {
-  const finalHeaders = { ...defaults.headers, ...(headers ?? {}) };
+  const finalHeaders = { ...defaults.headers, ...headers };
   const isFormData = body instanceof FormData;
   let payload = body;
 
@@ -43,9 +43,9 @@ async function request(method, url, { params, body, headers, responseType, timeo
   let res;
   let data;
   try {
-    res = await fetch(buildUrl(url, params), {
-      method, headers: finalHeaders, body: payload, cache: 'no-store', signal: controller.signal,
-    });
+    const init = { method, headers: finalHeaders, cache: 'no-store', signal: controller.signal };
+    if (payload !== undefined) init.body = payload;
+    res = await fetch(buildUrl(url, params), init);
     data = res.status === 204 ? null : await parseBody(res, res.ok ? responseType : undefined);
   } catch (e) {
     if (e?.name !== 'AbortError') throw e;

@@ -1,0 +1,43 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "build",
+      "type": "process",
+      "command": "dotnet",
+      "args": ["build", "${workspaceFolder}/DCenter.slnx"],
+      "group": { "kind": "build", "isDefault": true },
+      "problemMatcher": "$msCompile"
+    },
+    {
+      "label": "watch",
+      "type": "process",
+      "command": "dotnet",
+      "args": ["watch", "run", "--project", "${workspaceFolder}/DCenter.Server"],
+      "isBackground": true,
+      "problemMatcher": "$msCompile"
+    },
+    {
+      "label": "test",
+      "type": "process",
+      "command": "dotnet",
+      "args": ["test", "${workspaceFolder}/DCenter.Server.Tests"],
+      "group": { "kind": "test", "isDefault": true },
+      "problemMatcher": "$msCompile"
+    },
+    {
+      "label": "publish",
+      "type": "process",
+      "command": "dotnet",
+      "args": ["publish", "${workspaceFolder}/DCenter.Server", "-c", "Release"],
+      "problemMatcher": "$msCompile"
+    },
+    {
+      "label": "lint client",
+      "type": "shell",
+      "command": "npm run lint-check",
+      "options": { "cwd": "${workspaceFolder}/dcenter.client" },
+      "problemMatcher": []
+    }
+  ]
+}

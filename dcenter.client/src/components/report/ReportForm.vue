@@ -95,7 +95,7 @@
     </span>
   </div>
 
-  <JointForm v-for="joint in report.joints" :key="joint.jointNumber" :joint="joint" />
+  <JointForm v-for="(joint, i) in report.joints" :key="joint.jointNumber" :index="i" />
 </template>
 
 <script setup>

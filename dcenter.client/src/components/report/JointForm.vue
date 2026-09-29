@@ -145,7 +145,7 @@
 </template>
 
 <script setup>
-  import { computed, ref, watch } from 'vue';
+  import { computed, ref } from 'vue';
   import { storeToRefs } from 'pinia';
   import { useReportStore } from '@/store/reportStore';
   import { useLookupStore } from '@/store/lookupStore';
@@ -157,16 +157,16 @@
   wpsStore.load();
 
   const props = defineProps({
-    joint: { type: Object, required: true },
+    index: { type: Number, required: true },
   });
 
   const processTypeStore = useProcessTypeStore()
   processTypeStore.load()
 
   function typeOpt(col) {
-    const linked = processTypeStore.typesForProcess(props.joint.materials[col].process)
+    const linked = processTypeStore.typesForProcess(joint.value.materials[col].process)
     const base = linked ?? (options.value['Type'] ?? [])
-    const current = props.joint.materials[col].type
+    const current = joint.value.materials[col].type
     return current && !base.includes(current) ? [current, ...base] : base
   }
 
@@ -175,6 +175,7 @@
 
   const reportStore = useReportStore();
   const { rightParts } = storeToRefs(reportStore);
+  const joint = computed(() => reportStore.report.joints[props.index]);
 
   const lookupStore = useLookupStore();
   const { options } = storeToRefs(lookupStore);
@@ -184,10 +185,6 @@
     return current && !list.includes(current) ? [current, ...list] : list;
   }
 
-  function isEmpty(v) {
-    return v === null || v === undefined || v === '';
-  }
-
   function partNoTitle(p) {
     return typeof p === 'string' ? p : (p?.no ?? '')
   }
@@ -195,7 +192,7 @@
     return typeof p === 'string' ? p : (p?.desc ?? '')
   }
   function setPart(side, field, v) {
-    const j = props.joint
+    const j = joint.value
     const noKey = `partNo${side}`
     const descKey = `partDesc${side}`
     if (v && typeof v === 'object') {
@@ -227,7 +224,7 @@
     return typeof w === 'string' ? w : (w?.welderNo ?? '')
   }
   function setWelder(field, v) {
-    const j = props.joint
+    const j = joint.value
     if (v && typeof v === 'object') {
       j.welderName = v.welderName ?? ''
       j.welderNo = v.welderNo ?? ''

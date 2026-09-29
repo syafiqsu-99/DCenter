@@ -152,7 +152,6 @@ export const useConsumableStore = defineStore('consumables', {
     ovenBoard: { ovens: [], unassigned: [] },
     ovenBoardLoaded: false,
     loadingOvens: false,
-    ovenSearch: '',
   }),
 
   getters: {

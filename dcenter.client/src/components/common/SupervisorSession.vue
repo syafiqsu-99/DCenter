@@ -23,7 +23,9 @@
   const onSupervisorPage = () => route.matched.some((r) => r.meta.supervisor)
 
   function withoutUnlockQuery() {
-    const { unlock, next, ...rest } = route.query
+    const rest = { ...route.query }
+    delete rest.unlock
+    delete rest.next
     return { path: route.path, query: rest }
   }
 

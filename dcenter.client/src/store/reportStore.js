@@ -137,7 +137,6 @@ export const useReportStore = defineStore('report', {
     loadingRows: false,
     loadingMoreRows: false,
     confirmed: false,
-    resolvedWorkOrder: '',
     report: null,
     loading: false,
     saving: false,
@@ -398,7 +397,6 @@ export const useReportStore = defineStore('report', {
       const wo = (workOrderNumber ?? '').trim()
       if (!wo) return false
       if (!force && this.confirmed && this.report?.workOrderNumber === wo) return true
-      this.resolvedWorkOrder = wo
       this.loading = true
       this.error = ''
       this.conflict = false
@@ -492,7 +490,6 @@ export const useReportStore = defineStore('report', {
         const { data } = await api.post('/reports', this.report)
         this.report = normalizeJoints(data)
         this.mode = 'saved'
-        this.resolvedWorkOrder = this.report.workOrderNumber
         this.markPristine()
         this.rememberRecent(this.report.workOrderNumber)
         await this.loadSavedReports()
@@ -573,7 +570,6 @@ export const useReportStore = defineStore('report', {
     backToList() {
       this.confirmed = false
       this.report = null
-      this.resolvedWorkOrder = ''
       this.history = []
       this.conflict = false
       this.savedSnapshot = ''
@@ -621,7 +617,6 @@ export const useReportStore = defineStore('report', {
             materials: (j.materials ?? []).map((m) => ({ ...m, id: 0 })),
           })),
         }
-        this.resolvedWorkOrder = ''
         this.mode = 'duplicate'
         this.confirmed = true
         this.history = []

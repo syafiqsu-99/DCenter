@@ -9,8 +9,6 @@ public static class CsvText
 
     public sealed record Row(int Line, List<string> Fields);
 
-    public static List<Row> Parse(string text) => Parse(text, out _);
-
     public static List<Row> Parse(string text, out string? error)
     {
         error = null;
