@@ -1,0 +1,5620 @@
+### catalog
+GET http://localhost/api/consumables/catalog -> 200
+{
+  "categories": [
+    "Bare \u0026 Powder Filler",
+    "Electrode Filler"
+  ],
+  "sources": [
+    "Weld Shop",
+    "Tool Crib"
+  ],
+  "stages": [
+    "Normal",
+    "Activated"
+  ],
+  "adjustReasons": [
+    "Used up",
+    "Count variance",
+    "Weighing inaccuracy",
+    "Found stock",
+    "Other"
+  ],
+  "ovenTypes": [
+    "Alloy Steel",
+    "Mild Steel",
+    "Ni Alloy",
+    "Stainless Steel"
+  ],
+  "finishThresholdKg": 0.5,
+  "allowElectrodeDirectTransfer": false,
+  "returnWindowDays": 7,
+  "compartments": [
+    {
+      "code": "AS-1",
+      "ovenType": "Alloy Steel"
+    },
+    {
+      "code": "AS-2",
+      "ovenType": "Alloy Steel"
+    },
+    {
+      "code": "AS-3",
+      "ovenType": "Alloy Steel"
+    },
+    {
+      "code": "AS-4",
+      "ovenType": "Alloy Steel"
+    },
+    {
+      "code": "AS-5",
+      "ovenType": "Alloy Steel"
+    },
+    {
+      "code": "AS-6",
+      "ovenType": "Alloy Steel"
+    },
+    {
+      "code": "AS-7",
+      "ovenType": "Alloy Steel"
+    },
+    {
+      "code": "AS-8",
+      "ovenType": "Alloy Steel"
+    },
+    {
+      "code": "AS-9",
+      "ovenType": "Alloy Steel"
+    },
+    {
+      "code": "MS-1",
+      "ovenType": "Mild Steel"
+    },
+    {
+      "code": "MS-2",
+      "ovenType": "Mild Steel"
+    },
+    {
+      "code": "MS-3",
+      "ovenType": "Mild Steel"
+    },
+    {
+      "code": "MS-4",
+      "ovenType": "Mild Steel"
+    },
+    {
+      "code": "MS-5",
+      "ovenType": "Mild Steel"
+    },
+    {
+      "code": "MS-6",
+      "ovenType": "Mild Steel"
+    },
+    {
+      "code": "MS-7",
+      "ovenType": "Mild Steel"
+    },
+    {
+      "code": "MS-8",
+      "ovenType": "Mild Steel"
+    },
+    {
+      "code": "MS-9",
+      "ovenType": "Mild Steel"
+    },
+    {
+      "code": "NI-1",
+      "ovenType": "Ni Alloy"
+    },
+    {
+      "code": "NI-2",
+      "ovenType": "Ni Alloy"
+    },
+    {
+      "code": "NI-3",
+      "ovenType": "Ni Alloy"
+    },
+    {
+      "code": "NI-4",
+      "ovenType": "Ni Alloy"
+    },
+    {
+      "code": "NI-5",
+      "ovenType": "Ni Alloy"
+    },
+    {
+      "code": "NI-6",
+      "ovenType": "Ni Alloy"
+    },
+    {
+      "code": "NI-7",
+      "ovenType": "Ni Alloy"
+    },
+    {
+      "code": "NI-8",
+      "ovenType": "Ni Alloy"
+    },
+    {
+      "code": "NI-9",
+      "ovenType": "Ni Alloy"
+    },
+    {
+      "code": "SS-1",
+      "ovenType": "Stainless Steel"
+    },
+    {
+      "code": "SS-2",
+      "ovenType": "Stainless Steel"
+    },
+    {
+      "code": "SS-3",
+      "ovenType": "Stainless Steel"
+    },
+    {
+      "code": "SS-4",
+      "ovenType": "Stainless Steel"
+    },
+    {
+      "code": "SS-5",
+      "ovenType": "Stainless Steel"
+    },
+    {
+      "code": "SS-6",
+      "ovenType": "Stainless Steel"
+    },
+    {
+      "code": "SS-7",
+      "ovenType": "Stainless Steel"
+    },
+    {
+      "code": "SS-8",
+      "ovenType": "Stainless Steel"
+    },
+    {
+      "code": "SS-9",
+      "ovenType": "Stainless Steel"
+    }
+  ],
+  "welderBackdateDays": 7
+}
+
+### ovens empty
+GET http://localhost/api/consumables/ovens -> 200
+{
+  "ovens": [
+    {
+      "id": 1,
+      "name": "Alloy Steel Oven",
+      "code": "AS",
+      "ovenType": "Alloy Steel",
+      "compartments": [
+        {
+          "id": 1,
+          "ovenId": 1,
+          "number": 1,
+          "label": "1",
+          "code": "AS-1",
+          "totalKg": 0,
+          "oldestSinceAt": null,
+          "contents": []
+        },
+        {
+          "id": 2,
+          "ovenId": 1,
+          "number": 2,
+          "label": "2",
+          "code": "AS-2",
+          "totalKg": 0,
+          "oldestSinceAt": null,
+          "contents": []
+        },
+        {
+          "id": 3,
+          "ovenId": 1,
+          "number": 3,
+          "label": "3",
+          "code": "AS-3",
+          "totalKg": 0,
+          "oldestSinceAt": null,
+          "contents": []
+        },
+        {
+          "id": 4,
+          "ovenId": 1,
+          "number": 4,
+          "label": "4",
+          "code": "AS-4",
+          "totalKg": 0,
+          "oldestSinceAt": null,
+          "contents": []
+        },
+        {
+          "id": 5,
+          "ovenId": 1,
+          "number": 5,
+          "label": "5",
+          "code": "AS-5",
+          "totalKg": 0,
+          "oldestSinceAt": null,
+          "contents": []
+        },
+        {
+          "id": 6,
+          "ovenId": 1,
+          "number": 6,
+          "label": "6",
+          "code": "AS-6",
+          "totalKg": 0,
+          "oldestSinceAt": null,
+          "contents": []
+        },
+        {
+          "id": 7,
+          "ovenId": 1,
+          "number": 7,
+          "label": "7",
+          "code": "AS-7",
+          "totalKg": 0,
+          "oldestSinceAt": null,
+          "contents": []
+        },
+        {
+          "id": 8,
+          "ovenId": 1,
+          "number": 8,
+          "label": "8",
+          "code": "AS-8",
+          "totalKg": 0,
+          "oldestSinceAt": null,
+          "contents": []
+        },
+        {
+          "id": 9,
+          "ovenId": 1,
+          "number": 9,
+          "label": "9",
+          "code": "AS-9",
+          "totalKg": 0,
+          "oldestSinceAt": null,
+          "contents": []
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "name": "Mild Steel Oven",
+      "code": "MS",
+      "ovenType": "Mild Steel",
+      "compartments": [
+        {
+          "id": 10,
+          "ovenId": 2,
+          "number": 1,
+          "label": "1",
+          "code": "MS-1",
+          "totalKg": 0,
+          "oldestSinceAt": null,
+          "contents": []
+        },
+        {
+          "id": 11,
+          "ovenId": 2,
+          "number": 2,
+          "label": "2",
+          "code": "MS-2",
+          "totalKg": 0,
+          "oldestSinceAt": null,
+          "contents": []
+        },
+        {
+          "id": 12,
+          "ovenId": 2,
+          "number": 3,
+          "label": "3",
+          "code": "MS-3",
+          "totalKg": 0,
+          "oldestSinceAt": null,
+          "contents": []
+        },
+        {
+          "id": 13,
+          "ovenId": 2,
+          "number": 4,
+          "label": "4",
+          "code": "MS-4",
+          "totalKg": 0,
+          "oldestSinceAt": null,
+          "contents": []
+        },
+        {
+          "id": 14,
+          "ovenId": 2,
+          "number": 5,
+          "label": "5",
+          "code": "MS-5",
+          "totalKg": 0,
+          "oldestSinceAt": null,
+          "contents": []
+        },
+        {
+          "id": 15,
+          "ovenId": 2,
+          "number": 6,
+          "label": "6",
+          "code": "MS-6",
+          "totalKg": 0,
+          "oldestSinceAt": null,
+          "contents": []
+        },
+        {
+          "id": 16,
+          "ovenId": 2,
+          "number": 7,
+          "label": "7",
+          "code": "MS-7",
+          "totalKg": 0,
+          "oldestSinceAt": null,
+          "contents": []
+        },
+        {
+          "id": 17,
+          "ovenId": 2,
+          "number": 8,
+          "label": "8",
+          "code": "MS-8",
+          "totalKg": 0,
+          "oldestSinceAt": null,
+          "contents": []
+        },
+        {
+          "id": 18,
+          "ovenId": 2,
+          "number": 9,
+          "label": "9",
+          "code": "MS-9",
+          "totalKg": 0,
+          "oldestSinceAt": null,
+          "contents": []
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "name": "Ni Alloy Oven",
+      "code": "NI",
+      "ovenType": "Ni Alloy",
+      "compartments": [
+        {
+          "id": 19,
+          "ovenId": 3,
+          "number": 1,
+          "label": "1",
+          "code": "NI-1",
+          "totalKg": 0,
+          "oldestSinceAt": null,
+          "contents": []
+        },
+        {
+          "id": 20,
+          "ovenId": 3,
+          "number": 2,
+          "label": "2",
+          "code": "NI-2",
+          "totalKg": 0,
+          "oldestSinceAt": null,
+          "contents": []
+        },
+        {
+          "id": 21,
+          "ovenId": 3,
+          "number": 3,
+          "label": "3",
+          "code": "NI-3",
+          "totalKg": 0,
+          "oldestSinceAt": null,
+          "contents": []
+        },
+        {
+          "id": 22,
+          "ovenId": 3,
+          "number": 4,
+          "label": "4",
+          "code": "NI-4",
+          "totalKg": 0,
+          "oldestSinceAt": null,
+          "contents": []
+        },
+        {
+          "id": 23,
+          "ovenId": 3,
+          "number": 5,
+          "label": "5",
+          "code": "NI-5",
+          "totalKg": 0,
+          "oldestSinceAt": null,
+          "contents": []
+        },
+        {
+          "id": 24,
+          "ovenId": 3,
+          "number": 6,
+          "label": "6",
+          "code": "NI-6",
+          "totalKg": 0,
+          "oldestSinceAt": null,
+          "contents": []
+        },
+        {
+          "id": 25,
+          "ovenId": 3,
+          "number": 7,
+          "label": "7",
+          "code": "NI-7",
+          "totalKg": 0,
+          "oldestSinceAt": null,
+          "contents": []
+        },
+        {
+          "id": 26,
+          "ovenId": 3,
+          "number": 8,
+          "label": "8",
+          "code": "NI-8",
+          "totalKg": 0,
+          "oldestSinceAt": null,
+          "contents": []
+        },
+        {
+          "id": 27,
+          "ovenId": 3,
+          "number": 9,
+          "label": "9",
+          "code": "NI-9",
+          "totalKg": 0,
+          "oldestSinceAt": null,
+          "contents": []
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "name": "Stainless Steel Oven",
+      "code": "SS",
+      "ovenType": "Stainless Steel",
+      "compartments": [
+        {
+          "id": 28,
+          "ovenId": 4,
+          "number": 1,
+          "label": "1",
+          "code": "SS-1",
+          "totalKg": 0,
+          "oldestSinceAt": null,
+          "contents": []
+        },
+        {
+          "id": 29,
+          "ovenId": 4,
+          "number": 2,
+          "label": "2",
+          "code": "SS-2",
+          "totalKg": 0,
+          "oldestSinceAt": null,
+          "contents": []
+        },
+        {
+          "id": 30,
+          "ovenId": 4,
+          "number": 3,
+          "label": "3",
+          "code": "SS-3",
+          "totalKg": 0,
+          "oldestSinceAt": null,
+          "contents": []
+        },
+        {
+          "id": 31,
+          "ovenId": 4,
+          "number": 4,
+          "label": "4",
+          "code": "SS-4",
+          "totalKg": 0,
+          "oldestSinceAt": null,
+          "contents": []
+        },
+        {
+          "id": 32,
+          "ovenId": 4,
+          "number": 5,
+          "label": "5",
+          "code": "SS-5",
+          "totalKg": 0,
+          "oldestSinceAt": null,
+          "contents": []
+        },
+        {
+          "id": 33,
+          "ovenId": 4,
+          "number": 6,
+          "label": "6",
+          "code": "SS-6",
+          "totalKg": 0,
+          "oldestSinceAt": null,
+          "contents": []
+        },
+        {
+          "id": 34,
+          "ovenId": 4,
+          "number": 7,
+          "label": "7",
+          "code": "SS-7",
+          "totalKg": 0,
+          "oldestSinceAt": null,
+          "contents": []
+        },
+        {
+          "id": 35,
+          "ovenId": 4,
+          "number": 8,
+          "label": "8",
+          "code": "SS-8",
+          "totalKg": 0,
+          "oldestSinceAt": null,
+          "contents": []
+        },
+        {
+          "id": 36,
+          "ovenId": 4,
+          "number": 9,
+          "label": "9",
+          "code": "SS-9",
+          "totalKg": 0,
+          "oldestSinceAt": null,
+          "contents": []
+        }
+      ]
+    }
+  ],
+  "unassigned": []
+}
+
+### receive without supervisor
+POST http://localhost/api/consumables/receive -> 401
+Supervisor login is required. Use the Login button at the top of the page and try again.
+
+### supervisor login
+POST http://localhost/api/supervisor/login -> 200
+{
+  "name": "Store Supervisor",
+  "expiresAt": "2026-09-29T14:04:00\u002B00:00",
+  "token": "\u003Cvolatile\u003E"
+}
+
+### welder for stock
+POST http://localhost/api/welders -> 200
+{
+  "id": 1,
+  "welderName": "Ali Bin Abu",
+  "welderNo": "W-01",
+  "isActive": true,
+  "usageScope": "ReportAndStock"
+}
+
+### item electrode
+POST http://localhost/api/consumables/items -> 200
+{
+  "id": 1,
+  "category": "Electrode Filler",
+  "specification": "e7018",
+  "diameter": "3.20",
+  "diaSpec": "3.20 e7018",
+  "minStockKg": 5,
+  "activatedMinKg": 2,
+  "finishThresholdKg": 0.3,
+  "isActive": true,
+  "normalKg": 0,
+  "activatedKg": 0,
+  "totalKg": 0,
+  "holdingOvenType": "Mild Steel"
+}
+
+### item bare filler
+POST http://localhost/api/consumables/items -> 200
+{
+  "id": 2,
+  "category": "Bare \u0026 Powder Filler",
+  "specification": "ER308L",
+  "diameter": "2.40",
+  "diaSpec": "2.40 ER308L",
+  "minStockKg": 3,
+  "activatedMinKg": 1,
+  "finishThresholdKg": null,
+  "isActive": true,
+  "normalKg": 0,
+  "activatedKg": 0,
+  "totalKg": 0,
+  "holdingOvenType": null
+}
+
+### item duplicate
+POST http://localhost/api/consumables/items -> 409
+3.20 e7018 already exists.
+
+### item bad category
+POST http://localhost/api/consumables/items -> 400
+Consumable Type "Gas" is not valid. Allowed: Bare & Powder Filler, Electrode Filler.
+
+### item spare
+POST http://localhost/api/consumables/items -> 200
+{
+  "id": 3,
+  "category": "Bare \u0026 Powder Filler",
+  "specification": "ER70S-6",
+  "diameter": "1.20",
+  "diaSpec": "1.20 ER70S-6",
+  "minStockKg": 0,
+  "activatedMinKg": 0,
+  "finishThresholdKg": null,
+  "isActive": true,
+  "normalKg": 0,
+  "activatedKg": 0,
+  "totalKg": 0,
+  "holdingOvenType": null
+}
+
+### item update
+PUT http://localhost/api/consumables/items/3 -> 200
+{
+  "id": 3,
+  "category": "Bare \u0026 Powder Filler",
+  "specification": "ER70S-6",
+  "diameter": "1.20",
+  "diaSpec": "1.20 ER70S-6",
+  "minStockKg": 2,
+  "activatedMinKg": 0,
+  "finishThresholdKg": null,
+  "isActive": true,
+  "normalKg": 0,
+  "activatedKg": 0,
+  "totalKg": 0,
+  "holdingOvenType": null
+}
+
+### items
+GET http://localhost/api/consumables/items -> 200
+[
+  {
+    "id": 2,
+    "category": "Bare \u0026 Powder Filler",
+    "specification": "ER308L",
+    "diameter": "2.40",
+    "diaSpec": "2.40 ER308L",
+    "minStockKg": 3.00,
+    "activatedMinKg": 1.00,
+    "finishThresholdKg": null,
+    "isActive": true,
+    "normalKg": 0,
+    "activatedKg": 0,
+    "totalKg": 0,
+    "holdingOvenType": null
+  },
+  {
+    "id": 3,
+    "category": "Bare \u0026 Powder Filler",
+    "specification": "ER70S-6",
+    "diameter": "1.20",
+    "diaSpec": "1.20 ER70S-6",
+    "minStockKg": 2.00,
+    "activatedMinKg": 0.00,
+    "finishThresholdKg": null,
+    "isActive": true,
+    "normalKg": 0,
+    "activatedKg": 0,
+    "totalKg": 0,
+    "holdingOvenType": null
+  },
+  {
+    "id": 1,
+    "category": "Electrode Filler",
+    "specification": "e7018",
+    "diameter": "3.20",
+    "diaSpec": "3.20 e7018",
+    "minStockKg": 5.00,
+    "activatedMinKg": 2.00,
+    "finishThresholdKg": 0.30,
+    "isActive": true,
+    "normalKg": 0,
+    "activatedKg": 0,
+    "totalKg": 0,
+    "holdingOvenType": "Mild Steel"
+  }
+]
+
+### items search
+GET http://localhost/api/consumables/items?q=7018&category=Electrode Filler -> 200
+[
+  {
+    "id": 1,
+    "category": "Electrode Filler",
+    "specification": "e7018",
+    "diameter": "3.20",
+    "diaSpec": "3.20 e7018",
+    "minStockKg": 5.00,
+    "activatedMinKg": 2.00,
+    "finishThresholdKg": 0.30,
+    "isActive": true,
+    "normalKg": 0,
+    "activatedKg": 0,
+    "totalKg": 0,
+    "holdingOvenType": "Mild Steel"
+  }
+]
+
+### receive electrode
+POST http://localhost/api/consumables/receive -> 200
+{
+  "txnNo": "CT-26-000001",
+  "lines": [
+    {
+      "id": 1,
+      "txnNo": "CT-26-000001",
+      "txnType": "Receive",
+      "txnDate": "2026-09-29",
+      "createdAt": "\u003Cvolatile\u003E",
+      "createdBy": "Store Supervisor",
+      "itemId": 1,
+      "category": "Electrode Filler",
+      "specification": "e7018",
+      "diameter": "3.20",
+      "diaSpec": "3.20 e7018",
+      "lotId": 1,
+      "brand": "kobelco",
+      "lotNumber": "l123",
+      "quantityKg": 20.00,
+      "fromStage": null,
+      "toStage": "Normal",
+      "source": "Weld Shop",
+      "requestor": "Ali Bin Abu",
+      "welderId": null,
+      "welderName": null,
+      "reason": null,
+      "countedQtyKg": null,
+      "referenceNo": null,
+      "remarks": "first",
+      "isVoided": false,
+      "voidsMovementId": null,
+      "fromCompartmentId": null,
+      "fromCompartment": null,
+      "toCompartmentId": null,
+      "toCompartment": null,
+      "bakingRecordId": null,
+      "bakingNo": null
+    }
+  ],
+  "balance": {
+    "itemId": 1,
+    "diaSpec": "3.20 e7018",
+    "normalKg": 20.00,
+    "bakingKg": 0.00,
+    "activatedKg": 0.00,
+    "totalKg": 20.00
+  },
+  "residuals": [],
+  "warning": null
+}
+
+### receive bare filler
+POST http://localhost/api/consumables/receive -> 200
+{
+  "txnNo": "CT-26-000002",
+  "lines": [
+    {
+      "id": 2,
+      "txnNo": "CT-26-000002",
+      "txnType": "Receive",
+      "txnDate": "2026-09-29",
+      "createdAt": "\u003Cvolatile\u003E",
+      "createdBy": "Store Supervisor",
+      "itemId": 2,
+      "category": "Bare \u0026 Powder Filler",
+      "specification": "ER308L",
+      "diameter": "2.40",
+      "diaSpec": "2.40 ER308L",
+      "lotId": 2,
+      "brand": "Lincoln",
+      "lotNumber": "B77",
+      "quantityKg": 10.00,
+      "fromStage": null,
+      "toStage": "Normal",
+      "source": "Tool Crib",
+      "requestor": "Ali Bin Abu",
+      "welderId": null,
+      "welderName": null,
+      "reason": null,
+      "countedQtyKg": null,
+      "referenceNo": null,
+      "remarks": null,
+      "isVoided": false,
+      "voidsMovementId": null,
+      "fromCompartmentId": null,
+      "fromCompartment": null,
+      "toCompartmentId": null,
+      "toCompartment": null,
+      "bakingRecordId": null,
+      "bakingNo": null
+    }
+  ],
+  "balance": {
+    "itemId": 2,
+    "diaSpec": "2.40 ER308L",
+    "normalKg": 10.00,
+    "bakingKg": 0.00,
+    "activatedKg": 0.00,
+    "totalKg": 10.00
+  },
+  "residuals": [],
+  "warning": null
+}
+
+### receive new item
+POST http://localhost/api/consumables/receive -> 200
+{
+  "txnNo": "CT-26-000003",
+  "lines": [
+    {
+      "id": 3,
+      "txnNo": "CT-26-000003",
+      "txnType": "Receive",
+      "txnDate": "2026-09-29",
+      "createdAt": "\u003Cvolatile\u003E",
+      "createdBy": "Store Supervisor",
+      "itemId": 4,
+      "category": "Bare \u0026 Powder Filler",
+      "specification": "ERNiCr-3",
+      "diameter": "2.40",
+      "diaSpec": "2.40 ERNiCr-3",
+      "lotId": 3,
+      "brand": "Special",
+      "lotNumber": "N1",
+      "quantityKg": 4.00,
+      "fromStage": null,
+      "toStage": "Normal",
+      "source": "Weld Shop",
+      "requestor": "Ali Bin Abu",
+      "welderId": null,
+      "welderName": null,
+      "reason": null,
+      "countedQtyKg": null,
+      "referenceNo": null,
+      "remarks": null,
+      "isVoided": false,
+      "voidsMovementId": null,
+      "fromCompartmentId": null,
+      "fromCompartment": null,
+      "toCompartmentId": null,
+      "toCompartment": null,
+      "bakingRecordId": null,
+      "bakingNo": null
+    }
+  ],
+  "balance": {
+    "itemId": 4,
+    "diaSpec": "2.40 ERNiCr-3",
+    "normalKg": 4.00,
+    "bakingKg": 0.00,
+    "activatedKg": 0.00,
+    "totalKg": 4.00
+  },
+  "residuals": [],
+  "warning": null
+}
+
+### receive future date
+POST http://localhost/api/consumables/receive -> 400
+Date cannot be in the future.
+
+### receive zero
+POST http://localhost/api/consumables/receive -> 400
+Receive Qty (KG) must be greater than 0.
+
+### transfer bare to activated
+POST http://localhost/api/consumables/transfer -> 200
+{
+  "txnNo": "CT-26-000004",
+  "lines": [
+    {
+      "id": 4,
+      "txnNo": "CT-26-000004",
+      "txnType": "Transfer",
+      "txnDate": "2026-09-29",
+      "createdAt": "\u003Cvolatile\u003E",
+      "createdBy": "Store Supervisor",
+      "itemId": 2,
+      "category": "Bare \u0026 Powder Filler",
+      "specification": "ER308L",
+      "diameter": "2.40",
+      "diaSpec": "2.40 ER308L",
+      "lotId": 2,
+      "brand": "Lincoln",
+      "lotNumber": "B77",
+      "quantityKg": 3.00,
+      "fromStage": "Normal",
+      "toStage": "Activated",
+      "source": null,
+      "requestor": null,
+      "welderId": null,
+      "welderName": null,
+      "reason": null,
+      "countedQtyKg": null,
+      "referenceNo": null,
+      "remarks": null,
+      "isVoided": false,
+      "voidsMovementId": null,
+      "fromCompartmentId": null,
+      "fromCompartment": null,
+      "toCompartmentId": null,
+      "toCompartment": null,
+      "bakingRecordId": null,
+      "bakingNo": null
+    }
+  ],
+  "balance": {
+    "itemId": 2,
+    "diaSpec": "2.40 ER308L",
+    "normalKg": 7.00,
+    "bakingKg": 0.00,
+    "activatedKg": 3.00,
+    "totalKg": 10.00
+  },
+  "residuals": [],
+  "warning": null
+}
+
+### transfer electrode refused
+POST http://localhost/api/consumables/transfer -> 400
+Electrodes reach Activated storage through Baking and the holding ovens, not by direct transfer.
+
+### transfer too much
+POST http://localhost/api/consumables/transfer -> 409
+Only 7.00 kg is in Normal storage.
+
+### send to bake
+POST http://localhost/api/consumables/baking -> 200
+{
+  "txnNo": "CT-26-000005",
+  "records": [
+    {
+      "id": 1,
+      "bakingNo": "BK-26-0001",
+      "itemId": 1,
+      "category": "Electrode Filler",
+      "diaSpec": "3.20 e7018",
+      "holdingOvenType": "Mild Steel",
+      "lotId": 1,
+      "brand": "kobelco",
+      "lotNumber": "l123",
+      "quantityKg": 6.00,
+      "balanceKg": 6.00,
+      "personInCharge": "pic one",
+      "bakingDate": "2026-09-29",
+      "bakeStart": null,
+      "bakeStop": null,
+      "rebakeStart": null,
+      "rebakeStop": null,
+      "status": "Queued",
+      "remarks": null,
+      "createdBy": "Store Supervisor",
+      "createdAt": "\u003Cvolatile\u003E"
+    }
+  ]
+}
+
+### send to bake bare refused
+POST http://localhost/api/consumables/baking -> 400
+Only electrodes are sent for baking.
+
+### baking board
+GET http://localhost/api/consumables/baking/board -> 200
+[
+  {
+    "id": 1,
+    "bakingNo": "BK-26-0001",
+    "itemId": 1,
+    "category": "Electrode Filler",
+    "diaSpec": "3.20 e7018",
+    "holdingOvenType": "Mild Steel",
+    "lotId": 1,
+    "brand": "kobelco",
+    "lotNumber": "l123",
+    "quantityKg": 6.00,
+    "balanceKg": 6.00,
+    "personInCharge": "pic one",
+    "bakingDate": "2026-09-29",
+    "bakeStart": null,
+    "bakeStop": null,
+    "rebakeStart": null,
+    "rebakeStop": null,
+    "status": "Queued",
+    "remarks": null,
+    "createdBy": "Store Supervisor",
+    "createdAt": "\u003Cvolatile\u003E"
+  }
+]
+
+### bake start
+POST http://localhost/api/consumables/baking/start -> 200
+{
+  "txnNo": null,
+  "records": [
+    {
+      "id": 1,
+      "bakingNo": "BK-26-0001",
+      "itemId": 1,
+      "category": "Electrode Filler",
+      "diaSpec": "3.20 e7018",
+      "holdingOvenType": "Mild Steel",
+      "lotId": 1,
+      "brand": "kobelco",
+      "lotNumber": "l123",
+      "quantityKg": 6.00,
+      "balanceKg": 6.00,
+      "personInCharge": "pic one",
+      "bakingDate": "2026-09-29",
+      "bakeStart": "2026-09-29T09:00:00",
+      "bakeStop": null,
+      "rebakeStart": null,
+      "rebakeStop": null,
+      "status": "Baking",
+      "remarks": null,
+      "createdBy": "Store Supervisor",
+      "createdAt": "\u003Cvolatile\u003E"
+    }
+  ]
+}
+
+### bake stop
+POST http://localhost/api/consumables/baking/stop -> 200
+{
+  "txnNo": null,
+  "records": [
+    {
+      "id": 1,
+      "bakingNo": "BK-26-0001",
+      "itemId": 1,
+      "category": "Electrode Filler",
+      "diaSpec": "3.20 e7018",
+      "holdingOvenType": "Mild Steel",
+      "lotId": 1,
+      "brand": "kobelco",
+      "lotNumber": "l123",
+      "quantityKg": 6.00,
+      "balanceKg": 6.00,
+      "personInCharge": "pic one",
+      "bakingDate": "2026-09-29",
+      "bakeStart": "2026-09-29T09:00:00",
+      "bakeStop": "2026-09-29T10:00:00",
+      "rebakeStart": null,
+      "rebakeStop": null,
+      "status": "Baked",
+      "remarks": null,
+      "createdBy": "Store Supervisor",
+      "createdAt": "\u003Cvolatile\u003E"
+    }
+  ]
+}
+
+### baking update
+PUT http://localhost/api/consumables/baking/1 -> 200
+{
+  "id": 1,
+  "bakingNo": "BK-26-0001",
+  "itemId": 1,
+  "category": "Electrode Filler",
+  "diaSpec": "3.20 e7018",
+  "holdingOvenType": "Mild Steel",
+  "lotId": 1,
+  "brand": "kobelco",
+  "lotNumber": "l123",
+  "quantityKg": 6.00,
+  "balanceKg": 6.00,
+  "personInCharge": "PIC One",
+  "bakingDate": "2026-09-29",
+  "bakeStart": "2026-09-29T09:00:00",
+  "bakeStop": "2026-09-29T10:05:00",
+  "rebakeStart": null,
+  "rebakeStop": null,
+  "status": "Baked",
+  "remarks": "edited",
+  "createdBy": "Store Supervisor",
+  "createdAt": "\u003Cvolatile\u003E"
+}
+
+### baking update bad times
+PUT http://localhost/api/consumables/baking/1 -> 400
+Times cannot be in the future.
+
+### place wrong oven
+POST http://localhost/api/consumables/holding -> 409
+3.20 e7018 belongs in a Mild Steel oven, not AS-1 (Alloy Steel).
+
+### place into MS-1
+POST http://localhost/api/consumables/holding -> 200
+{
+  "holding": {
+    "id": 1,
+    "holdingNo": "HD-26-0001",
+    "holdingDate": "2026-09-29",
+    "bakingRecordId": 1,
+    "bakingNo": "BK-26-0001",
+    "itemId": 1,
+    "diaSpec": "3.20 e7018",
+    "lotId": 1,
+    "brand": "kobelco",
+    "lotNumber": "l123",
+    "welderId": null,
+    "welderName": null,
+    "compartmentId": 10,
+    "compartmentLabel": "MS-1",
+    "ovenType": "Mild Steel",
+    "compartmentNumber": 1,
+    "isFinishedAfterBaking": false,
+    "quantityKg": 4.00,
+    "txnNo": "CT-26-000006",
+    "isVoided": false,
+    "remarks": null,
+    "createdBy": "Store Supervisor",
+    "createdAt": "\u003Cvolatile\u003E"
+  },
+  "record": {
+    "id": 1,
+    "bakingNo": "BK-26-0001",
+    "itemId": 1,
+    "category": "Electrode Filler",
+    "diaSpec": "3.20 e7018",
+    "holdingOvenType": "Mild Steel",
+    "lotId": 1,
+    "brand": "kobelco",
+    "lotNumber": "l123",
+    "quantityKg": 6.00,
+    "balanceKg": 2.00,
+    "personInCharge": "PIC One",
+    "bakingDate": "2026-09-29",
+    "bakeStart": "2026-09-29T09:00:00",
+    "bakeStop": "2026-09-29T10:05:00",
+    "rebakeStart": null,
+    "rebakeStop": null,
+    "status": "Baked",
+    "remarks": "edited",
+    "createdBy": "Store Supervisor",
+    "createdAt": "\u003Cvolatile\u003E"
+  },
+  "warning": null
+}
+
+### place rest into MS-2
+POST http://localhost/api/consumables/holding -> 200
+{
+  "holding": {
+    "id": 2,
+    "holdingNo": "HD-26-0002",
+    "holdingDate": "2026-09-29",
+    "bakingRecordId": 1,
+    "bakingNo": "BK-26-0001",
+    "itemId": 1,
+    "diaSpec": "3.20 e7018",
+    "lotId": 1,
+    "brand": "kobelco",
+    "lotNumber": "l123",
+    "welderId": null,
+    "welderName": null,
+    "compartmentId": 11,
+    "compartmentLabel": "MS-2",
+    "ovenType": "Mild Steel",
+    "compartmentNumber": 2,
+    "isFinishedAfterBaking": false,
+    "quantityKg": 2.00,
+    "txnNo": "CT-26-000007",
+    "isVoided": false,
+    "remarks": null,
+    "createdBy": "Store Supervisor",
+    "createdAt": "\u003Cvolatile\u003E"
+  },
+  "record": {
+    "id": 1,
+    "bakingNo": "BK-26-0001",
+    "itemId": 1,
+    "category": "Electrode Filler",
+    "diaSpec": "3.20 e7018",
+    "holdingOvenType": "Mild Steel",
+    "lotId": 1,
+    "brand": "kobelco",
+    "lotNumber": "l123",
+    "quantityKg": 6.00,
+    "balanceKg": 0.00,
+    "personInCharge": "PIC One",
+    "bakingDate": "2026-09-29",
+    "bakeStart": "2026-09-29T09:00:00",
+    "bakeStop": "2026-09-29T10:05:00",
+    "rebakeStart": null,
+    "rebakeStop": null,
+    "status": "Closed",
+    "remarks": "edited",
+    "createdBy": "Store Supervisor",
+    "createdAt": "\u003Cvolatile\u003E"
+  },
+  "warning": null
+}
+
+### ovens
+GET http://localhost/api/consumables/ovens -> 200
+{
+  "ovens": [
+    {
+      "id": 1,
+      "name": "Alloy Steel Oven",
+      "code": "AS",
+      "ovenType": "Alloy Steel",
+      "compartments": [
+        {
+          "id": 1,
+          "ovenId": 1,
+          "number": 1,
+          "label": "1",
+          "code": "AS-1",
+          "totalKg": 0,
+          "oldestSinceAt": null,
+          "contents": []
+        },
+        {
+          "id": 2,
+          "ovenId": 1,
+          "number": 2,
+          "label": "2",
+          "code": "AS-2",
+          "totalKg": 0,
+          "oldestSinceAt": null,
+          "contents": []
+        },
+        {
+          "id": 3,
+          "ovenId": 1,
+          "number": 3,
+          "label": "3",
+          "code": "AS-3",
+          "totalKg": 0,
+          "oldestSinceAt": null,
+          "contents": []
+        },
+        {
+          "id": 4,
+          "ovenId": 1,
+          "number": 4,
+          "label": "4",
+          "code": "AS-4",
+          "totalKg": 0,
+          "oldestSinceAt": null,
+          "contents": []
+        },
+        {
+          "id": 5,
+          "ovenId": 1,
+          "number": 5,
+          "label": "5",
+          "code": "AS-5",
+          "totalKg": 0,
+          "oldestSinceAt": null,
+          "contents": []
+        },
+        {
+          "id": 6,
+          "ovenId": 1,
+          "number": 6,
+          "label": "6",
+          "code": "AS-6",
+          "totalKg": 0,
+          "oldestSinceAt": null,
+          "contents": []
+        },
+        {
+          "id": 7,
+          "ovenId": 1,
+          "number": 7,
+          "label": "7",
+          "code": "AS-7",
+          "totalKg": 0,
+          "oldestSinceAt": null,
+          "contents": []
+        },
+        {
+          "id": 8,
+          "ovenId": 1,
+          "number": 8,
+          "label": "8",
+          "code": "AS-8",
+          "totalKg": 0,
+          "oldestSinceAt": null,
+          "contents": []
+        },
+        {
+          "id": 9,
+          "ovenId": 1,
+          "number": 9,
+          "label": "9",
+          "code": "AS-9",
+          "totalKg": 0,
+          "oldestSinceAt": null,
+          "contents": []
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "name": "Mild Steel Oven",
+      "code": "MS",
+      "ovenType": "Mild Steel",
+      "compartments": [
+        {
+          "id": 10,
+          "ovenId": 2,
+          "number": 1,
+          "label": "1",
+          "code": "MS-1",
+          "totalKg": 4.00,
+          "oldestSinceAt": "\u003Cvolatile\u003E",
+          "contents": [
+            {
+              "itemId": 1,
+              "diaSpec": "3.20 e7018",
+              "category": "Electrode Filler",
+              "lotId": 1,
+              "brand": "kobelco",
+              "lotNumber": "l123",
+              "kg": 4.00,
+              "sinceAt": "\u003Cvolatile\u003E",
+              "compartmentId": 10,
+              "holdingOvenType": "Mild Steel",
+              "specification": "e7018",
+              "diameter": "3.20"
+            }
+          ]
+        },
+        {
+          "id": 11,
+          "ovenId": 2,
+          "number": 2,
+          "label": "2",
+          "code": "MS-2",
+          "totalKg": 2.00,
+          "oldestSinceAt": "\u003Cvolatile\u003E",
+          "contents": [
+            {
+              "itemId": 1,
+              "diaSpec": "3.20 e7018",
+              "category": "Electrode Filler",
+              "lotId": 1,
+              "brand": "kobelco",
+              "lotNumber": "l123",
+              "kg": 2.00,
+              "sinceAt": "\u003Cvolatile\u003E",
+              "compartmentId": 11,
+              "holdingOvenType": "Mild Steel",
+              "specification": "e7018",
+              "diameter": "3.20"
+            }
+          ]
+        },
+        {
+          "id": 12,
+          "ovenId": 2,
+          "number": 3,
+          "label": "3",
+          "code": "MS-3",
+          "totalKg": 0,
+          "oldestSinceAt": null,
+          "contents": []
+        },
+        {
+          "id": 13,
+          "ovenId": 2,
+          "number": 4,
+          "label": "4",
+          "code": "MS-4",
+          "totalKg": 0,
+          "oldestSinceAt": null,
+          "contents": []
+        },
+        {
+          "id": 14,
+          "ovenId": 2,
+          "number": 5,
+          "label": "5",
+          "code": "MS-5",
+          "totalKg": 0,
+          "oldestSinceAt": null,
+          "contents": []
+        },
+        {
+          "id": 15,
+          "ovenId": 2,
+          "number": 6,
+          "label": "6",
+          "code": "MS-6",
+          "totalKg": 0,
+          "oldestSinceAt": null,
+          "contents": []
+        },
+        {
+          "id": 16,
+          "ovenId": 2,
+          "number": 7,
+          "label": "7",
+          "code": "MS-7",
+          "totalKg": 0,
+          "oldestSinceAt": null,
+          "contents": []
+        },
+        {
+          "id": 17,
+          "ovenId": 2,
+          "number": 8,
+          "label": "8",
+          "code": "MS-8",
+          "totalKg": 0,
+          "oldestSinceAt": null,
+          "contents": []
+        },
+        {
+          "id": 18,
+          "ovenId": 2,
+          "number": 9,
+          "label": "9",
+          "code": "MS-9",
+          "totalKg": 0,
+          "oldestSinceAt": null,
+          "contents": []
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "name": "Ni Alloy Oven",
+      "code": "NI",
+      "ovenType": "Ni Alloy",
+      "compartments": [
+        {
+          "id": 19,
+          "ovenId": 3,
+          "number": 1,
+          "label": "1",
+          "code": "NI-1",
+          "totalKg": 0,
+          "oldestSinceAt": null,
+          "contents": []
+        },
+        {
+          "id": 20,
+          "ovenId": 3,
+          "number": 2,
+          "label": "2",
+          "code": "NI-2",
+          "totalKg": 0,
+          "oldestSinceAt": null,
+          "contents": []
+        },
+        {
+          "id": 21,
+          "ovenId": 3,
+          "number": 3,
+          "label": "3",
+          "code": "NI-3",
+          "totalKg": 0,
+          "oldestSinceAt": null,
+          "contents": []
+        },
+        {
+          "id": 22,
+          "ovenId": 3,
+          "number": 4,
+          "label": "4",
+          "code": "NI-4",
+          "totalKg": 0,
+          "oldestSinceAt": null,
+          "contents": []
+        },
+        {
+          "id": 23,
+          "ovenId": 3,
+          "number": 5,
+          "label": "5",
+          "code": "NI-5",
+          "totalKg": 0,
+          "oldestSinceAt": null,
+          "contents": []
+        },
+        {
+          "id": 24,
+          "ovenId": 3,
+          "number": 6,
+          "label": "6",
+          "code": "NI-6",
+          "totalKg": 0,
+          "oldestSinceAt": null,
+          "contents": []
+        },
+        {
+          "id": 25,
+          "ovenId": 3,
+          "number": 7,
+          "label": "7",
+          "code": "NI-7",
+          "totalKg": 0,
+          "oldestSinceAt": null,
+          "contents": []
+        },
+        {
+          "id": 26,
+          "ovenId": 3,
+          "number": 8,
+          "label": "8",
+          "code": "NI-8",
+          "totalKg": 0,
+          "oldestSinceAt": null,
+          "contents": []
+        },
+        {
+          "id": 27,
+          "ovenId": 3,
+          "number": 9,
+          "label": "9",
+          "code": "NI-9",
+          "totalKg": 0,
+          "oldestSinceAt": null,
+          "contents": []
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "name": "Stainless Steel Oven",
+      "code": "SS",
+      "ovenType": "Stainless Steel",
+      "compartments": [
+        {
+          "id": 28,
+          "ovenId": 4,
+          "number": 1,
+          "label": "1",
+          "code": "SS-1",
+          "totalKg": 0,
+          "oldestSinceAt": null,
+          "contents": []
+        },
+        {
+          "id": 29,
+          "ovenId": 4,
+          "number": 2,
+          "label": "2",
+          "code": "SS-2",
+          "totalKg": 0,
+          "oldestSinceAt": null,
+          "contents": []
+        },
+        {
+          "id": 30,
+          "ovenId": 4,
+          "number": 3,
+          "label": "3",
+          "code": "SS-3",
+          "totalKg": 0,
+          "oldestSinceAt": null,
+          "contents": []
+        },
+        {
+          "id": 31,
+          "ovenId": 4,
+          "number": 4,
+          "label": "4",
+          "code": "SS-4",
+          "totalKg": 0,
+          "oldestSinceAt": null,
+          "contents": []
+        },
+        {
+          "id": 32,
+          "ovenId": 4,
+          "number": 5,
+          "label": "5",
+          "code": "SS-5",
+          "totalKg": 0,
+          "oldestSinceAt": null,
+          "contents": []
+        },
+        {
+          "id": 33,
+          "ovenId": 4,
+          "number": 6,
+          "label": "6",
+          "code": "SS-6",
+          "totalKg": 0,
+          "oldestSinceAt": null,
+          "contents": []
+        },
+        {
+          "id": 34,
+          "ovenId": 4,
+          "number": 7,
+          "label": "7",
+          "code": "SS-7",
+          "totalKg": 0,
+          "oldestSinceAt": null,
+          "contents": []
+        },
+        {
+          "id": 35,
+          "ovenId": 4,
+          "number": 8,
+          "label": "8",
+          "code": "SS-8",
+          "totalKg": 0,
+          "oldestSinceAt": null,
+          "contents": []
+        },
+        {
+          "id": 36,
+          "ovenId": 4,
+          "number": 9,
+          "label": "9",
+          "code": "SS-9",
+          "totalKg": 0,
+          "oldestSinceAt": null,
+          "contents": []
+        }
+      ]
+    }
+  ],
+  "unassigned": []
+}
+
+### move MS-2 to MS-1
+POST http://localhost/api/consumables/move -> 200
+{
+  "txnNo": "CT-26-000008",
+  "lines": [
+    {
+      "id": 8,
+      "txnNo": "CT-26-000008",
+      "txnType": "Move",
+      "txnDate": "2026-09-29",
+      "createdAt": "\u003Cvolatile\u003E",
+      "createdBy": "Store Supervisor",
+      "itemId": 1,
+      "category": "Electrode Filler",
+      "specification": "e7018",
+      "diameter": "3.20",
+      "diaSpec": "3.20 e7018",
+      "lotId": 1,
+      "brand": "kobelco",
+      "lotNumber": "l123",
+      "quantityKg": 1.00,
+      "fromStage": "Activated",
+      "toStage": "Activated",
+      "source": null,
+      "requestor": null,
+      "welderId": null,
+      "welderName": null,
+      "reason": null,
+      "countedQtyKg": null,
+      "referenceNo": null,
+      "remarks": null,
+      "isVoided": false,
+      "voidsMovementId": null,
+      "fromCompartmentId": 11,
+      "fromCompartment": "MS-2",
+      "toCompartmentId": 10,
+      "toCompartment": "MS-1",
+      "bakingRecordId": null,
+      "bakingNo": null
+    }
+  ],
+  "balance": {
+    "itemId": 1,
+    "diaSpec": "3.20 e7018",
+    "normalKg": 14.00,
+    "bakingKg": 0.00,
+    "activatedKg": 6.00,
+    "totalKg": 20.00
+  },
+  "residuals": [],
+  "warning": null
+}
+
+### move to wrong oven
+POST http://localhost/api/consumables/move -> 409
+3.20 e7018 belongs in a Mild Steel oven, not AS-2 (Alloy Steel).
+
+### issue electrode
+POST http://localhost/api/consumables/issue -> 200
+{
+  "txnNo": "CT-26-000009",
+  "lines": [
+    {
+      "id": 9,
+      "txnNo": "CT-26-000009",
+      "txnType": "Issue",
+      "txnDate": "2026-09-29",
+      "createdAt": "\u003Cvolatile\u003E",
+      "createdBy": "Store Supervisor",
+      "itemId": 1,
+      "category": "Electrode Filler",
+      "specification": "e7018",
+      "diameter": "3.20",
+      "diaSpec": "3.20 e7018",
+      "lotId": 1,
+      "brand": "kobelco",
+      "lotNumber": "l123",
+      "quantityKg": 1.50,
+      "fromStage": "Activated",
+      "toStage": null,
+      "source": null,
+      "requestor": "Ali Bin Abu",
+      "welderId": 1,
+      "welderName": "Ali Bin Abu",
+      "reason": null,
+      "countedQtyKg": null,
+      "referenceNo": null,
+      "remarks": null,
+      "isVoided": false,
+      "voidsMovementId": null,
+      "fromCompartmentId": 10,
+      "fromCompartment": "MS-1",
+      "toCompartmentId": null,
+      "toCompartment": null,
+      "bakingRecordId": null,
+      "bakingNo": null
+    }
+  ],
+  "balance": {
+    "itemId": 1,
+    "diaSpec": "3.20 e7018",
+    "normalKg": 14.00,
+    "bakingKg": 0.00,
+    "activatedKg": 4.50,
+    "totalKg": 18.50
+  },
+  "residuals": [],
+  "warning": null
+}
+
+### issue bare filler
+POST http://localhost/api/consumables/issue -> 200
+{
+  "txnNo": "CT-26-000010",
+  "lines": [
+    {
+      "id": 10,
+      "txnNo": "CT-26-000010",
+      "txnType": "Issue",
+      "txnDate": "2026-09-29",
+      "createdAt": "\u003Cvolatile\u003E",
+      "createdBy": "Store Supervisor",
+      "itemId": 2,
+      "category": "Bare \u0026 Powder Filler",
+      "specification": "ER308L",
+      "diameter": "2.40",
+      "diaSpec": "2.40 ER308L",
+      "lotId": 2,
+      "brand": "Lincoln",
+      "lotNumber": "B77",
+      "quantityKg": 1.00,
+      "fromStage": "Activated",
+      "toStage": null,
+      "source": null,
+      "requestor": "Ali Bin Abu",
+      "welderId": 1,
+      "welderName": "Ali Bin Abu",
+      "reason": null,
+      "countedQtyKg": null,
+      "referenceNo": null,
+      "remarks": null,
+      "isVoided": false,
+      "voidsMovementId": null,
+      "fromCompartmentId": null,
+      "fromCompartment": null,
+      "toCompartmentId": null,
+      "toCompartment": null,
+      "bakingRecordId": null,
+      "bakingNo": null
+    }
+  ],
+  "balance": {
+    "itemId": 2,
+    "diaSpec": "2.40 ER308L",
+    "normalKg": 7.00,
+    "bakingKg": 0.00,
+    "activatedKg": 2.00,
+    "totalKg": 9.00
+  },
+  "residuals": [],
+  "warning": null
+}
+
+### issue too much
+POST http://localhost/api/consumables/issue -> 409
+Only 2.00 kg is in Activated storage.
+
+### return electrode to oven
+POST http://localhost/api/consumables/return -> 200
+{
+  "txnNo": "CT-26-000011",
+  "lines": [
+    {
+      "id": 11,
+      "txnNo": "CT-26-000011",
+      "txnType": "Return",
+      "txnDate": "2026-09-29",
+      "createdAt": "\u003Cvolatile\u003E",
+      "createdBy": "Store Supervisor",
+      "itemId": 1,
+      "category": "Electrode Filler",
+      "specification": "e7018",
+      "diameter": "3.20",
+      "diaSpec": "3.20 e7018",
+      "lotId": 1,
+      "brand": "kobelco",
+      "lotNumber": "l123",
+      "quantityKg": 0.50,
+      "fromStage": null,
+      "toStage": "Activated",
+      "source": null,
+      "requestor": "Ali Bin Abu",
+      "welderId": 1,
+      "welderName": "Ali Bin Abu",
+      "reason": null,
+      "countedQtyKg": null,
+      "referenceNo": null,
+      "remarks": null,
+      "isVoided": false,
+      "voidsMovementId": null,
+      "fromCompartmentId": null,
+      "fromCompartment": null,
+      "toCompartmentId": 10,
+      "toCompartment": "MS-1",
+      "bakingRecordId": null,
+      "bakingNo": null
+    }
+  ],
+  "balance": {
+    "itemId": 1,
+    "diaSpec": "3.20 e7018",
+    "normalKg": 14.00,
+    "bakingKg": 0.00,
+    "activatedKg": 5.00,
+    "totalKg": 19.00
+  },
+  "residuals": [],
+  "warning": null
+}
+
+### return more than issued
+POST http://localhost/api/consumables/return -> 200
+{
+  "txnNo": "CT-26-000012",
+  "lines": [
+    {
+      "id": 12,
+      "txnNo": "CT-26-000012",
+      "txnType": "Return",
+      "txnDate": "2026-09-29",
+      "createdAt": "\u003Cvolatile\u003E",
+      "createdBy": "Store Supervisor",
+      "itemId": 2,
+      "category": "Bare \u0026 Powder Filler",
+      "specification": "ER308L",
+      "diameter": "2.40",
+      "diaSpec": "2.40 ER308L",
+      "lotId": 2,
+      "brand": "Lincoln",
+      "lotNumber": "B77",
+      "quantityKg": 9.00,
+      "fromStage": null,
+      "toStage": "Activated",
+      "source": null,
+      "requestor": "Ali Bin Abu",
+      "welderId": 1,
+      "welderName": "Ali Bin Abu",
+      "reason": null,
+      "countedQtyKg": null,
+      "referenceNo": null,
+      "remarks": null,
+      "isVoided": false,
+      "voidsMovementId": null,
+      "fromCompartmentId": null,
+      "fromCompartment": null,
+      "toCompartmentId": null,
+      "toCompartment": null,
+      "bakingRecordId": null,
+      "bakingNo": null
+    }
+  ],
+  "balance": {
+    "itemId": 2,
+    "diaSpec": "2.40 ER308L",
+    "normalKg": 7.00,
+    "bakingKg": 0.00,
+    "activatedKg": 11.00,
+    "totalKg": 18.00
+  },
+  "residuals": [],
+  "warning": "Ali Bin Abu has only 1.00 kg of 2.40 ER308L outstanding from the last 7 day(s). The return was recorded as entered by the supervisor."
+}
+
+### counter
+GET http://localhost/api/consumables/counter?welderId=1 -> 200
+[
+  {
+    "itemId": 2,
+    "category": "Bare \u0026 Powder Filler",
+    "diaSpec": "2.40 ER308L",
+    "activatedKg": 11.00,
+    "activatedMinKg": 1.00,
+    "finishThresholdKg": 0.5,
+    "pickedKg": 1.00,
+    "returnedKg": 9.00,
+    "lastLotId": 2,
+    "lastCompartmentId": null,
+    "lots": [
+      {
+        "lotId": 2,
+        "brand": "Lincoln",
+        "lotNumber": "B77",
+        "activatedKg": 11.00
+      }
+    ],
+    "bins": [
+      {
+        "compartmentId": null,
+        "label": "Rack",
+        "kg": 11.00,
+        "lots": [
+          {
+            "lotId": 2,
+            "brand": "Lincoln",
+            "lotNumber": "B77",
+            "activatedKg": 11.00
+          }
+        ]
+      }
+    ],
+    "holdingOvenType": null
+  },
+  {
+    "itemId": 1,
+    "category": "Electrode Filler",
+    "diaSpec": "3.20 e7018",
+    "activatedKg": 5.00,
+    "activatedMinKg": 2.00,
+    "finishThresholdKg": 0.30,
+    "pickedKg": 1.50,
+    "returnedKg": 0.50,
+    "lastLotId": 1,
+    "lastCompartmentId": 10,
+    "lots": [
+      {
+        "lotId": 1,
+        "brand": "kobelco",
+        "lotNumber": "l123",
+        "activatedKg": 5.00
+      }
+    ],
+    "bins": [
+      {
+        "compartmentId": 10,
+        "label": "MS-1",
+        "kg": 4.00,
+        "lots": [
+          {
+            "lotId": 1,
+            "brand": "kobelco",
+            "lotNumber": "l123",
+            "activatedKg": 4.00
+          }
+        ]
+      },
+      {
+        "compartmentId": 11,
+        "label": "MS-2",
+        "kg": 1.00,
+        "lots": [
+          {
+            "lotId": 1,
+            "brand": "kobelco",
+            "lotNumber": "l123",
+            "activatedKg": 1.00
+          }
+        ]
+      }
+    ],
+    "holdingOvenType": "Mild Steel"
+  }
+]
+
+### counter today
+GET http://localhost/api/consumables/counter/welders/1/today -> 200
+[
+  {
+    "id": 12,
+    "txnNo": "CT-26-000012",
+    "txnType": "Return",
+    "txnDate": "2026-09-29",
+    "createdAt": "\u003Cvolatile\u003E",
+    "createdBy": "Store Supervisor",
+    "itemId": 2,
+    "category": "Bare \u0026 Powder Filler",
+    "specification": "ER308L",
+    "diameter": "2.40",
+    "diaSpec": "2.40 ER308L",
+    "lotId": 2,
+    "brand": "Lincoln",
+    "lotNumber": "B77",
+    "quantityKg": 9.00,
+    "fromStage": null,
+    "toStage": "Activated",
+    "source": null,
+    "requestor": "Ali Bin Abu",
+    "welderId": 1,
+    "welderName": "Ali Bin Abu",
+    "reason": null,
+    "countedQtyKg": null,
+    "referenceNo": null,
+    "remarks": null,
+    "isVoided": false,
+    "voidsMovementId": null,
+    "fromCompartmentId": null,
+    "fromCompartment": null,
+    "toCompartmentId": null,
+    "toCompartment": null,
+    "bakingRecordId": null,
+    "bakingNo": null
+  },
+  {
+    "id": 11,
+    "txnNo": "CT-26-000011",
+    "txnType": "Return",
+    "txnDate": "2026-09-29",
+    "createdAt": "\u003Cvolatile\u003E",
+    "createdBy": "Store Supervisor",
+    "itemId": 1,
+    "category": "Electrode Filler",
+    "specification": "e7018",
+    "diameter": "3.20",
+    "diaSpec": "3.20 e7018",
+    "lotId": 1,
+    "brand": "kobelco",
+    "lotNumber": "l123",
+    "quantityKg": 0.50,
+    "fromStage": null,
+    "toStage": "Activated",
+    "source": null,
+    "requestor": "Ali Bin Abu",
+    "welderId": 1,
+    "welderName": "Ali Bin Abu",
+    "reason": null,
+    "countedQtyKg": null,
+    "referenceNo": null,
+    "remarks": null,
+    "isVoided": false,
+    "voidsMovementId": null,
+    "fromCompartmentId": null,
+    "fromCompartment": null,
+    "toCompartmentId": 10,
+    "toCompartment": "MS-1",
+    "bakingRecordId": null,
+    "bakingNo": null
+  },
+  {
+    "id": 10,
+    "txnNo": "CT-26-000010",
+    "txnType": "Issue",
+    "txnDate": "2026-09-29",
+    "createdAt": "\u003Cvolatile\u003E",
+    "createdBy": "Store Supervisor",
+    "itemId": 2,
+    "category": "Bare \u0026 Powder Filler",
+    "specification": "ER308L",
+    "diameter": "2.40",
+    "diaSpec": "2.40 ER308L",
+    "lotId": 2,
+    "brand": "Lincoln",
+    "lotNumber": "B77",
+    "quantityKg": 1.00,
+    "fromStage": "Activated",
+    "toStage": null,
+    "source": null,
+    "requestor": "Ali Bin Abu",
+    "welderId": 1,
+    "welderName": "Ali Bin Abu",
+    "reason": null,
+    "countedQtyKg": null,
+    "referenceNo": null,
+    "remarks": null,
+    "isVoided": false,
+    "voidsMovementId": null,
+    "fromCompartmentId": null,
+    "fromCompartment": null,
+    "toCompartmentId": null,
+    "toCompartment": null,
+    "bakingRecordId": null,
+    "bakingNo": null
+  },
+  {
+    "id": 9,
+    "txnNo": "CT-26-000009",
+    "txnType": "Issue",
+    "txnDate": "2026-09-29",
+    "createdAt": "\u003Cvolatile\u003E",
+    "createdBy": "Store Supervisor",
+    "itemId": 1,
+    "category": "Electrode Filler",
+    "specification": "e7018",
+    "diameter": "3.20",
+    "diaSpec": "3.20 e7018",
+    "lotId": 1,
+    "brand": "kobelco",
+    "lotNumber": "l123",
+    "quantityKg": 1.50,
+    "fromStage": "Activated",
+    "toStage": null,
+    "source": null,
+    "requestor": "Ali Bin Abu",
+    "welderId": 1,
+    "welderName": "Ali Bin Abu",
+    "reason": null,
+    "countedQtyKg": null,
+    "referenceNo": null,
+    "remarks": null,
+    "isVoided": false,
+    "voidsMovementId": null,
+    "fromCompartmentId": 10,
+    "fromCompartment": "MS-1",
+    "toCompartmentId": null,
+    "toCompartment": null,
+    "bakingRecordId": null,
+    "bakingNo": null
+  }
+]
+
+### adjust activated bare
+POST http://localhost/api/consumables/adjust -> 200
+{
+  "txnNo": "CT-26-000013",
+  "lines": [
+    {
+      "id": 13,
+      "txnNo": "CT-26-000013",
+      "txnType": "Adjust",
+      "txnDate": "2026-09-29",
+      "createdAt": "\u003Cvolatile\u003E",
+      "createdBy": "Store Supervisor",
+      "itemId": 2,
+      "category": "Bare \u0026 Powder Filler",
+      "specification": "ER308L",
+      "diameter": "2.40",
+      "diaSpec": "2.40 ER308L",
+      "lotId": 2,
+      "brand": "Lincoln",
+      "lotNumber": "B77",
+      "quantityKg": 9.50,
+      "fromStage": "Activated",
+      "toStage": null,
+      "source": null,
+      "requestor": null,
+      "welderId": null,
+      "welderName": null,
+      "reason": "Count variance",
+      "countedQtyKg": 1.50,
+      "referenceNo": null,
+      "remarks": null,
+      "isVoided": false,
+      "voidsMovementId": null,
+      "fromCompartmentId": null,
+      "fromCompartment": null,
+      "toCompartmentId": null,
+      "toCompartment": null,
+      "bakingRecordId": null,
+      "bakingNo": null
+    }
+  ],
+  "balance": {
+    "itemId": 2,
+    "diaSpec": "2.40 ER308L",
+    "normalKg": 7.00,
+    "bakingKg": 0.00,
+    "activatedKg": 1.50,
+    "totalKg": 8.50
+  },
+  "residuals": [],
+  "warning": null
+}
+
+### adjust normal refused
+POST http://localhost/api/consumables/adjust -> 400
+Normal storage is corrected through a Stock Count, not a single adjustment.
+
+### adjust other without remarks
+POST http://localhost/api/consumables/adjust -> 400
+Describe the reason in Remarks when choosing Other.
+
+### finish bare activated
+POST http://localhost/api/consumables/finish -> 200
+{
+  "txnNo": "CT-26-000014",
+  "lines": [
+    {
+      "id": 14,
+      "txnNo": "CT-26-000014",
+      "txnType": "Finish",
+      "txnDate": "2026-09-29",
+      "createdAt": "\u003Cvolatile\u003E",
+      "createdBy": "Store Supervisor",
+      "itemId": 2,
+      "category": "Bare \u0026 Powder Filler",
+      "specification": "ER308L",
+      "diameter": "2.40",
+      "diaSpec": "2.40 ER308L",
+      "lotId": 2,
+      "brand": "Lincoln",
+      "lotNumber": "B77",
+      "quantityKg": 1.50,
+      "fromStage": "Activated",
+      "toStage": null,
+      "source": null,
+      "requestor": null,
+      "welderId": null,
+      "welderName": null,
+      "reason": "Used up",
+      "countedQtyKg": null,
+      "referenceNo": null,
+      "remarks": null,
+      "isVoided": false,
+      "voidsMovementId": null,
+      "fromCompartmentId": null,
+      "fromCompartment": null,
+      "toCompartmentId": null,
+      "toCompartment": null,
+      "bakingRecordId": null,
+      "bakingNo": null
+    }
+  ],
+  "balance": {
+    "itemId": 2,
+    "diaSpec": "2.40 ER308L",
+    "normalKg": 7.00,
+    "bakingKg": 0.00,
+    "activatedKg": 0.00,
+    "totalKg": 7.00
+  },
+  "residuals": [],
+  "warning": null
+}
+
+### void issue
+POST http://localhost/api/consumables/transactions/CT-26-000009/void -> 200
+{
+  "txnNo": "CT-26-000015",
+  "lines": [
+    {
+      "id": 15,
+      "txnNo": "CT-26-000015",
+      "txnType": "Void",
+      "txnDate": "2026-09-29",
+      "createdAt": "\u003Cvolatile\u003E",
+      "createdBy": "Store Supervisor",
+      "itemId": 1,
+      "category": "Electrode Filler",
+      "specification": "e7018",
+      "diameter": "3.20",
+      "diaSpec": "3.20 e7018",
+      "lotId": 1,
+      "brand": "kobelco",
+      "lotNumber": "l123",
+      "quantityKg": 1.50,
+      "fromStage": null,
+      "toStage": "Activated",
+      "source": null,
+      "requestor": "Ali Bin Abu",
+      "welderId": 1,
+      "welderName": "Ali Bin Abu",
+      "reason": null,
+      "countedQtyKg": null,
+      "referenceNo": "CT-26-000009",
+      "remarks": "wrong welder",
+      "isVoided": false,
+      "voidsMovementId": 9,
+      "fromCompartmentId": null,
+      "fromCompartment": null,
+      "toCompartmentId": 10,
+      "toCompartment": "MS-1",
+      "bakingRecordId": null,
+      "bakingNo": null
+    }
+  ],
+  "balance": {
+    "itemId": 1,
+    "diaSpec": "3.20 e7018",
+    "normalKg": 14.00,
+    "bakingKg": 0.00,
+    "activatedKg": 6.50,
+    "totalKg": 20.50
+  },
+  "residuals": [],
+  "warning": null
+}
+
+### void again
+POST http://localhost/api/consumables/transactions/CT-26-000009/void -> 409
+This transaction has already been voided.
+
+### void missing
+POST http://localhost/api/consumables/transactions/CT-26-999999/void -> 404
+Transaction not found.
+
+### balances
+GET http://localhost/api/consumables/balances -> 200
+[
+  {
+    "itemId": 2,
+    "category": "Bare \u0026 Powder Filler",
+    "specification": "ER308L",
+    "diameter": "2.40",
+    "diaSpec": "2.40 ER308L",
+    "normalKg": 7.00,
+    "bakingKg": 0.00,
+    "activatedKg": 0.00,
+    "totalKg": 7.00,
+    "minStockKg": 3.00,
+    "activatedMinKg": 1.00,
+    "finishThresholdKg": 0.5,
+    "isLow": false,
+    "needsRefill": true,
+    "lotCount": 1,
+    "lastIssuedOn": "2026-09-29",
+    "isActive": true,
+    "holdingOvenType": null
+  },
+  {
+    "itemId": 3,
+    "category": "Bare \u0026 Powder Filler",
+    "specification": "ER70S-6",
+    "diameter": "1.20",
+    "diaSpec": "1.20 ER70S-6",
+    "normalKg": 0,
+    "bakingKg": 0,
+    "activatedKg": 0,
+    "totalKg": 0,
+    "minStockKg": 2.00,
+    "activatedMinKg": 0.00,
+    "finishThresholdKg": 0.5,
+    "isLow": true,
+    "needsRefill": false,
+    "lotCount": 0,
+    "lastIssuedOn": null,
+    "isActive": true,
+    "holdingOvenType": null
+  },
+  {
+    "itemId": 4,
+    "category": "Bare \u0026 Powder Filler",
+    "specification": "ERNiCr-3",
+    "diameter": "2.40",
+    "diaSpec": "2.40 ERNiCr-3",
+    "normalKg": 4.00,
+    "bakingKg": 0.00,
+    "activatedKg": 0.00,
+    "totalKg": 4.00,
+    "minStockKg": 0.00,
+    "activatedMinKg": 0.00,
+    "finishThresholdKg": 0.5,
+    "isLow": false,
+    "needsRefill": false,
+    "lotCount": 1,
+    "lastIssuedOn": null,
+    "isActive": true,
+    "holdingOvenType": null
+  },
+  {
+    "itemId": 1,
+    "category": "Electrode Filler",
+    "specification": "e7018",
+    "diameter": "3.20",
+    "diaSpec": "3.20 e7018",
+    "normalKg": 14.00,
+    "bakingKg": 0.00,
+    "activatedKg": 6.50,
+    "totalKg": 20.50,
+    "minStockKg": 5.00,
+    "activatedMinKg": 2.00,
+    "finishThresholdKg": 0.30,
+    "isLow": false,
+    "needsRefill": false,
+    "lotCount": 1,
+    "lastIssuedOn": null,
+    "isActive": true,
+    "holdingOvenType": "Mild Steel"
+  }
+]
+
+### balances include zero
+GET http://localhost/api/consumables/balances?includeZero=true -> 200
+[
+  {
+    "itemId": 2,
+    "category": "Bare \u0026 Powder Filler",
+    "specification": "ER308L",
+    "diameter": "2.40",
+    "diaSpec": "2.40 ER308L",
+    "normalKg": 7.00,
+    "bakingKg": 0.00,
+    "activatedKg": 0.00,
+    "totalKg": 7.00,
+    "minStockKg": 3.00,
+    "activatedMinKg": 1.00,
+    "finishThresholdKg": 0.5,
+    "isLow": false,
+    "needsRefill": true,
+    "lotCount": 1,
+    "lastIssuedOn": "2026-09-29",
+    "isActive": true,
+    "holdingOvenType": null
+  },
+  {
+    "itemId": 3,
+    "category": "Bare \u0026 Powder Filler",
+    "specification": "ER70S-6",
+    "diameter": "1.20",
+    "diaSpec": "1.20 ER70S-6",
+    "normalKg": 0,
+    "bakingKg": 0,
+    "activatedKg": 0,
+    "totalKg": 0,
+    "minStockKg": 2.00,
+    "activatedMinKg": 0.00,
+    "finishThresholdKg": 0.5,
+    "isLow": true,
+    "needsRefill": false,
+    "lotCount": 0,
+    "lastIssuedOn": null,
+    "isActive": true,
+    "holdingOvenType": null
+  },
+  {
+    "itemId": 4,
+    "category": "Bare \u0026 Powder Filler",
+    "specification": "ERNiCr-3",
+    "diameter": "2.40",
+    "diaSpec": "2.40 ERNiCr-3",
+    "normalKg": 4.00,
+    "bakingKg": 0.00,
+    "activatedKg": 0.00,
+    "totalKg": 4.00,
+    "minStockKg": 0.00,
+    "activatedMinKg": 0.00,
+    "finishThresholdKg": 0.5,
+    "isLow": false,
+    "needsRefill": false,
+    "lotCount": 1,
+    "lastIssuedOn": null,
+    "isActive": true,
+    "holdingOvenType": null
+  },
+  {
+    "itemId": 1,
+    "category": "Electrode Filler",
+    "specification": "e7018",
+    "diameter": "3.20",
+    "diaSpec": "3.20 e7018",
+    "normalKg": 14.00,
+    "bakingKg": 0.00,
+    "activatedKg": 6.50,
+    "totalKg": 20.50,
+    "minStockKg": 5.00,
+    "activatedMinKg": 2.00,
+    "finishThresholdKg": 0.30,
+    "isLow": false,
+    "needsRefill": false,
+    "lotCount": 1,
+    "lastIssuedOn": null,
+    "isActive": true,
+    "holdingOvenType": "Mild Steel"
+  }
+]
+
+### lot stock
+GET http://localhost/api/consumables/lot-stock -> 200
+[
+  {
+    "lotId": 3,
+    "itemId": 4,
+    "category": "Bare \u0026 Powder Filler",
+    "brand": "Special",
+    "diameter": "2.40",
+    "specification": "ERNiCr-3",
+    "lotNumber": "N1",
+    "diaSpec": "2.40 ERNiCr-3",
+    "date": "2026-09-29",
+    "source": "Weld Shop",
+    "receivedBy": "Ali Bin Abu",
+    "receiveQtyKg": 4.00,
+    "takeKg": 0.00,
+    "normalKg": 4.00,
+    "bakingKg": 0.00,
+    "activatedKg": 0.00,
+    "balanceKg": 4.00,
+    "isLow": false
+  },
+  {
+    "lotId": 2,
+    "itemId": 2,
+    "category": "Bare \u0026 Powder Filler",
+    "brand": "Lincoln",
+    "diameter": "2.40",
+    "specification": "ER308L",
+    "lotNumber": "B77",
+    "diaSpec": "2.40 ER308L",
+    "date": "2026-09-29",
+    "source": "Tool Crib",
+    "receivedBy": "Ali Bin Abu",
+    "receiveQtyKg": 10.00,
+    "takeKg": -6.50,
+    "normalKg": 7.00,
+    "bakingKg": 0.00,
+    "activatedKg": 0.00,
+    "balanceKg": 7.00,
+    "isLow": false
+  },
+  {
+    "lotId": 1,
+    "itemId": 1,
+    "category": "Electrode Filler",
+    "brand": "kobelco",
+    "diameter": "3.20",
+    "specification": "e7018",
+    "lotNumber": "l123",
+    "diaSpec": "3.20 e7018",
+    "date": "2026-09-29",
+    "source": "Weld Shop",
+    "receivedBy": "Ali Bin Abu",
+    "receiveQtyKg": 20.00,
+    "takeKg": -0.50,
+    "normalKg": 14.00,
+    "bakingKg": 0.00,
+    "activatedKg": 6.50,
+    "balanceKg": 20.50,
+    "isLow": false
+  }
+]
+
+### normal stock electrode
+GET http://localhost/api/consumables/normal-stock?category=Electrode Filler -> 200
+[
+  {
+    "itemId": 1,
+    "category": "Electrode Filler",
+    "diaSpec": "3.20 e7018",
+    "normalKg": 14.00,
+    "bakingKg": 0.00,
+    "activatedKg": 6.50,
+    "lotCount": 1,
+    "holdingOvenType": "Mild Steel"
+  }
+]
+
+### lots
+GET http://localhost/api/consumables/items/1/lots -> 200
+[
+  {
+    "id": 1,
+    "brand": "kobelco",
+    "lotNumber": "l123"
+  }
+]
+
+### lot balances
+GET http://localhost/api/consumables/items/1/lot-balances?includeZero=true -> 200
+[
+  {
+    "lotId": 1,
+    "brand": "kobelco",
+    "lotNumber": "l123",
+    "firstReceivedOn": "2026-09-29",
+    "source": "Weld Shop",
+    "normalKg": 14.00,
+    "bakingKg": 0.00,
+    "activatedKg": 6.50,
+    "totalKg": 20.50,
+    "locations": [
+      {
+        "compartmentId": 10,
+        "label": "MS-1",
+        "kg": 5.50
+      },
+      {
+        "compartmentId": 11,
+        "label": "MS-2",
+        "kg": 1.00
+      }
+    ]
+  }
+]
+
+### recent quantities
+GET http://localhost/api/consumables/items/1/recent-quantities?type=Issue -> 200
+[]
+
+### transactions
+GET http://localhost/api/consumables/transactions -> 200
+{
+  "items": [
+    {
+      "id": 15,
+      "txnNo": "CT-26-000015",
+      "txnType": "Void",
+      "txnDate": "2026-09-29",
+      "createdAt": "\u003Cvolatile\u003E",
+      "createdBy": "Store Supervisor",
+      "itemId": 1,
+      "category": "Electrode Filler",
+      "specification": "e7018",
+      "diameter": "3.20",
+      "diaSpec": "3.20 e7018",
+      "lotId": 1,
+      "brand": "kobelco",
+      "lotNumber": "l123",
+      "quantityKg": 1.50,
+      "fromStage": null,
+      "toStage": "Activated",
+      "source": null,
+      "requestor": "Ali Bin Abu",
+      "welderId": 1,
+      "welderName": "Ali Bin Abu",
+      "reason": null,
+      "countedQtyKg": null,
+      "referenceNo": "CT-26-000009",
+      "remarks": "wrong welder",
+      "isVoided": false,
+      "voidsMovementId": 9,
+      "fromCompartmentId": null,
+      "fromCompartment": null,
+      "toCompartmentId": 10,
+      "toCompartment": "MS-1",
+      "bakingRecordId": null,
+      "bakingNo": null
+    },
+    {
+      "id": 14,
+      "txnNo": "CT-26-000014",
+      "txnType": "Finish",
+      "txnDate": "2026-09-29",
+      "createdAt": "\u003Cvolatile\u003E",
+      "createdBy": "Store Supervisor",
+      "itemId": 2,
+      "category": "Bare \u0026 Powder Filler",
+      "specification": "ER308L",
+      "diameter": "2.40",
+      "diaSpec": "2.40 ER308L",
+      "lotId": 2,
+      "brand": "Lincoln",
+      "lotNumber": "B77",
+      "quantityKg": 1.50,
+      "fromStage": "Activated",
+      "toStage": null,
+      "source": null,
+      "requestor": null,
+      "welderId": null,
+      "welderName": null,
+      "reason": "Used up",
+      "countedQtyKg": null,
+      "referenceNo": null,
+      "remarks": null,
+      "isVoided": false,
+      "voidsMovementId": null,
+      "fromCompartmentId": null,
+      "fromCompartment": null,
+      "toCompartmentId": null,
+      "toCompartment": null,
+      "bakingRecordId": null,
+      "bakingNo": null
+    },
+    {
+      "id": 13,
+      "txnNo": "CT-26-000013",
+      "txnType": "Adjust",
+      "txnDate": "2026-09-29",
+      "createdAt": "\u003Cvolatile\u003E",
+      "createdBy": "Store Supervisor",
+      "itemId": 2,
+      "category": "Bare \u0026 Powder Filler",
+      "specification": "ER308L",
+      "diameter": "2.40",
+      "diaSpec": "2.40 ER308L",
+      "lotId": 2,
+      "brand": "Lincoln",
+      "lotNumber": "B77",
+      "quantityKg": 9.50,
+      "fromStage": "Activated",
+      "toStage": null,
+      "source": null,
+      "requestor": null,
+      "welderId": null,
+      "welderName": null,
+      "reason": "Count variance",
+      "countedQtyKg": 1.50,
+      "referenceNo": null,
+      "remarks": null,
+      "isVoided": false,
+      "voidsMovementId": null,
+      "fromCompartmentId": null,
+      "fromCompartment": null,
+      "toCompartmentId": null,
+      "toCompartment": null,
+      "bakingRecordId": null,
+      "bakingNo": null
+    },
+    {
+      "id": 12,
+      "txnNo": "CT-26-000012",
+      "txnType": "Return",
+      "txnDate": "2026-09-29",
+      "createdAt": "\u003Cvolatile\u003E",
+      "createdBy": "Store Supervisor",
+      "itemId": 2,
+      "category": "Bare \u0026 Powder Filler",
+      "specification": "ER308L",
+      "diameter": "2.40",
+      "diaSpec": "2.40 ER308L",
+      "lotId": 2,
+      "brand": "Lincoln",
+      "lotNumber": "B77",
+      "quantityKg": 9.00,
+      "fromStage": null,
+      "toStage": "Activated",
+      "source": null,
+      "requestor": "Ali Bin Abu",
+      "welderId": 1,
+      "welderName": "Ali Bin Abu",
+      "reason": null,
+      "countedQtyKg": null,
+      "referenceNo": null,
+      "remarks": null,
+      "isVoided": false,
+      "voidsMovementId": null,
+      "fromCompartmentId": null,
+      "fromCompartment": null,
+      "toCompartmentId": null,
+      "toCompartment": null,
+      "bakingRecordId": null,
+      "bakingNo": null
+    },
+    {
+      "id": 11,
+      "txnNo": "CT-26-000011",
+      "txnType": "Return",
+      "txnDate": "2026-09-29",
+      "createdAt": "\u003Cvolatile\u003E",
+      "createdBy": "Store Supervisor",
+      "itemId": 1,
+      "category": "Electrode Filler",
+      "specification": "e7018",
+      "diameter": "3.20",
+      "diaSpec": "3.20 e7018",
+      "lotId": 1,
+      "brand": "kobelco",
+      "lotNumber": "l123",
+      "quantityKg": 0.50,
+      "fromStage": null,
+      "toStage": "Activated",
+      "source": null,
+      "requestor": "Ali Bin Abu",
+      "welderId": 1,
+      "welderName": "Ali Bin Abu",
+      "reason": null,
+      "countedQtyKg": null,
+      "referenceNo": null,
+      "remarks": null,
+      "isVoided": false,
+      "voidsMovementId": null,
+      "fromCompartmentId": null,
+      "fromCompartment": null,
+      "toCompartmentId": 10,
+      "toCompartment": "MS-1",
+      "bakingRecordId": null,
+      "bakingNo": null
+    },
+    {
+      "id": 10,
+      "txnNo": "CT-26-000010",
+      "txnType": "Issue",
+      "txnDate": "2026-09-29",
+      "createdAt": "\u003Cvolatile\u003E",
+      "createdBy": "Store Supervisor",
+      "itemId": 2,
+      "category": "Bare \u0026 Powder Filler",
+      "specification": "ER308L",
+      "diameter": "2.40",
+      "diaSpec": "2.40 ER308L",
+      "lotId": 2,
+      "brand": "Lincoln",
+      "lotNumber": "B77",
+      "quantityKg": 1.00,
+      "fromStage": "Activated",
+      "toStage": null,
+      "source": null,
+      "requestor": "Ali Bin Abu",
+      "welderId": 1,
+      "welderName": "Ali Bin Abu",
+      "reason": null,
+      "countedQtyKg": null,
+      "referenceNo": null,
+      "remarks": null,
+      "isVoided": false,
+      "voidsMovementId": null,
+      "fromCompartmentId": null,
+      "fromCompartment": null,
+      "toCompartmentId": null,
+      "toCompartment": null,
+      "bakingRecordId": null,
+      "bakingNo": null
+    },
+    {
+      "id": 9,
+      "txnNo": "CT-26-000009",
+      "txnType": "Issue",
+      "txnDate": "2026-09-29",
+      "createdAt": "\u003Cvolatile\u003E",
+      "createdBy": "Store Supervisor",
+      "itemId": 1,
+      "category": "Electrode Filler",
+      "specification": "e7018",
+      "diameter": "3.20",
+      "diaSpec": "3.20 e7018",
+      "lotId": 1,
+      "brand": "kobelco",
+      "lotNumber": "l123",
+      "quantityKg": 1.50,
+      "fromStage": "Activated",
+      "toStage": null,
+      "source": null,
+      "requestor": "Ali Bin Abu",
+      "welderId": 1,
+      "welderName": "Ali Bin Abu",
+      "reason": null,
+      "countedQtyKg": null,
+      "referenceNo": null,
+      "remarks": null,
+      "isVoided": true,
+      "voidsMovementId": null,
+      "fromCompartmentId": 10,
+      "fromCompartment": "MS-1",
+      "toCompartmentId": null,
+      "toCompartment": null,
+      "bakingRecordId": null,
+      "bakingNo": null
+    },
+    {
+      "id": 8,
+      "txnNo": "CT-26-000008",
+      "txnType": "Move",
+      "txnDate": "2026-09-29",
+      "createdAt": "\u003Cvolatile\u003E",
+      "createdBy": "Store Supervisor",
+      "itemId": 1,
+      "category": "Electrode Filler",
+      "specification": "e7018",
+      "diameter": "3.20",
+      "diaSpec": "3.20 e7018",
+      "lotId": 1,
+      "brand": "kobelco",
+      "lotNumber": "l123",
+      "quantityKg": 1.00,
+      "fromStage": "Activated",
+      "toStage": "Activated",
+      "source": null,
+      "requestor": null,
+      "welderId": null,
+      "welderName": null,
+      "reason": null,
+      "countedQtyKg": null,
+      "referenceNo": null,
+      "remarks": null,
+      "isVoided": false,
+      "voidsMovementId": null,
+      "fromCompartmentId": 11,
+      "fromCompartment": "MS-2",
+      "toCompartmentId": 10,
+      "toCompartment": "MS-1",
+      "bakingRecordId": null,
+      "bakingNo": null
+    },
+    {
+      "id": 7,
+      "txnNo": "CT-26-000007",
+      "txnType": "Hold",
+      "txnDate": "2026-09-29",
+      "createdAt": "\u003Cvolatile\u003E",
+      "createdBy": "Store Supervisor",
+      "itemId": 1,
+      "category": "Electrode Filler",
+      "specification": "e7018",
+      "diameter": "3.20",
+      "diaSpec": "3.20 e7018",
+      "lotId": 1,
+      "brand": "kobelco",
+      "lotNumber": "l123",
+      "quantityKg": 2.00,
+      "fromStage": "Baking",
+      "toStage": "Activated",
+      "source": null,
+      "requestor": null,
+      "welderId": null,
+      "welderName": null,
+      "reason": null,
+      "countedQtyKg": null,
+      "referenceNo": null,
+      "remarks": null,
+      "isVoided": false,
+      "voidsMovementId": null,
+      "fromCompartmentId": null,
+      "fromCompartment": null,
+      "toCompartmentId": 11,
+      "toCompartment": "MS-2",
+      "bakingRecordId": 1,
+      "bakingNo": "BK-26-0001"
+    },
+    {
+      "id": 6,
+      "txnNo": "CT-26-000006",
+      "txnType": "Hold",
+      "txnDate": "2026-09-29",
+      "createdAt": "\u003Cvolatile\u003E",
+      "createdBy": "Store Supervisor",
+      "itemId": 1,
+      "category": "Electrode Filler",
+      "specification": "e7018",
+      "diameter": "3.20",
+      "diaSpec": "3.20 e7018",
+      "lotId": 1,
+      "brand": "kobelco",
+      "lotNumber": "l123",
+      "quantityKg": 4.00,
+      "fromStage": "Baking",
+      "toStage": "Activated",
+      "source": null,
+      "requestor": null,
+      "welderId": null,
+      "welderName": null,
+      "reason": null,
+      "countedQtyKg": null,
+      "referenceNo": null,
+      "remarks": null,
+      "isVoided": false,
+      "voidsMovementId": null,
+      "fromCompartmentId": null,
+      "fromCompartment": null,
+      "toCompartmentId": 10,
+      "toCompartment": "MS-1",
+      "bakingRecordId": 1,
+      "bakingNo": "BK-26-0001"
+    },
+    {
+      "id": 5,
+      "txnNo": "CT-26-000005",
+      "txnType": "SendToBake",
+      "txnDate": "2026-09-29",
+      "createdAt": "\u003Cvolatile\u003E",
+      "createdBy": "Store Supervisor",
+      "itemId": 1,
+      "category": "Electrode Filler",
+      "specification": "e7018",
+      "diameter": "3.20",
+      "diaSpec": "3.20 e7018",
+      "lotId": 1,
+      "brand": "kobelco",
+      "lotNumber": "l123",
+      "quantityKg": 6.00,
+      "fromStage": "Normal",
+      "toStage": "Baking",
+      "source": null,
+      "requestor": null,
+      "welderId": null,
+      "welderName": null,
+      "reason": null,
+      "countedQtyKg": null,
+      "referenceNo": null,
+      "remarks": null,
+      "isVoided": false,
+      "voidsMovementId": null,
+      "fromCompartmentId": null,
+      "fromCompartment": null,
+      "toCompartmentId": null,
+      "toCompartment": null,
+      "bakingRecordId": 1,
+      "bakingNo": "BK-26-0001"
+    },
+    {
+      "id": 4,
+      "txnNo": "CT-26-000004",
+      "txnType": "Transfer",
+      "txnDate": "2026-09-29",
+      "createdAt": "\u003Cvolatile\u003E",
+      "createdBy": "Store Supervisor",
+      "itemId": 2,
+      "category": "Bare \u0026 Powder Filler",
+      "specification": "ER308L",
+      "diameter": "2.40",
+      "diaSpec": "2.40 ER308L",
+      "lotId": 2,
+      "brand": "Lincoln",
+      "lotNumber": "B77",
+      "quantityKg": 3.00,
+      "fromStage": "Normal",
+      "toStage": "Activated",
+      "source": null,
+      "requestor": null,
+      "welderId": null,
+      "welderName": null,
+      "reason": null,
+      "countedQtyKg": null,
+      "referenceNo": null,
+      "remarks": null,
+      "isVoided": false,
+      "voidsMovementId": null,
+      "fromCompartmentId": null,
+      "fromCompartment": null,
+      "toCompartmentId": null,
+      "toCompartment": null,
+      "bakingRecordId": null,
+      "bakingNo": null
+    },
+    {
+      "id": 3,
+      "txnNo": "CT-26-000003",
+      "txnType": "Receive",
+      "txnDate": "2026-09-29",
+      "createdAt": "\u003Cvolatile\u003E",
+      "createdBy": "Store Supervisor",
+      "itemId": 4,
+      "category": "Bare \u0026 Powder Filler",
+      "specification": "ERNiCr-3",
+      "diameter": "2.40",
+      "diaSpec": "2.40 ERNiCr-3",
+      "lotId": 3,
+      "brand": "Special",
+      "lotNumber": "N1",
+      "quantityKg": 4.00,
+      "fromStage": null,
+      "toStage": "Normal",
+      "source": "Weld Shop",
+      "requestor": "Ali Bin Abu",
+      "welderId": null,
+      "welderName": null,
+      "reason": null,
+      "countedQtyKg": null,
+      "referenceNo": null,
+      "remarks": null,
+      "isVoided": false,
+      "voidsMovementId": null,
+      "fromCompartmentId": null,
+      "fromCompartment": null,
+      "toCompartmentId": null,
+      "toCompartment": null,
+      "bakingRecordId": null,
+      "bakingNo": null
+    },
+    {
+      "id": 2,
+      "txnNo": "CT-26-000002",
+      "txnType": "Receive",
+      "txnDate": "2026-09-29",
+      "createdAt": "\u003Cvolatile\u003E",
+      "createdBy": "Store Supervisor",
+      "itemId": 2,
+      "category": "Bare \u0026 Powder Filler",
+      "specification": "ER308L",
+      "diameter": "2.40",
+      "diaSpec": "2.40 ER308L",
+      "lotId": 2,
+      "brand": "Lincoln",
+      "lotNumber": "B77",
+      "quantityKg": 10.00,
+      "fromStage": null,
+      "toStage": "Normal",
+      "source": "Tool Crib",
+      "requestor": "Ali Bin Abu",
+      "welderId": null,
+      "welderName": null,
+      "reason": null,
+      "countedQtyKg": null,
+      "referenceNo": null,
+      "remarks": null,
+      "isVoided": false,
+      "voidsMovementId": null,
+      "fromCompartmentId": null,
+      "fromCompartment": null,
+      "toCompartmentId": null,
+      "toCompartment": null,
+      "bakingRecordId": null,
+      "bakingNo": null
+    },
+    {
+      "id": 1,
+      "txnNo": "CT-26-000001",
+      "txnType": "Receive",
+      "txnDate": "2026-09-29",
+      "createdAt": "\u003Cvolatile\u003E",
+      "createdBy": "Store Supervisor",
+      "itemId": 1,
+      "category": "Electrode Filler",
+      "specification": "e7018",
+      "diameter": "3.20",
+      "diaSpec": "3.20 e7018",
+      "lotId": 1,
+      "brand": "kobelco",
+      "lotNumber": "l123",
+      "quantityKg": 20.00,
+      "fromStage": null,
+      "toStage": "Normal",
+      "source": "Weld Shop",
+      "requestor": "Ali Bin Abu",
+      "welderId": null,
+      "welderName": null,
+      "reason": null,
+      "countedQtyKg": null,
+      "referenceNo": null,
+      "remarks": "first",
+      "isVoided": false,
+      "voidsMovementId": null,
+      "fromCompartmentId": null,
+      "fromCompartment": null,
+      "toCompartmentId": null,
+      "toCompartment": null,
+      "bakingRecordId": null,
+      "bakingNo": null
+    }
+  ],
+  "total": 15
+}
+
+### transactions filtered
+GET http://localhost/api/consumables/transactions?Type=Issue&WelderId=1 -> 200
+{
+  "items": [
+    {
+      "id": 10,
+      "txnNo": "CT-26-000010",
+      "txnType": "Issue",
+      "txnDate": "2026-09-29",
+      "createdAt": "\u003Cvolatile\u003E",
+      "createdBy": "Store Supervisor",
+      "itemId": 2,
+      "category": "Bare \u0026 Powder Filler",
+      "specification": "ER308L",
+      "diameter": "2.40",
+      "diaSpec": "2.40 ER308L",
+      "lotId": 2,
+      "brand": "Lincoln",
+      "lotNumber": "B77",
+      "quantityKg": 1.00,
+      "fromStage": "Activated",
+      "toStage": null,
+      "source": null,
+      "requestor": "Ali Bin Abu",
+      "welderId": 1,
+      "welderName": "Ali Bin Abu",
+      "reason": null,
+      "countedQtyKg": null,
+      "referenceNo": null,
+      "remarks": null,
+      "isVoided": false,
+      "voidsMovementId": null,
+      "fromCompartmentId": null,
+      "fromCompartment": null,
+      "toCompartmentId": null,
+      "toCompartment": null,
+      "bakingRecordId": null,
+      "bakingNo": null
+    },
+    {
+      "id": 9,
+      "txnNo": "CT-26-000009",
+      "txnType": "Issue",
+      "txnDate": "2026-09-29",
+      "createdAt": "\u003Cvolatile\u003E",
+      "createdBy": "Store Supervisor",
+      "itemId": 1,
+      "category": "Electrode Filler",
+      "specification": "e7018",
+      "diameter": "3.20",
+      "diaSpec": "3.20 e7018",
+      "lotId": 1,
+      "brand": "kobelco",
+      "lotNumber": "l123",
+      "quantityKg": 1.50,
+      "fromStage": "Activated",
+      "toStage": null,
+      "source": null,
+      "requestor": "Ali Bin Abu",
+      "welderId": 1,
+      "welderName": "Ali Bin Abu",
+      "reason": null,
+      "countedQtyKg": null,
+      "referenceNo": null,
+      "remarks": null,
+      "isVoided": true,
+      "voidsMovementId": null,
+      "fromCompartmentId": 10,
+      "fromCompartment": "MS-1",
+      "toCompartmentId": null,
+      "toCompartment": null,
+      "bakingRecordId": null,
+      "bakingNo": null
+    }
+  ],
+  "total": 2
+}
+
+### transactions for baking
+GET http://localhost/api/consumables/transactions?BakingRecordId=1 -> 200
+{
+  "items": [
+    {
+      "id": 7,
+      "txnNo": "CT-26-000007",
+      "txnType": "Hold",
+      "txnDate": "2026-09-29",
+      "createdAt": "\u003Cvolatile\u003E",
+      "createdBy": "Store Supervisor",
+      "itemId": 1,
+      "category": "Electrode Filler",
+      "specification": "e7018",
+      "diameter": "3.20",
+      "diaSpec": "3.20 e7018",
+      "lotId": 1,
+      "brand": "kobelco",
+      "lotNumber": "l123",
+      "quantityKg": 2.00,
+      "fromStage": "Baking",
+      "toStage": "Activated",
+      "source": null,
+      "requestor": null,
+      "welderId": null,
+      "welderName": null,
+      "reason": null,
+      "countedQtyKg": null,
+      "referenceNo": null,
+      "remarks": null,
+      "isVoided": false,
+      "voidsMovementId": null,
+      "fromCompartmentId": null,
+      "fromCompartment": null,
+      "toCompartmentId": 11,
+      "toCompartment": "MS-2",
+      "bakingRecordId": 1,
+      "bakingNo": "BK-26-0001"
+    },
+    {
+      "id": 6,
+      "txnNo": "CT-26-000006",
+      "txnType": "Hold",
+      "txnDate": "2026-09-29",
+      "createdAt": "\u003Cvolatile\u003E",
+      "createdBy": "Store Supervisor",
+      "itemId": 1,
+      "category": "Electrode Filler",
+      "specification": "e7018",
+      "diameter": "3.20",
+      "diaSpec": "3.20 e7018",
+      "lotId": 1,
+      "brand": "kobelco",
+      "lotNumber": "l123",
+      "quantityKg": 4.00,
+      "fromStage": "Baking",
+      "toStage": "Activated",
+      "source": null,
+      "requestor": null,
+      "welderId": null,
+      "welderName": null,
+      "reason": null,
+      "countedQtyKg": null,
+      "referenceNo": null,
+      "remarks": null,
+      "isVoided": false,
+      "voidsMovementId": null,
+      "fromCompartmentId": null,
+      "fromCompartment": null,
+      "toCompartmentId": 10,
+      "toCompartment": "MS-1",
+      "bakingRecordId": 1,
+      "bakingNo": "BK-26-0001"
+    },
+    {
+      "id": 5,
+      "txnNo": "CT-26-000005",
+      "txnType": "SendToBake",
+      "txnDate": "2026-09-29",
+      "createdAt": "\u003Cvolatile\u003E",
+      "createdBy": "Store Supervisor",
+      "itemId": 1,
+      "category": "Electrode Filler",
+      "specification": "e7018",
+      "diameter": "3.20",
+      "diaSpec": "3.20 e7018",
+      "lotId": 1,
+      "brand": "kobelco",
+      "lotNumber": "l123",
+      "quantityKg": 6.00,
+      "fromStage": "Normal",
+      "toStage": "Baking",
+      "source": null,
+      "requestor": null,
+      "welderId": null,
+      "welderName": null,
+      "reason": null,
+      "countedQtyKg": null,
+      "referenceNo": null,
+      "remarks": null,
+      "isVoided": false,
+      "voidsMovementId": null,
+      "fromCompartmentId": null,
+      "fromCompartment": null,
+      "toCompartmentId": null,
+      "toCompartment": null,
+      "bakingRecordId": 1,
+      "bakingNo": "BK-26-0001"
+    }
+  ],
+  "total": 3
+}
+
+### transactions today
+GET http://localhost/api/consumables/transactions/today?type=Receive -> 200
+[
+  {
+    "id": 3,
+    "txnNo": "CT-26-000003",
+    "txnType": "Receive",
+    "txnDate": "2026-09-29",
+    "createdAt": "\u003Cvolatile\u003E",
+    "createdBy": "Store Supervisor",
+    "itemId": 4,
+    "category": "Bare \u0026 Powder Filler",
+    "specification": "ERNiCr-3",
+    "diameter": "2.40",
+    "diaSpec": "2.40 ERNiCr-3",
+    "lotId": 3,
+    "brand": "Special",
+    "lotNumber": "N1",
+    "quantityKg": 4.00,
+    "fromStage": null,
+    "toStage": "Normal",
+    "source": "Weld Shop",
+    "requestor": "Ali Bin Abu",
+    "welderId": null,
+    "welderName": null,
+    "reason": null,
+    "countedQtyKg": null,
+    "referenceNo": null,
+    "remarks": null,
+    "isVoided": false,
+    "voidsMovementId": null,
+    "fromCompartmentId": null,
+    "fromCompartment": null,
+    "toCompartmentId": null,
+    "toCompartment": null,
+    "bakingRecordId": null,
+    "bakingNo": null
+  },
+  {
+    "id": 2,
+    "txnNo": "CT-26-000002",
+    "txnType": "Receive",
+    "txnDate": "2026-09-29",
+    "createdAt": "\u003Cvolatile\u003E",
+    "createdBy": "Store Supervisor",
+    "itemId": 2,
+    "category": "Bare \u0026 Powder Filler",
+    "specification": "ER308L",
+    "diameter": "2.40",
+    "diaSpec": "2.40 ER308L",
+    "lotId": 2,
+    "brand": "Lincoln",
+    "lotNumber": "B77",
+    "quantityKg": 10.00,
+    "fromStage": null,
+    "toStage": "Normal",
+    "source": "Tool Crib",
+    "requestor": "Ali Bin Abu",
+    "welderId": null,
+    "welderName": null,
+    "reason": null,
+    "countedQtyKg": null,
+    "referenceNo": null,
+    "remarks": null,
+    "isVoided": false,
+    "voidsMovementId": null,
+    "fromCompartmentId": null,
+    "fromCompartment": null,
+    "toCompartmentId": null,
+    "toCompartment": null,
+    "bakingRecordId": null,
+    "bakingNo": null
+  },
+  {
+    "id": 1,
+    "txnNo": "CT-26-000001",
+    "txnType": "Receive",
+    "txnDate": "2026-09-29",
+    "createdAt": "\u003Cvolatile\u003E",
+    "createdBy": "Store Supervisor",
+    "itemId": 1,
+    "category": "Electrode Filler",
+    "specification": "e7018",
+    "diameter": "3.20",
+    "diaSpec": "3.20 e7018",
+    "lotId": 1,
+    "brand": "kobelco",
+    "lotNumber": "l123",
+    "quantityKg": 20.00,
+    "fromStage": null,
+    "toStage": "Normal",
+    "source": "Weld Shop",
+    "requestor": "Ali Bin Abu",
+    "welderId": null,
+    "welderName": null,
+    "reason": null,
+    "countedQtyKg": null,
+    "referenceNo": null,
+    "remarks": "first",
+    "isVoided": false,
+    "voidsMovementId": null,
+    "fromCompartmentId": null,
+    "fromCompartment": null,
+    "toCompartmentId": null,
+    "toCompartment": null,
+    "bakingRecordId": null,
+    "bakingNo": null
+  }
+]
+
+### baking list
+GET http://localhost/api/consumables/baking -> 200
+{
+  "items": [
+    {
+      "id": 1,
+      "bakingNo": "BK-26-0001",
+      "itemId": 1,
+      "category": "Electrode Filler",
+      "diaSpec": "3.20 e7018",
+      "holdingOvenType": "Mild Steel",
+      "lotId": 1,
+      "brand": "kobelco",
+      "lotNumber": "l123",
+      "quantityKg": 6.00,
+      "balanceKg": 0.00,
+      "personInCharge": "PIC One",
+      "bakingDate": "2026-09-29",
+      "bakeStart": "2026-09-29T09:00:00",
+      "bakeStop": "2026-09-29T10:05:00",
+      "rebakeStart": null,
+      "rebakeStop": null,
+      "status": "Closed",
+      "remarks": "edited",
+      "createdBy": "Store Supervisor",
+      "createdAt": "\u003Cvolatile\u003E"
+    }
+  ],
+  "total": 1
+}
+
+### holding list
+GET http://localhost/api/consumables/holding -> 200
+{
+  "items": [
+    {
+      "id": 2,
+      "holdingNo": "HD-26-0002",
+      "holdingDate": "2026-09-29",
+      "bakingRecordId": 1,
+      "bakingNo": "BK-26-0001",
+      "itemId": 1,
+      "diaSpec": "3.20 e7018",
+      "lotId": 1,
+      "brand": "kobelco",
+      "lotNumber": "l123",
+      "welderId": null,
+      "welderName": null,
+      "compartmentId": 11,
+      "compartmentLabel": "MS-2",
+      "ovenType": "Mild Steel",
+      "compartmentNumber": 2,
+      "isFinishedAfterBaking": false,
+      "quantityKg": 2.00,
+      "txnNo": "CT-26-000007",
+      "isVoided": false,
+      "remarks": null,
+      "createdBy": "Store Supervisor",
+      "createdAt": "\u003Cvolatile\u003E"
+    },
+    {
+      "id": 1,
+      "holdingNo": "HD-26-0001",
+      "holdingDate": "2026-09-29",
+      "bakingRecordId": 1,
+      "bakingNo": "BK-26-0001",
+      "itemId": 1,
+      "diaSpec": "3.20 e7018",
+      "lotId": 1,
+      "brand": "kobelco",
+      "lotNumber": "l123",
+      "welderId": null,
+      "welderName": null,
+      "compartmentId": 10,
+      "compartmentLabel": "MS-1",
+      "ovenType": "Mild Steel",
+      "compartmentNumber": 1,
+      "isFinishedAfterBaking": false,
+      "quantityKg": 4.00,
+      "txnNo": "CT-26-000006",
+      "isVoided": false,
+      "remarks": null,
+      "createdBy": "Store Supervisor",
+      "createdAt": "\u003Cvolatile\u003E"
+    }
+  ],
+  "total": 2
+}
+
+### dashboard
+GET http://localhost/api/consumables/dashboard -> 200
+{
+  "kpis": {
+    "totalKg": 31.50,
+    "normalKg": 25.00,
+    "bakingKg": 0.00,
+    "activatedKg": 6.50,
+    "inHoldingKg": 6.50,
+    "occupiedCompartments": 2,
+    "totalCompartments": 36,
+    "receivedThisMonthKg": 34.00,
+    "netConsumedThisMonthKg": -7.00,
+    "lowStockCount": 1,
+    "refillCount": 1,
+    "monthLabel": "Sep 26",
+    "monthStart": "2026-09-01",
+    "today": "2026-09-29"
+  },
+  "inOut": [
+    {
+      "month": "Oct 25",
+      "inKg": 0,
+      "outKg": 0,
+      "start": "2025-10-01"
+    },
+    {
+      "month": "Nov 25",
+      "inKg": 0,
+      "outKg": 0,
+      "start": "2025-11-01"
+    },
+    {
+      "month": "Dec 25",
+      "inKg": 0,
+      "outKg": 0,
+      "start": "2025-12-01"
+    },
+    {
+      "month": "Jan 26",
+      "inKg": 0,
+      "outKg": 0,
+      "start": "2026-01-01"
+    },
+    {
+      "month": "Feb 26",
+      "inKg": 0,
+      "outKg": 0,
+      "start": "2026-02-01"
+    },
+    {
+      "month": "Mar 26",
+      "inKg": 0,
+      "outKg": 0,
+      "start": "2026-03-01"
+    },
+    {
+      "month": "Apr 26",
+      "inKg": 0,
+      "outKg": 0,
+      "start": "2026-04-01"
+    },
+    {
+      "month": "May 26",
+      "inKg": 0,
+      "outKg": 0,
+      "start": "2026-05-01"
+    },
+    {
+      "month": "Jun 26",
+      "inKg": 0,
+      "outKg": 0,
+      "start": "2026-06-01"
+    },
+    {
+      "month": "Jul 26",
+      "inKg": 0,
+      "outKg": 0,
+      "start": "2026-07-01"
+    },
+    {
+      "month": "Aug 26",
+      "inKg": 0,
+      "outKg": 0,
+      "start": "2026-08-01"
+    },
+    {
+      "month": "Sep 26",
+      "inKg": 34.00,
+      "outKg": -7.00,
+      "start": "2026-09-01"
+    }
+  ],
+  "consumption": [
+    {
+      "category": "Bare \u0026 Powder Filler",
+      "values": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        -6.50
+      ]
+    },
+    {
+      "category": "Electrode Filler",
+      "values": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        -0.50
+      ]
+    }
+  ],
+  "balances": [
+    {
+      "itemId": 2,
+      "category": "Bare \u0026 Powder Filler",
+      "specification": "ER308L",
+      "diameter": "2.40",
+      "diaSpec": "2.40 ER308L",
+      "normalKg": 7.00,
+      "bakingKg": 0.00,
+      "activatedKg": 0.00,
+      "totalKg": 7.00,
+      "minStockKg": 3.00,
+      "activatedMinKg": 1.00,
+      "finishThresholdKg": 0.5,
+      "isLow": false,
+      "needsRefill": true,
+      "lotCount": 1,
+      "lastIssuedOn": "2026-09-29",
+      "isActive": true,
+      "holdingOvenType": null
+    },
+    {
+      "itemId": 3,
+      "category": "Bare \u0026 Powder Filler",
+      "specification": "ER70S-6",
+      "diameter": "1.20",
+      "diaSpec": "1.20 ER70S-6",
+      "normalKg": 0,
+      "bakingKg": 0,
+      "activatedKg": 0,
+      "totalKg": 0,
+      "minStockKg": 2.00,
+      "activatedMinKg": 0.00,
+      "finishThresholdKg": 0.5,
+      "isLow": true,
+      "needsRefill": false,
+      "lotCount": 0,
+      "lastIssuedOn": null,
+      "isActive": true,
+      "holdingOvenType": null
+    },
+    {
+      "itemId": 4,
+      "category": "Bare \u0026 Powder Filler",
+      "specification": "ERNiCr-3",
+      "diameter": "2.40",
+      "diaSpec": "2.40 ERNiCr-3",
+      "normalKg": 4.00,
+      "bakingKg": 0.00,
+      "activatedKg": 0.00,
+      "totalKg": 4.00,
+      "minStockKg": 0.00,
+      "activatedMinKg": 0.00,
+      "finishThresholdKg": 0.5,
+      "isLow": false,
+      "needsRefill": false,
+      "lotCount": 1,
+      "lastIssuedOn": null,
+      "isActive": true,
+      "holdingOvenType": null
+    },
+    {
+      "itemId": 1,
+      "category": "Electrode Filler",
+      "specification": "e7018",
+      "diameter": "3.20",
+      "diaSpec": "3.20 e7018",
+      "normalKg": 14.00,
+      "bakingKg": 0.00,
+      "activatedKg": 6.50,
+      "totalKg": 20.50,
+      "minStockKg": 5.00,
+      "activatedMinKg": 2.00,
+      "finishThresholdKg": 0.30,
+      "isLow": false,
+      "needsRefill": false,
+      "lotCount": 1,
+      "lastIssuedOn": null,
+      "isActive": true,
+      "holdingOvenType": "Mild Steel"
+    }
+  ],
+  "itemUsage": [
+    {
+      "itemId": 1,
+      "category": "Electrode Filler",
+      "diaSpec": "3.20 e7018",
+      "thisMonthKg": -0.50,
+      "lastMonthKg": 0,
+      "averageMonthlyKg": 0,
+      "onHandKg": 20.50,
+      "minStockKg": 5.00,
+      "coverDays": null,
+      "isLow": false
+    },
+    {
+      "itemId": 2,
+      "category": "Bare \u0026 Powder Filler",
+      "diaSpec": "2.40 ER308L",
+      "thisMonthKg": -6.50,
+      "lastMonthKg": 0,
+      "averageMonthlyKg": 0,
+      "onHandKg": 7.00,
+      "minStockKg": 3.00,
+      "coverDays": null,
+      "isLow": false
+    }
+  ]
+}
+
+### consumption
+GET http://localhost/api/consumables/dashboard/consumption?month=2026-09 -> 200
+[
+  {
+    "itemId": 1,
+    "category": "Electrode Filler",
+    "diaSpec": "3.20 e7018",
+    "pickedKg": 0.00,
+    "returnedKg": 0.50,
+    "finishedKg": 0.00,
+    "netKg": -0.50
+  },
+  {
+    "itemId": 2,
+    "category": "Bare \u0026 Powder Filler",
+    "diaSpec": "2.40 ER308L",
+    "pickedKg": 1.00,
+    "returnedKg": 9.00,
+    "finishedKg": 1.50,
+    "netKg": -6.50
+  }
+]
+
+### count sheet activated
+GET http://localhost/api/consumables/count-sheet?scope=Activated -> 200
+{
+  "scope": "Activated",
+  "category": null,
+  "generatedAt": "2026-09-29T11:04:00\u002B00:00",
+  "lines": [
+    {
+      "key": "1:10",
+      "itemId": 1,
+      "category": "Electrode Filler",
+      "specification": "e7018",
+      "diameter": "3.20",
+      "diaSpec": "3.20 e7018",
+      "lotId": 1,
+      "brand": "kobelco",
+      "lotNumber": "l123",
+      "stage": "Activated",
+      "compartmentId": 10,
+      "location": "MS-1",
+      "systemKg": 5.50
+    },
+    {
+      "key": "1:11",
+      "itemId": 1,
+      "category": "Electrode Filler",
+      "specification": "e7018",
+      "diameter": "3.20",
+      "diaSpec": "3.20 e7018",
+      "lotId": 1,
+      "brand": "kobelco",
+      "lotNumber": "l123",
+      "stage": "Activated",
+      "compartmentId": 11,
+      "location": "MS-2",
+      "systemKg": 1.00
+    }
+  ]
+}
+
+### stock count
+POST http://localhost/api/consumables/stock-counts -> 200
+{
+  "id": 1,
+  "referenceNo": "SC-26-0001",
+  "countDate": "2026-09-29",
+  "scope": "Activated",
+  "category": null,
+  "linesCounted": 2,
+  "linesAdjusted": 2,
+  "gainKg": 0.00,
+  "lossKg": 0.40,
+  "netKg": -0.40,
+  "txnNo": "CT-26-000016",
+  "isVoided": false,
+  "remarks": "monthly",
+  "createdBy": "Store Supervisor",
+  "createdAt": "\u003Cvolatile\u003E"
+}
+
+### stock counts
+GET http://localhost/api/consumables/stock-counts -> 200
+{
+  "items": [
+    {
+      "id": 1,
+      "referenceNo": "SC-26-0001",
+      "countDate": "2026-09-29",
+      "scope": "Activated",
+      "category": null,
+      "linesCounted": 2,
+      "linesAdjusted": 2,
+      "gainKg": 0.00,
+      "lossKg": 0.40,
+      "netKg": -0.40,
+      "txnNo": "CT-26-000016",
+      "isVoided": false,
+      "remarks": "monthly",
+      "createdBy": "Store Supervisor",
+      "createdAt": "\u003Cvolatile\u003E"
+    }
+  ],
+  "total": 1
+}
+
+### stock count detail
+GET http://localhost/api/consumables/stock-counts/SC-26-0001 -> 200
+{
+  "count": {
+    "id": 1,
+    "referenceNo": "SC-26-0001",
+    "countDate": "2026-09-29",
+    "scope": "Activated",
+    "category": null,
+    "linesCounted": 2,
+    "linesAdjusted": 2,
+    "gainKg": 0.00,
+    "lossKg": 0.40,
+    "netKg": -0.40,
+    "txnNo": "CT-26-000016",
+    "isVoided": false,
+    "remarks": "monthly",
+    "createdBy": "Store Supervisor",
+    "createdAt": "\u003Cvolatile\u003E"
+  },
+  "adjustments": [
+    {
+      "id": 16,
+      "txnNo": "CT-26-000016",
+      "txnType": "Adjust",
+      "txnDate": "2026-09-29",
+      "createdAt": "\u003Cvolatile\u003E",
+      "createdBy": "Store Supervisor",
+      "itemId": 1,
+      "category": "Electrode Filler",
+      "specification": "e7018",
+      "diameter": "3.20",
+      "diaSpec": "3.20 e7018",
+      "lotId": 1,
+      "brand": "kobelco",
+      "lotNumber": "l123",
+      "quantityKg": 0.20,
+      "fromStage": "Activated",
+      "toStage": null,
+      "source": null,
+      "requestor": null,
+      "welderId": null,
+      "welderName": null,
+      "reason": "Count variance",
+      "countedQtyKg": 5.30,
+      "referenceNo": "SC-26-0001",
+      "remarks": "monthly",
+      "isVoided": false,
+      "voidsMovementId": null,
+      "fromCompartmentId": 10,
+      "fromCompartment": "MS-1",
+      "toCompartmentId": null,
+      "toCompartment": null,
+      "bakingRecordId": null,
+      "bakingNo": null
+    },
+    {
+      "id": 17,
+      "txnNo": "CT-26-000016",
+      "txnType": "Adjust",
+      "txnDate": "2026-09-29",
+      "createdAt": "\u003Cvolatile\u003E",
+      "createdBy": "Store Supervisor",
+      "itemId": 1,
+      "category": "Electrode Filler",
+      "specification": "e7018",
+      "diameter": "3.20",
+      "diaSpec": "3.20 e7018",
+      "lotId": 1,
+      "brand": "kobelco",
+      "lotNumber": "l123",
+      "quantityKg": 0.20,
+      "fromStage": "Activated",
+      "toStage": null,
+      "source": null,
+      "requestor": null,
+      "welderId": null,
+      "welderName": null,
+      "reason": "Count variance",
+      "countedQtyKg": 0.80,
+      "referenceNo": "SC-26-0001",
+      "remarks": "monthly",
+      "isVoided": false,
+      "voidsMovementId": null,
+      "fromCompartmentId": 11,
+      "fromCompartment": "MS-2",
+      "toCompartmentId": null,
+      "toCompartment": null,
+      "bakingRecordId": null,
+      "bakingNo": null
+    }
+  ]
+}
+
+### count sheet normal
+GET http://localhost/api/consumables/count-sheet?scope=Normal -> 200
+{
+  "scope": "Normal",
+  "category": null,
+  "generatedAt": "2026-09-29T11:08:00\u002B00:00",
+  "lines": [
+    {
+      "key": "2:-",
+      "itemId": 2,
+      "category": "Bare \u0026 Powder Filler",
+      "specification": "ER308L",
+      "diameter": "2.40",
+      "diaSpec": "2.40 ER308L",
+      "lotId": 2,
+      "brand": "Lincoln",
+      "lotNumber": "B77",
+      "stage": "Normal",
+      "compartmentId": null,
+      "location": "Main store",
+      "systemKg": 7.00
+    },
+    {
+      "key": "3:-",
+      "itemId": 4,
+      "category": "Bare \u0026 Powder Filler",
+      "specification": "ERNiCr-3",
+      "diameter": "2.40",
+      "diaSpec": "2.40 ERNiCr-3",
+      "lotId": 3,
+      "brand": "Special",
+      "lotNumber": "N1",
+      "stage": "Normal",
+      "compartmentId": null,
+      "location": "Main store",
+      "systemKg": 4.00
+    },
+    {
+      "key": "1:-",
+      "itemId": 1,
+      "category": "Electrode Filler",
+      "specification": "e7018",
+      "diameter": "3.20",
+      "diaSpec": "3.20 e7018",
+      "lotId": 1,
+      "brand": "kobelco",
+      "lotNumber": "l123",
+      "stage": "Normal",
+      "compartmentId": null,
+      "location": "Main store",
+      "systemKg": 14.00
+    }
+  ]
+}
+
+### items export
+GET http://localhost/api/consumables/items/export -> 200
+Type,Specification,Diameter,Min Stock (KG),Activated Min (KG),Finish Threshold (KG),Holding Oven Type,Active
+Bare & Powder Filler,ER308L,2.40,3,1,,,Yes
+Bare & Powder Filler,ER70S-6,1.20,2,0,,,Yes
+Bare & Powder Filler,ERNiCr-3,2.40,0,0,,,Yes
+Electrode Filler,e7018,3.20,5,2,0.3,Mild Steel,Yes
+
+### items template
+GET http://localhost/api/consumables/items/export?template=true -> 200
+Type,Specification,Diameter,Min Stock (KG),Activated Min (KG),Finish Threshold (KG),Holding Oven Type,Active
+
+### items import preview
+POST http://localhost/api/consumables/items/import -> 200
+{
+  "committed": false,
+  "totalRows": 3,
+  "created": 1,
+  "updated": 1,
+  "unchanged": 0,
+  "rejected": 1,
+  "rows": [
+    {
+      "line": 2,
+      "action": "Update",
+      "category": "Electrode Filler",
+      "diaSpec": "3.20 e7018",
+      "messages": [
+        "Min Stock: 5 \u2192 8",
+        "Standardized: Specification \u0022E7018\u0022 \u2192 \u0022e7018\u0022",
+        "Standardized: Diameter \u00223.2\u0022 \u2192 \u00223.20\u0022"
+      ]
+    },
+    {
+      "line": 3,
+      "action": "Create",
+      "category": "Bare \u0026 Powder Filler",
+      "diaSpec": "1.60 ER316L",
+      "messages": [
+        "Standardized: Diameter \u00221.6\u0022 \u2192 \u00221.60\u0022"
+      ]
+    },
+    {
+      "line": 4,
+      "action": "Error",
+      "category": "Gas",
+      "diaSpec": "1 Argon",
+      "messages": [
+        "Consumable Type \u0022Gas\u0022 is not valid. Allowed: Bare \u0026 Powder Filler, Electrode Filler."
+      ]
+    }
+  ],
+  "fileErrors": []
+}
+
+### items import commit
+POST http://localhost/api/consumables/items/import?commit=true&skipInvalid=true -> 200
+{
+  "committed": true,
+  "totalRows": 3,
+  "created": 1,
+  "updated": 1,
+  "unchanged": 0,
+  "rejected": 1,
+  "rows": [
+    {
+      "line": 2,
+      "action": "Update",
+      "category": "Electrode Filler",
+      "diaSpec": "3.20 e7018",
+      "messages": [
+        "Min Stock: 5 \u2192 8",
+        "Standardized: Specification \u0022E7018\u0022 \u2192 \u0022e7018\u0022",
+        "Standardized: Diameter \u00223.2\u0022 \u2192 \u00223.20\u0022"
+      ]
+    },
+    {
+      "line": 3,
+      "action": "Create",
+      "category": "Bare \u0026 Powder Filler",
+      "diaSpec": "1.60 ER316L",
+      "messages": [
+        "Standardized: Diameter \u00221.6\u0022 \u2192 \u00221.60\u0022"
+      ]
+    },
+    {
+      "line": 4,
+      "action": "Error",
+      "category": "Gas",
+      "diaSpec": "1 Argon",
+      "messages": [
+        "Consumable Type \u0022Gas\u0022 is not valid. Allowed: Bare \u0026 Powder Filler, Electrode Filler."
+      ]
+    }
+  ],
+  "fileErrors": []
+}
+
+### stock import template
+GET http://localhost/api/consumables/stock-import/template -> 200
+Date,Type,Specification,Diameter,Brand,Lot / Heat No.,Quantity (KG),Storage,Compartment,Holding Oven,Source,Remarks
+2026-09-29,Electrode Filler,E7018,3.20,Kobelco,L12345,5.00,Activated,AS-1,Alloy Steel,Weld Shop,EXAMPLE - delete this row
+
+### stock import preview
+POST http://localhost/api/consumables/stock-import -> 200
+{
+  "committed": false,
+  "totalRows": 3,
+  "ready": 2,
+  "newConsumables": 0,
+  "rejected": 1,
+  "skipped": 0,
+  "txnNo": null,
+  "rows": [
+    {
+      "line": 2,
+      "status": "Ready",
+      "diaSpec": "1.60 ER316L",
+      "brand": "Lincoln",
+      "lotNumber": "S1",
+      "quantityKg": 2.5,
+      "location": "Normal",
+      "messages": [
+        "Standardized: Diameter \u00221.6\u0022 \u2192 \u00221.60\u0022"
+      ]
+    },
+    {
+      "line": 3,
+      "status": "Ready",
+      "diaSpec": "3.20 e7018",
+      "brand": "kobelco",
+      "lotNumber": "L999",
+      "quantityKg": 1.0,
+      "location": "Activated \u00B7 MS-3",
+      "messages": [
+        "Standardized: Specification \u0022E7018\u0022 \u2192 \u0022e7018\u0022",
+        "Standardized: Diameter \u00223.2\u0022 \u2192 \u00223.20\u0022",
+        "Standardized: Brand \u0022Kobelco\u0022 \u2192 \u0022kobelco\u0022"
+      ]
+    },
+    {
+      "line": 4,
+      "status": "Error",
+      "diaSpec": "1.60 ER316L",
+      "brand": "Lincoln",
+      "lotNumber": "S2",
+      "quantityKg": null,
+      "location": "Normal",
+      "messages": [
+        "Date \u0022bad-date\u0022 is not valid. Use YYYY-MM-DD (e.g. 2026-09-29) or DD/MM/YYYY.",
+        "Standardized: Diameter \u00221.6\u0022 \u2192 \u00221.60\u0022",
+        "Quantity \u0022x\u0022 is not a number. Use kg with a dot for decimals, e.g. 5.00."
+      ]
+    }
+  ],
+  "fileErrors": []
+}
+
+### stock import commit
+POST http://localhost/api/consumables/stock-import?commit=true&skipInvalid=true -> 200
+{
+  "committed": true,
+  "totalRows": 3,
+  "ready": 2,
+  "newConsumables": 0,
+  "rejected": 1,
+  "skipped": 0,
+  "txnNo": "CT-26-000017",
+  "rows": [
+    {
+      "line": 2,
+      "status": "Ready",
+      "diaSpec": "1.60 ER316L",
+      "brand": "Lincoln",
+      "lotNumber": "S1",
+      "quantityKg": 2.5,
+      "location": "Normal",
+      "messages": [
+        "Standardized: Diameter \u00221.6\u0022 \u2192 \u00221.60\u0022"
+      ]
+    },
+    {
+      "line": 3,
+      "status": "Ready",
+      "diaSpec": "3.20 e7018",
+      "brand": "kobelco",
+      "lotNumber": "L999",
+      "quantityKg": 1.0,
+      "location": "Activated \u00B7 MS-3",
+      "messages": [
+        "Standardized: Specification \u0022E7018\u0022 \u2192 \u0022e7018\u0022",
+        "Standardized: Diameter \u00223.2\u0022 \u2192 \u00223.20\u0022",
+        "Standardized: Brand \u0022Kobelco\u0022 \u2192 \u0022kobelco\u0022"
+      ]
+    },
+    {
+      "line": 4,
+      "status": "Error",
+      "diaSpec": "1.60 ER316L",
+      "brand": "Lincoln",
+      "lotNumber": "S2",
+      "quantityKg": null,
+      "location": "Normal",
+      "messages": [
+        "Date \u0022bad-date\u0022 is not valid. Use YYYY-MM-DD (e.g. 2026-09-29) or DD/MM/YYYY.",
+        "Standardized: Diameter \u00221.6\u0022 \u2192 \u00221.60\u0022",
+        "Quantity \u0022x\u0022 is not a number. Use kg with a dot for decimals, e.g. 5.00."
+      ]
+    }
+  ],
+  "fileErrors": []
+}
+
+### stock import again detects duplicates
+POST http://localhost/api/consumables/stock-import -> 200
+{
+  "committed": false,
+  "totalRows": 3,
+  "ready": 0,
+  "newConsumables": 0,
+  "rejected": 3,
+  "skipped": 0,
+  "txnNo": null,
+  "rows": [
+    {
+      "line": 2,
+      "status": "Error",
+      "diaSpec": "1.60 ER316L",
+      "brand": "Lincoln",
+      "lotNumber": "S1",
+      "quantityKg": 2.5,
+      "location": "Normal",
+      "messages": [
+        "Standardized: Diameter \u00221.6\u0022 \u2192 \u00221.60\u0022",
+        "This exact row was already imported as opening stock in CT-26-000017. Remove it, or change it if it is new stock."
+      ]
+    },
+    {
+      "line": 3,
+      "status": "Error",
+      "diaSpec": "3.20 e7018",
+      "brand": "kobelco",
+      "lotNumber": "L999",
+      "quantityKg": 1.0,
+      "location": "Activated \u00B7 MS-3",
+      "messages": [
+        "Standardized: Specification \u0022E7018\u0022 \u2192 \u0022e7018\u0022",
+        "Standardized: Diameter \u00223.2\u0022 \u2192 \u00223.20\u0022",
+        "Standardized: Brand \u0022Kobelco\u0022 \u2192 \u0022kobelco\u0022",
+        "This exact row was already imported as opening stock in CT-26-000017. Remove it, or change it if it is new stock."
+      ]
+    },
+    {
+      "line": 4,
+      "status": "Error",
+      "diaSpec": "1.60 ER316L",
+      "brand": "Lincoln",
+      "lotNumber": "S2",
+      "quantityKg": null,
+      "location": "Normal",
+      "messages": [
+        "Date \u0022bad-date\u0022 is not valid. Use YYYY-MM-DD (e.g. 2026-09-29) or DD/MM/YYYY.",
+        "Standardized: Diameter \u00221.6\u0022 \u2192 \u00221.60\u0022",
+        "Quantity \u0022x\u0022 is not a number. Use kg with a dot for decimals, e.g. 5.00."
+      ]
+    }
+  ],
+  "fileErrors": []
+}
+
+### delete used item
+DELETE http://localhost/api/consumables/items/1 -> 409
+3.20 e7018 has stock history (11 transaction line(s), 1 baking record(s)) and can't be deleted. Set it inactive instead.
+
+### delete spare item
+DELETE http://localhost/api/consumables/items/3 -> 204
+
+### delete missing item
+DELETE http://localhost/api/consumables/items/9999 -> 404
+Consumable not found.
+
+### balances after imports
+GET http://localhost/api/consumables/balances?includeZero=true -> 200
+[
+  {
+    "itemId": 2,
+    "category": "Bare \u0026 Powder Filler",
+    "specification": "ER308L",
+    "diameter": "2.40",
+    "diaSpec": "2.40 ER308L",
+    "normalKg": 7.00,
+    "bakingKg": 0.00,
+    "activatedKg": 0.00,
+    "totalKg": 7.00,
+    "minStockKg": 3.00,
+    "activatedMinKg": 1.00,
+    "finishThresholdKg": 0.5,
+    "isLow": false,
+    "needsRefill": true,
+    "lotCount": 1,
+    "lastIssuedOn": "2026-09-29",
+    "isActive": true,
+    "holdingOvenType": null
+  },
+  {
+    "itemId": 5,
+    "category": "Bare \u0026 Powder Filler",
+    "specification": "ER316L",
+    "diameter": "1.60",
+    "diaSpec": "1.60 ER316L",
+    "normalKg": 2.50,
+    "bakingKg": 0.00,
+    "activatedKg": 0.00,
+    "totalKg": 2.50,
+    "minStockKg": 1.00,
+    "activatedMinKg": 0.00,
+    "finishThresholdKg": 0.5,
+    "isLow": false,
+    "needsRefill": false,
+    "lotCount": 1,
+    "lastIssuedOn": null,
+    "isActive": true,
+    "holdingOvenType": null
+  },
+  {
+    "itemId": 4,
+    "category": "Bare \u0026 Powder Filler",
+    "specification": "ERNiCr-3",
+    "diameter": "2.40",
+    "diaSpec": "2.40 ERNiCr-3",
+    "normalKg": 4.00,
+    "bakingKg": 0.00,
+    "activatedKg": 0.00,
+    "totalKg": 4.00,
+    "minStockKg": 0.00,
+    "activatedMinKg": 0.00,
+    "finishThresholdKg": 0.5,
+    "isLow": false,
+    "needsRefill": false,
+    "lotCount": 1,
+    "lastIssuedOn": null,
+    "isActive": true,
+    "holdingOvenType": null
+  },
+  {
+    "itemId": 1,
+    "category": "Electrode Filler",
+    "specification": "e7018",
+    "diameter": "3.20",
+    "diaSpec": "3.20 e7018",
+    "normalKg": 14.00,
+    "bakingKg": 0.00,
+    "activatedKg": 7.10,
+    "totalKg": 21.10,
+    "minStockKg": 8.00,
+    "activatedMinKg": 2.00,
+    "finishThresholdKg": 0.30,
+    "isLow": false,
+    "needsRefill": false,
+    "lotCount": 2,
+    "lastIssuedOn": null,
+    "isActive": true,
+    "holdingOvenType": "Mild Steel"
+  }
+]
+
+### transactions after imports
+GET http://localhost/api/consumables/transactions?Take=200 -> 200
+{
+  "items": [
+    {
+      "id": 19,
+      "txnNo": "CT-26-000017",
+      "txnType": "Receive",
+      "txnDate": "2026-09-28",
+      "createdAt": "\u003Cvolatile\u003E",
+      "createdBy": "Store Supervisor",
+      "itemId": 1,
+      "category": "Electrode Filler",
+      "specification": "e7018",
+      "diameter": "3.20",
+      "diaSpec": "3.20 e7018",
+      "lotId": 5,
+      "brand": "kobelco",
+      "lotNumber": "L999",
+      "quantityKg": 1.00,
+      "fromStage": null,
+      "toStage": "Activated",
+      "source": "Weld Shop",
+      "requestor": "Store Supervisor",
+      "welderId": null,
+      "welderName": null,
+      "reason": null,
+      "countedQtyKg": null,
+      "referenceNo": "OPENING",
+      "remarks": null,
+      "isVoided": false,
+      "voidsMovementId": null,
+      "fromCompartmentId": null,
+      "fromCompartment": null,
+      "toCompartmentId": 12,
+      "toCompartment": "MS-3",
+      "bakingRecordId": null,
+      "bakingNo": null
+    },
+    {
+      "id": 18,
+      "txnNo": "CT-26-000017",
+      "txnType": "Receive",
+      "txnDate": "2026-09-28",
+      "createdAt": "\u003Cvolatile\u003E",
+      "createdBy": "Store Supervisor",
+      "itemId": 5,
+      "category": "Bare \u0026 Powder Filler",
+      "specification": "ER316L",
+      "diameter": "1.60",
+      "diaSpec": "1.60 ER316L",
+      "lotId": 4,
+      "brand": "Lincoln",
+      "lotNumber": "S1",
+      "quantityKg": 2.50,
+      "fromStage": null,
+      "toStage": "Normal",
+      "source": "Weld Shop",
+      "requestor": "Store Supervisor",
+      "welderId": null,
+      "welderName": null,
+      "reason": null,
+      "countedQtyKg": null,
+      "referenceNo": "OPENING",
+      "remarks": "opening",
+      "isVoided": false,
+      "voidsMovementId": null,
+      "fromCompartmentId": null,
+      "fromCompartment": null,
+      "toCompartmentId": null,
+      "toCompartment": null,
+      "bakingRecordId": null,
+      "bakingNo": null
+    },
+    {
+      "id": 17,
+      "txnNo": "CT-26-000016",
+      "txnType": "Adjust",
+      "txnDate": "2026-09-29",
+      "createdAt": "\u003Cvolatile\u003E",
+      "createdBy": "Store Supervisor",
+      "itemId": 1,
+      "category": "Electrode Filler",
+      "specification": "e7018",
+      "diameter": "3.20",
+      "diaSpec": "3.20 e7018",
+      "lotId": 1,
+      "brand": "kobelco",
+      "lotNumber": "l123",
+      "quantityKg": 0.20,
+      "fromStage": "Activated",
+      "toStage": null,
+      "source": null,
+      "requestor": null,
+      "welderId": null,
+      "welderName": null,
+      "reason": "Count variance",
+      "countedQtyKg": 0.80,
+      "referenceNo": "SC-26-0001",
+      "remarks": "monthly",
+      "isVoided": false,
+      "voidsMovementId": null,
+      "fromCompartmentId": 11,
+      "fromCompartment": "MS-2",
+      "toCompartmentId": null,
+      "toCompartment": null,
+      "bakingRecordId": null,
+      "bakingNo": null
+    },
+    {
+      "id": 16,
+      "txnNo": "CT-26-000016",
+      "txnType": "Adjust",
+      "txnDate": "2026-09-29",
+      "createdAt": "\u003Cvolatile\u003E",
+      "createdBy": "Store Supervisor",
+      "itemId": 1,
+      "category": "Electrode Filler",
+      "specification": "e7018",
+      "diameter": "3.20",
+      "diaSpec": "3.20 e7018",
+      "lotId": 1,
+      "brand": "kobelco",
+      "lotNumber": "l123",
+      "quantityKg": 0.20,
+      "fromStage": "Activated",
+      "toStage": null,
+      "source": null,
+      "requestor": null,
+      "welderId": null,
+      "welderName": null,
+      "reason": "Count variance",
+      "countedQtyKg": 5.30,
+      "referenceNo": "SC-26-0001",
+      "remarks": "monthly",
+      "isVoided": false,
+      "voidsMovementId": null,
+      "fromCompartmentId": 10,
+      "fromCompartment": "MS-1",
+      "toCompartmentId": null,
+      "toCompartment": null,
+      "bakingRecordId": null,
+      "bakingNo": null
+    },
+    {
+      "id": 15,
+      "txnNo": "CT-26-000015",
+      "txnType": "Void",
+      "txnDate": "2026-09-29",
+      "createdAt": "\u003Cvolatile\u003E",
+      "createdBy": "Store Supervisor",
+      "itemId": 1,
+      "category": "Electrode Filler",
+      "specification": "e7018",
+      "diameter": "3.20",
+      "diaSpec": "3.20 e7018",
+      "lotId": 1,
+      "brand": "kobelco",
+      "lotNumber": "l123",
+      "quantityKg": 1.50,
+      "fromStage": null,
+      "toStage": "Activated",
+      "source": null,
+      "requestor": "Ali Bin Abu",
+      "welderId": 1,
+      "welderName": "Ali Bin Abu",
+      "reason": null,
+      "countedQtyKg": null,
+      "referenceNo": "CT-26-000009",
+      "remarks": "wrong welder",
+      "isVoided": false,
+      "voidsMovementId": 9,
+      "fromCompartmentId": null,
+      "fromCompartment": null,
+      "toCompartmentId": 10,
+      "toCompartment": "MS-1",
+      "bakingRecordId": null,
+      "bakingNo": null
+    },
+    {
+      "id": 14,
+      "txnNo": "CT-26-000014",
+      "txnType": "Finish",
+      "txnDate": "2026-09-29",
+      "createdAt": "\u003Cvolatile\u003E",
+      "createdBy": "Store Supervisor",
+      "itemId": 2,
+      "category": "Bare \u0026 Powder Filler",
+      "specification": "ER308L",
+      "diameter": "2.40",
+      "diaSpec": "2.40 ER308L",
+      "lotId": 2,
+      "brand": "Lincoln",
+      "lotNumber": "B77",
+      "quantityKg": 1.50,
+      "fromStage": "Activated",
+      "toStage": null,
+      "source": null,
+      "requestor": null,
+      "welderId": null,
+      "welderName": null,
+      "reason": "Used up",
+      "countedQtyKg": null,
+      "referenceNo": null,
+      "remarks": null,
+      "isVoided": false,
+      "voidsMovementId": null,
+      "fromCompartmentId": null,
+      "fromCompartment": null,
+      "toCompartmentId": null,
+      "toCompartment": null,
+      "bakingRecordId": null,
+      "bakingNo": null
+    },
+    {
+      "id": 13,
+      "txnNo": "CT-26-000013",
+      "txnType": "Adjust",
+      "txnDate": "2026-09-29",
+      "createdAt": "\u003Cvolatile\u003E",
+      "createdBy": "Store Supervisor",
+      "itemId": 2,
+      "category": "Bare \u0026 Powder Filler",
+      "specification": "ER308L",
+      "diameter": "2.40",
+      "diaSpec": "2.40 ER308L",
+      "lotId": 2,
+      "brand": "Lincoln",
+      "lotNumber": "B77",
+      "quantityKg": 9.50,
+      "fromStage": "Activated",
+      "toStage": null,
+      "source": null,
+      "requestor": null,
+      "welderId": null,
+      "welderName": null,
+      "reason": "Count variance",
+      "countedQtyKg": 1.50,
+      "referenceNo": null,
+      "remarks": null,
+      "isVoided": false,
+      "voidsMovementId": null,
+      "fromCompartmentId": null,
+      "fromCompartment": null,
+      "toCompartmentId": null,
+      "toCompartment": null,
+      "bakingRecordId": null,
+      "bakingNo": null
+    },
+    {
+      "id": 12,
+      "txnNo": "CT-26-000012",
+      "txnType": "Return",
+      "txnDate": "2026-09-29",
+      "createdAt": "\u003Cvolatile\u003E",
+      "createdBy": "Store Supervisor",
+      "itemId": 2,
+      "category": "Bare \u0026 Powder Filler",
+      "specification": "ER308L",
+      "diameter": "2.40",
+      "diaSpec": "2.40 ER308L",
+      "lotId": 2,
+      "brand": "Lincoln",
+      "lotNumber": "B77",
+      "quantityKg": 9.00,
+      "fromStage": null,
+      "toStage": "Activated",
+      "source": null,
+      "requestor": "Ali Bin Abu",
+      "welderId": 1,
+      "welderName": "Ali Bin Abu",
+      "reason": null,
+      "countedQtyKg": null,
+      "referenceNo": null,
+      "remarks": null,
+      "isVoided": false,
+      "voidsMovementId": null,
+      "fromCompartmentId": null,
+      "fromCompartment": null,
+      "toCompartmentId": null,
+      "toCompartment": null,
+      "bakingRecordId": null,
+      "bakingNo": null
+    },
+    {
+      "id": 11,
+      "txnNo": "CT-26-000011",
+      "txnType": "Return",
+      "txnDate": "2026-09-29",
+      "createdAt": "\u003Cvolatile\u003E",
+      "createdBy": "Store Supervisor",
+      "itemId": 1,
+      "category": "Electrode Filler",
+      "specification": "e7018",
+      "diameter": "3.20",
+      "diaSpec": "3.20 e7018",
+      "lotId": 1,
+      "brand": "kobelco",
+      "lotNumber": "l123",
+      "quantityKg": 0.50,
+      "fromStage": null,
+      "toStage": "Activated",
+      "source": null,
+      "requestor": "Ali Bin Abu",
+      "welderId": 1,
+      "welderName": "Ali Bin Abu",
+      "reason": null,
+      "countedQtyKg": null,
+      "referenceNo": null,
+      "remarks": null,
+      "isVoided": false,
+      "voidsMovementId": null,
+      "fromCompartmentId": null,
+      "fromCompartment": null,
+      "toCompartmentId": 10,
+      "toCompartment": "MS-1",
+      "bakingRecordId": null,
+      "bakingNo": null
+    },
+    {
+      "id": 10,
+      "txnNo": "CT-26-000010",
+      "txnType": "Issue",
+      "txnDate": "2026-09-29",
+      "createdAt": "\u003Cvolatile\u003E",
+      "createdBy": "Store Supervisor",
+      "itemId": 2,
+      "category": "Bare \u0026 Powder Filler",
+      "specification": "ER308L",
+      "diameter": "2.40",
+      "diaSpec": "2.40 ER308L",
+      "lotId": 2,
+      "brand": "Lincoln",
+      "lotNumber": "B77",
+      "quantityKg": 1.00,
+      "fromStage": "Activated",
+      "toStage": null,
+      "source": null,
+      "requestor": "Ali Bin Abu",
+      "welderId": 1,
+      "welderName": "Ali Bin Abu",
+      "reason": null,
+      "countedQtyKg": null,
+      "referenceNo": null,
+      "remarks": null,
+      "isVoided": false,
+      "voidsMovementId": null,
+      "fromCompartmentId": null,
+      "fromCompartment": null,
+      "toCompartmentId": null,
+      "toCompartment": null,
+      "bakingRecordId": null,
+      "bakingNo": null
+    },
+    {
+      "id": 9,
+      "txnNo": "CT-26-000009",
+      "txnType": "Issue",
+      "txnDate": "2026-09-29",
+      "createdAt": "\u003Cvolatile\u003E",
+      "createdBy": "Store Supervisor",
+      "itemId": 1,
+      "category": "Electrode Filler",
+      "specification": "e7018",
+      "diameter": "3.20",
+      "diaSpec": "3.20 e7018",
+      "lotId": 1,
+      "brand": "kobelco",
+      "lotNumber": "l123",
+      "quantityKg": 1.50,
+      "fromStage": "Activated",
+      "toStage": null,
+      "source": null,
+      "requestor": "Ali Bin Abu",
+      "welderId": 1,
+      "welderName": "Ali Bin Abu",
+      "reason": null,
+      "countedQtyKg": null,
+      "referenceNo": null,
+      "remarks": null,
+      "isVoided": true,
+      "voidsMovementId": null,
+      "fromCompartmentId": 10,
+      "fromCompartment": "MS-1",
+      "toCompartmentId": null,
+      "toCompartment": null,
+      "bakingRecordId": null,
+      "bakingNo": null
+    },
+    {
+      "id": 8,
+      "txnNo": "CT-26-000008",
+      "txnType": "Move",
+      "txnDate": "2026-09-29",
+      "createdAt": "\u003Cvolatile\u003E",
+      "createdBy": "Store Supervisor",
+      "itemId": 1,
+      "category": "Electrode Filler",
+      "specification": "e7018",
+      "diameter": "3.20",
+      "diaSpec": "3.20 e7018",
+      "lotId": 1,
+      "brand": "kobelco",
+      "lotNumber": "l123",
+      "quantityKg": 1.00,
+      "fromStage": "Activated",
+      "toStage": "Activated",
+      "source": null,
+      "requestor": null,
+      "welderId": null,
+      "welderName": null,
+      "reason": null,
+      "countedQtyKg": null,
+      "referenceNo": null,
+      "remarks": null,
+      "isVoided": false,
+      "voidsMovementId": null,
+      "fromCompartmentId": 11,
+      "fromCompartment": "MS-2",
+      "toCompartmentId": 10,
+      "toCompartment": "MS-1",
+      "bakingRecordId": null,
+      "bakingNo": null
+    },
+    {
+      "id": 7,
+      "txnNo": "CT-26-000007",
+      "txnType": "Hold",
+      "txnDate": "2026-09-29",
+      "createdAt": "\u003Cvolatile\u003E",
+      "createdBy": "Store Supervisor",
+      "itemId": 1,
+      "category": "Electrode Filler",
+      "specification": "e7018",
+      "diameter": "3.20",
+      "diaSpec": "3.20 e7018",
+      "lotId": 1,
+      "brand": "kobelco",
+      "lotNumber": "l123",
+      "quantityKg": 2.00,
+      "fromStage": "Baking",
+      "toStage": "Activated",
+      "source": null,
+      "requestor": null,
+      "welderId": null,
+      "welderName": null,
+      "reason": null,
+      "countedQtyKg": null,
+      "referenceNo": null,
+      "remarks": null,
+      "isVoided": false,
+      "voidsMovementId": null,
+      "fromCompartmentId": null,
+      "fromCompartment": null,
+      "toCompartmentId": 11,
+      "toCompartment": "MS-2",
+      "bakingRecordId": 1,
+      "bakingNo": "BK-26-0001"
+    },
+    {
+      "id": 6,
+      "txnNo": "CT-26-000006",
+      "txnType": "Hold",
+      "txnDate": "2026-09-29",
+      "createdAt": "\u003Cvolatile\u003E",
+      "createdBy": "Store Supervisor",
+      "itemId": 1,
+      "category": "Electrode Filler",
+      "specification": "e7018",
+      "diameter": "3.20",
+      "diaSpec": "3.20 e7018",
+      "lotId": 1,
+      "brand": "kobelco",
+      "lotNumber": "l123",
+      "quantityKg": 4.00,
+      "fromStage": "Baking",
+      "toStage": "Activated",
+      "source": null,
+      "requestor": null,
+      "welderId": null,
+      "welderName": null,
+      "reason": null,
+      "countedQtyKg": null,
+      "referenceNo": null,
+      "remarks": null,
+      "isVoided": false,
+      "voidsMovementId": null,
+      "fromCompartmentId": null,
+      "fromCompartment": null,
+      "toCompartmentId": 10,
+      "toCompartment": "MS-1",
+      "bakingRecordId": 1,
+      "bakingNo": "BK-26-0001"
+    },
+    {
+      "id": 5,
+      "txnNo": "CT-26-000005",
+      "txnType": "SendToBake",
+      "txnDate": "2026-09-29",
+      "createdAt": "\u003Cvolatile\u003E",
+      "createdBy": "Store Supervisor",
+      "itemId": 1,
+      "category": "Electrode Filler",
+      "specification": "e7018",
+      "diameter": "3.20",
+      "diaSpec": "3.20 e7018",
+      "lotId": 1,
+      "brand": "kobelco",
+      "lotNumber": "l123",
+      "quantityKg": 6.00,
+      "fromStage": "Normal",
+      "toStage": "Baking",
+      "source": null,
+      "requestor": null,
+      "welderId": null,
+      "welderName": null,
+      "reason": null,
+      "countedQtyKg": null,
+      "referenceNo": null,
+      "remarks": null,
+      "isVoided": false,
+      "voidsMovementId": null,
+      "fromCompartmentId": null,
+      "fromCompartment": null,
+      "toCompartmentId": null,
+      "toCompartment": null,
+      "bakingRecordId": 1,
+      "bakingNo": "BK-26-0001"
+    },
+    {
+      "id": 4,
+      "txnNo": "CT-26-000004",
+      "txnType": "Transfer",
+      "txnDate": "2026-09-29",
+      "createdAt": "\u003Cvolatile\u003E",
+      "createdBy": "Store Supervisor",
+      "itemId": 2,
+      "category": "Bare \u0026 Powder Filler",
+      "specification": "ER308L",
+      "diameter": "2.40",
+      "diaSpec": "2.40 ER308L",
+      "lotId": 2,
+      "brand": "Lincoln",
+      "lotNumber": "B77",
+      "quantityKg": 3.00,
+      "fromStage": "Normal",
+      "toStage": "Activated",
+      "source": null,
+      "requestor": null,
+      "welderId": null,
+      "welderName": null,
+      "reason": null,
+      "countedQtyKg": null,
+      "referenceNo": null,
+      "remarks": null,
+      "isVoided": false,
+      "voidsMovementId": null,
+      "fromCompartmentId": null,
+      "fromCompartment": null,
+      "toCompartmentId": null,
+      "toCompartment": null,
+      "bakingRecordId": null,
+      "bakingNo": null
+    },
+    {
+      "id": 3,
+      "txnNo": "CT-26-000003",
+      "txnType": "Receive",
+      "txnDate": "2026-09-29",
+      "createdAt": "\u003Cvolatile\u003E",
+      "createdBy": "Store Supervisor",
+      "itemId": 4,
+      "category": "Bare \u0026 Powder Filler",
+      "specification": "ERNiCr-3",
+      "diameter": "2.40",
+      "diaSpec": "2.40 ERNiCr-3",
+      "lotId": 3,
+      "brand": "Special",
+      "lotNumber": "N1",
+      "quantityKg": 4.00,
+      "fromStage": null,
+      "toStage": "Normal",
+      "source": "Weld Shop",
+      "requestor": "Ali Bin Abu",
+      "welderId": null,
+      "welderName": null,
+      "reason": null,
+      "countedQtyKg": null,
+      "referenceNo": null,
+      "remarks": null,
+      "isVoided": false,
+      "voidsMovementId": null,
+      "fromCompartmentId": null,
+      "fromCompartment": null,
+      "toCompartmentId": null,
+      "toCompartment": null,
+      "bakingRecordId": null,
+      "bakingNo": null
+    },
+    {
+      "id": 2,
+      "txnNo": "CT-26-000002",
+      "txnType": "Receive",
+      "txnDate": "2026-09-29",
+      "createdAt": "\u003Cvolatile\u003E",
+      "createdBy": "Store Supervisor",
+      "itemId": 2,
+      "category": "Bare \u0026 Powder Filler",
+      "specification": "ER308L",
+      "diameter": "2.40",
+      "diaSpec": "2.40 ER308L",
+      "lotId": 2,
+      "brand": "Lincoln",
+      "lotNumber": "B77",
+      "quantityKg": 10.00,
+      "fromStage": null,
+      "toStage": "Normal",
+      "source": "Tool Crib",
+      "requestor": "Ali Bin Abu",
+      "welderId": null,
+      "welderName": null,
+      "reason": null,
+      "countedQtyKg": null,
+      "referenceNo": null,
+      "remarks": null,
+      "isVoided": false,
+      "voidsMovementId": null,
+      "fromCompartmentId": null,
+      "fromCompartment": null,
+      "toCompartmentId": null,
+      "toCompartment": null,
+      "bakingRecordId": null,
+      "bakingNo": null
+    },
+    {
+      "id": 1,
+      "txnNo": "CT-26-000001",
+      "txnType": "Receive",
+      "txnDate": "2026-09-29",
+      "createdAt": "\u003Cvolatile\u003E",
+      "createdBy": "Store Supervisor",
+      "itemId": 1,
+      "category": "Electrode Filler",
+      "specification": "e7018",
+      "diameter": "3.20",
+      "diaSpec": "3.20 e7018",
+      "lotId": 1,
+      "brand": "kobelco",
+      "lotNumber": "l123",
+      "quantityKg": 20.00,
+      "fromStage": null,
+      "toStage": "Normal",
+      "source": "Weld Shop",
+      "requestor": "Ali Bin Abu",
+      "welderId": null,
+      "welderName": null,
+      "reason": null,
+      "countedQtyKg": null,
+      "referenceNo": null,
+      "remarks": "first",
+      "isVoided": false,
+      "voidsMovementId": null,
+      "fromCompartmentId": null,
+      "fromCompartment": null,
+      "toCompartmentId": null,
+      "toCompartment": null,
+      "bakingRecordId": null,
+      "bakingNo": null
+    }
+  ],
+  "total": 19
+}
+
+### welder issue backdated too far
+POST http://localhost/api/consumables/issue -> 400
+Welders can record entries up to 7 day(s) back. Ask a supervisor to record older ones.
+
+### welder issue
+POST http://localhost/api/consumables/issue -> 200
+{
+  "txnNo": "CT-26-000018",
+  "lines": [
+    {
+      "id": 20,
+      "txnNo": "CT-26-000018",
+      "txnType": "Issue",
+      "txnDate": "2026-09-29",
+      "createdAt": "\u003Cvolatile\u003E",
+      "createdBy": "Ali Bin Abu",
+      "itemId": 1,
+      "category": "Electrode Filler",
+      "specification": "e7018",
+      "diameter": "3.20",
+      "diaSpec": "3.20 e7018",
+      "lotId": 1,
+      "brand": "kobelco",
+      "lotNumber": "l123",
+      "quantityKg": 0.50,
+      "fromStage": "Activated",
+      "toStage": null,
+      "source": null,
+      "requestor": "Ali Bin Abu",
+      "welderId": 1,
+      "welderName": "Ali Bin Abu",
+      "reason": null,
+      "countedQtyKg": null,
+      "referenceNo": null,
+      "remarks": null,
+      "isVoided": false,
+      "voidsMovementId": null,
+      "fromCompartmentId": 10,
+      "fromCompartment": "MS-1",
+      "toCompartmentId": null,
+      "toCompartment": null,
+      "bakingRecordId": null,
+      "bakingNo": null
+    }
+  ],
+  "balance": {
+    "itemId": 1,
+    "diaSpec": "3.20 e7018",
+    "normalKg": 14.00,
+    "bakingKg": 0.00,
+    "activatedKg": 6.60,
+    "totalKg": 20.60
+  },
+  "residuals": [],
+  "warning": null
+}
+
+### welder return
+POST http://localhost/api/consumables/return -> 409
+Ali Bin Abu has only 0.00 kg of 3.20 e7018 to return from the last 7 day(s). Ask a supervisor to record a larger return.
+
+### welder transfer refused
+POST http://localhost/api/consumables/transfer -> 401
+Supervisor login is required. Use the Login button at the top of the page and try again.
+
+### final ovens
+GET http://localhost/api/consumables/ovens -> 200
+{
+  "ovens": [
+    {
+      "id": 1,
+      "name": "Alloy Steel Oven",
+      "code": "AS",
+      "ovenType": "Alloy Steel",
+      "compartments": [
+        {
+          "id": 1,
+          "ovenId": 1,
+          "number": 1,
+          "label": "1",
+          "code": "AS-1",
+          "totalKg": 0,
+          "oldestSinceAt": null,
+          "contents": []
+        },
+        {
+          "id": 2,
+          "ovenId": 1,
+          "number": 2,
+          "label": "2",
+          "code": "AS-2",
+          "totalKg": 0,
+          "oldestSinceAt": null,
+          "contents": []
+        },
+        {
+          "id": 3,
+          "ovenId": 1,
+          "number": 3,
+          "label": "3",
+          "code": "AS-3",
+          "totalKg": 0,
+          "oldestSinceAt": null,
+          "contents": []
+        },
+        {
+          "id": 4,
+          "ovenId": 1,
+          "number": 4,
+          "label": "4",
+          "code": "AS-4",
+          "totalKg": 0,
+          "oldestSinceAt": null,
+          "contents": []
+        },
+        {
+          "id": 5,
+          "ovenId": 1,
+          "number": 5,
+          "label": "5",
+          "code": "AS-5",
+          "totalKg": 0,
+          "oldestSinceAt": null,
+          "contents": []
+        },
+        {
+          "id": 6,
+          "ovenId": 1,
+          "number": 6,
+          "label": "6",
+          "code": "AS-6",
+          "totalKg": 0,
+          "oldestSinceAt": null,
+          "contents": []
+        },
+        {
+          "id": 7,
+          "ovenId": 1,
+          "number": 7,
+          "label": "7",
+          "code": "AS-7",
+          "totalKg": 0,
+          "oldestSinceAt": null,
+          "contents": []
+        },
+        {
+          "id": 8,
+          "ovenId": 1,
+          "number": 8,
+          "label": "8",
+          "code": "AS-8",
+          "totalKg": 0,
+          "oldestSinceAt": null,
+          "contents": []
+        },
+        {
+          "id": 9,
+          "ovenId": 1,
+          "number": 9,
+          "label": "9",
+          "code": "AS-9",
+          "totalKg": 0,
+          "oldestSinceAt": null,
+          "contents": []
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "name": "Mild Steel Oven",
+      "code": "MS",
+      "ovenType": "Mild Steel",
+      "compartments": [
+        {
+          "id": 10,
+          "ovenId": 2,
+          "number": 1,
+          "label": "1",
+          "code": "MS-1",
+          "totalKg": 4.80,
+          "oldestSinceAt": "\u003Cvolatile\u003E",
+          "contents": [
+            {
+              "itemId": 1,
+              "diaSpec": "3.20 e7018",
+              "category": "Electrode Filler",
+              "lotId": 1,
+              "brand": "kobelco",
+              "lotNumber": "l123",
+              "kg": 4.80,
+              "sinceAt": "\u003Cvolatile\u003E",
+              "compartmentId": 10,
+              "holdingOvenType": "Mild Steel",
+              "specification": "e7018",
+              "diameter": "3.20"
+            }
+          ]
+        },
+        {
+          "id": 11,
+          "ovenId": 2,
+          "number": 2,
+          "label": "2",
+          "code": "MS-2",
+          "totalKg": 0.80,
+          "oldestSinceAt": "\u003Cvolatile\u003E",
+          "contents": [
+            {
+              "itemId": 1,
+              "diaSpec": "3.20 e7018",
+              "category": "Electrode Filler",
+              "lotId": 1,
+              "brand": "kobelco",
+              "lotNumber": "l123",
+              "kg": 0.80,
+              "sinceAt": "\u003Cvolatile\u003E",
+              "compartmentId": 11,
+              "holdingOvenType": "Mild Steel",
+              "specification": "e7018",
+              "diameter": "3.20"
+            }
+          ]
+        },
+        {
+          "id": 12,
+          "ovenId": 2,
+          "number": 3,
+          "label": "3",
+          "code": "MS-3",
+          "totalKg": 1.00,
+          "oldestSinceAt": "\u003Cvolatile\u003E",
+          "contents": [
+            {
+              "itemId": 1,
+              "diaSpec": "3.20 e7018",
+              "category": "Electrode Filler",
+              "lotId": 5,
+              "brand": "kobelco",
+              "lotNumber": "L999",
+              "kg": 1.00,
+              "sinceAt": "\u003Cvolatile\u003E",
+              "compartmentId": 12,
+              "holdingOvenType": "Mild Steel",
+              "specification": "e7018",
+              "diameter": "3.20"
+            }
+          ]
+        },
+        {
+          "id": 13,
+          "ovenId": 2,
+          "number": 4,
+          "label": "4",
+          "code": "MS-4",
+          "totalKg": 0,
+          "oldestSinceAt": null,
+          "contents": []
+        },
+        {
+          "id": 14,
+          "ovenId": 2,
+          "number": 5,
+          "label": "5",
+          "code": "MS-5",
+          "totalKg": 0,
+          "oldestSinceAt": null,
+          "contents": []
+        },
+        {
+          "id": 15,
+          "ovenId": 2,
+          "number": 6,
+          "label": "6",
+          "code": "MS-6",
+          "totalKg": 0,
+          "oldestSinceAt": null,
+          "contents": []
+        },
+        {
+          "id": 16,
+          "ovenId": 2,
+          "number": 7,
+          "label": "7",
+          "code": "MS-7",
+          "totalKg": 0,
+          "oldestSinceAt": null,
+          "contents": []
+        },
+        {
+          "id": 17,
+          "ovenId": 2,
+          "number": 8,
+          "label": "8",
+          "code": "MS-8",
+          "totalKg": 0,
+          "oldestSinceAt": null,
+          "contents": []
+        },
+        {
+          "id": 18,
+          "ovenId": 2,
+          "number": 9,
+          "label": "9",
+          "code": "MS-9",
+          "totalKg": 0,
+          "oldestSinceAt": null,
+          "contents": []
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "name": "Ni Alloy Oven",
+      "code": "NI",
+      "ovenType": "Ni Alloy",
+      "compartments": [
+        {
+          "id": 19,
+          "ovenId": 3,
+          "number": 1,
+          "label": "1",
+          "code": "NI-1",
+          "totalKg": 0,
+          "oldestSinceAt": null,
+          "contents": []
+        },
+        {
+          "id": 20,
+          "ovenId": 3,
+          "number": 2,
+          "label": "2",
+          "code": "NI-2",
+          "totalKg": 0,
+          "oldestSinceAt": null,
+          "contents": []
+        },
+        {
+          "id": 21,
+          "ovenId": 3,
+          "number": 3,
+          "label": "3",
+          "code": "NI-3",
+          "totalKg": 0,
+          "oldestSinceAt": null,
+          "contents": []
+        },
+        {
+          "id": 22,
+          "ovenId": 3,
+          "number": 4,
+          "label": "4",
+          "code": "NI-4",
+          "totalKg": 0,
+          "oldestSinceAt": null,
+          "contents": []
+        },
+        {
+          "id": 23,
+          "ovenId": 3,
+          "number": 5,
+          "label": "5",
+          "code": "NI-5",
+          "totalKg": 0,
+          "oldestSinceAt": null,
+          "contents": []
+        },
+        {
+          "id": 24,
+          "ovenId": 3,
+          "number": 6,
+          "label": "6",
+          "code": "NI-6",
+          "totalKg": 0,
+          "oldestSinceAt": null,
+          "contents": []
+        },
+        {
+          "id": 25,
+          "ovenId": 3,
+          "number": 7,
+          "label": "7",
+          "code": "NI-7",
+          "totalKg": 0,
+          "oldestSinceAt": null,
+          "contents": []
+        },
+        {
+          "id": 26,
+          "ovenId": 3,
+          "number": 8,
+          "label": "8",
+          "code": "NI-8",
+          "totalKg": 0,
+          "oldestSinceAt": null,
+          "contents": []
+        },
+        {
+          "id": 27,
+          "ovenId": 3,
+          "number": 9,
+          "label": "9",
+          "code": "NI-9",
+          "totalKg": 0,
+          "oldestSinceAt": null,
+          "contents": []
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "name": "Stainless Steel Oven",
+      "code": "SS",
+      "ovenType": "Stainless Steel",
+      "compartments": [
+        {
+          "id": 28,
+          "ovenId": 4,
+          "number": 1,
+          "label": "1",
+          "code": "SS-1",
+          "totalKg": 0,
+          "oldestSinceAt": null,
+          "contents": []
+        },
+        {
+          "id": 29,
+          "ovenId": 4,
+          "number": 2,
+          "label": "2",
+          "code": "SS-2",
+          "totalKg": 0,
+          "oldestSinceAt": null,
+          "contents": []
+        },
+        {
+          "id": 30,
+          "ovenId": 4,
+          "number": 3,
+          "label": "3",
+          "code": "SS-3",
+          "totalKg": 0,
+          "oldestSinceAt": null,
+          "contents": []
+        },
+        {
+          "id": 31,
+          "ovenId": 4,
+          "number": 4,
+          "label": "4",
+          "code": "SS-4",
+          "totalKg": 0,
+          "oldestSinceAt": null,
+          "contents": []
+        },
+        {
+          "id": 32,
+          "ovenId": 4,
+          "number": 5,
+          "label": "5",
+          "code": "SS-5",
+          "totalKg": 0,
+          "oldestSinceAt": null,
+          "contents": []
+        },
+        {
+          "id": 33,
+          "ovenId": 4,
+          "number": 6,
+          "label": "6",
+          "code": "SS-6",
+          "totalKg": 0,
+          "oldestSinceAt": null,
+          "contents": []
+        },
+        {
+          "id": 34,
+          "ovenId": 4,
+          "number": 7,
+          "label": "7",
+          "code": "SS-7",
+          "totalKg": 0,
+          "oldestSinceAt": null,
+          "contents": []
+        },
+        {
+          "id": 35,
+          "ovenId": 4,
+          "number": 8,
+          "label": "8",
+          "code": "SS-8",
+          "totalKg": 0,
+          "oldestSinceAt": null,
+          "contents": []
+        },
+        {
+          "id": 36,
+          "ovenId": 4,
+          "number": 9,
+          "label": "9",
+          "code": "SS-9",
+          "totalKg": 0,
+          "oldestSinceAt": null,
+          "contents": []
+        }
+      ]
+    }
+  ],
+  "unassigned": []
+}
+

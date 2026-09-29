@@ -1,0 +1,203 @@
+### search all
+GET http://localhost/api/workorders/search -> 200
+{
+  "items": [
+    {
+      "workOrderNumber": "WO100",
+      "assemblyItem": "ASM-100",
+      "assemblyDesc": "Valve body assembly",
+      "qty": 2.0000
+    },
+    {
+      "workOrderNumber": "WO101",
+      "assemblyItem": "ASM-101",
+      "assemblyDesc": "Bonnet assembly",
+      "qty": 1.0000
+    },
+    {
+      "workOrderNumber": "WO102",
+      "assemblyItem": "ASM-100",
+      "assemblyDesc": "Valve body assembly",
+      "qty": 4.0000
+    },
+    {
+      "workOrderNumber": "WO200",
+      "assemblyItem": "ASM-200",
+      "assemblyDesc": "Actuator yoke",
+      "qty": 1.0000
+    }
+  ],
+  "hasMore": false
+}
+
+### search prefix
+GET http://localhost/api/workorders/search?q=WO10 -> 200
+{
+  "items": [
+    {
+      "workOrderNumber": "WO100",
+      "assemblyItem": "ASM-100",
+      "assemblyDesc": "Valve body assembly",
+      "qty": 2.0000
+    },
+    {
+      "workOrderNumber": "WO101",
+      "assemblyItem": "ASM-101",
+      "assemblyDesc": "Bonnet assembly",
+      "qty": 1.0000
+    },
+    {
+      "workOrderNumber": "WO102",
+      "assemblyItem": "ASM-100",
+      "assemblyDesc": "Valve body assembly",
+      "qty": 4.0000
+    }
+  ],
+  "hasMore": false
+}
+
+### search paged
+GET http://localhost/api/workorders/search?q=WO&skip=1&take=2 -> 200
+{
+  "items": [
+    {
+      "workOrderNumber": "WO101",
+      "assemblyItem": "ASM-101",
+      "assemblyDesc": "Bonnet assembly",
+      "qty": 1.0000
+    },
+    {
+      "workOrderNumber": "WO102",
+      "assemblyItem": "ASM-100",
+      "assemblyDesc": "Valve body assembly",
+      "qty": 4.0000
+    }
+  ],
+  "hasMore": true
+}
+
+### search none
+GET http://localhost/api/workorders/search?q=ZZZ -> 200
+{
+  "items": [],
+  "hasMore": false
+}
+
+### header
+GET http://localhost/api/workorders/WO100/header -> 200
+{
+  "workOrderNumber": "WO100",
+  "partNo": "ASM-100",
+  "description": "Valve body assembly"
+}
+
+### header missing
+GET http://localhost/api/workorders/WO999/header -> 204
+
+### bom children
+POST http://localhost/api/workorders/bom/children -> 200
+[
+  {
+    "item": "ASM-100",
+    "component": "BODY-1",
+    "componentDesc": "Body casting"
+  },
+  {
+    "item": "ASM-100",
+    "component": "FLG-2",
+    "componentDesc": "Flange (dup)"
+  },
+  {
+    "item": "BODY-1",
+    "component": "PLATE-9",
+    "componentDesc": "Plate"
+  }
+]
+
+### bom children empty
+POST http://localhost/api/workorders/bom/children -> 400
+No parent items given.
+
+### session without token
+GET http://localhost/api/supervisor/session -> 401
+Supervisor session has expired.
+
+### login wrong password
+POST http://localhost/api/supervisor/login -> 401
+Incorrect supervisor password.
+
+### login without name
+POST http://localhost/api/supervisor/login -> 400
+Enter your name so your changes are recorded under it.
+
+### supervisor login
+POST http://localhost/api/supervisor/login -> 200
+{
+  "name": "QA Lead",
+  "expiresAt": "2026-09-29T14:12:00\u002B00:00",
+  "token": "\u003Cvolatile\u003E"
+}
+
+### session
+GET http://localhost/api/supervisor/session -> 200
+{
+  "name": "QA Lead",
+  "expiresAt": "2026-09-29T14:12:00\u002B00:00",
+  "token": null
+}
+
+### refresh
+POST http://localhost/api/supervisor/session/refresh -> 200
+{
+  "name": "QA Lead",
+  "expiresAt": "2026-09-29T14:14:00\u002B00:00",
+  "token": "\u003Cvolatile\u003E"
+}
+
+### password status
+GET http://localhost/api/supervisor/password -> 200
+{
+  "source": "Environment",
+  "updatedAt": null,
+  "updatedBy": null
+}
+
+### password change wrong current
+POST http://localhost/api/supervisor/password -> 403
+The current password is incorrect.
+
+### password change too short
+POST http://localhost/api/supervisor/password -> 400
+The new password must be 8 to 128 characters.
+
+### password change
+POST http://localhost/api/supervisor/password -> 200
+{
+  "source": "Database",
+  "updatedAt": "2026-09-29T10:18:00\u002B00:00",
+  "updatedBy": "QA Lead"
+}
+
+### session after password change
+GET http://localhost/api/supervisor/session -> 401
+Supervisor session has expired.
+
+### password status after change
+GET http://localhost/api/supervisor/password -> 401
+Supervisor login is required. Use the Login button at the top of the page and try again.
+
+### login new password
+POST http://localhost/api/supervisor/login -> 200
+{
+  "name": "QA Lead",
+  "expiresAt": "2026-09-29T14:21:00\u002B00:00",
+  "token": "\u003Cvolatile\u003E"
+}
+
+### logout
+POST http://localhost/api/supervisor/logout -> 204
+
+### session after logout
+GET http://localhost/api/supervisor/session -> 401
+Supervisor session has expired.
+
