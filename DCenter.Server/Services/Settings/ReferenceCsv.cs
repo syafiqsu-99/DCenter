@@ -143,6 +143,35 @@ public static class ReferenceCsv
         return new ImportCounts(added, updated, unchanged, skipped);
     }
 
+    public sealed record ImportPlan<T>(ImportCounts Counts, List<T> Updated, List<T> Added);
+
+    // Upsert over rows loaded from the database, returning which existing rows changed and which are new
+    // (in file order) so they can be written in one call.
+    public static ImportPlan<T> UpsertPlan<T>(
+        IReadOnlyList<Column> columns,
+        IEnumerable<string?[]> rows,
+        IEnumerable<T> existing,
+        Func<T, string?[]> read,
+        Action<T, string?[]> write,
+        Func<T> create) where T : class
+    {
+        var added = new List<T>();
+        var updated = new List<T>();
+        var seen = new HashSet<T>(ReferenceEqualityComparer.Instance);
+        var counts = Upsert(columns, rows, existing, read, (e, v) =>
+        {
+            write(e, v);
+            if (seen.Add(e)) updated.Add(e);
+        }, () =>
+        {
+            var e = create();
+            seen.Add(e);
+            added.Add(e);
+            return e;
+        });
+        return new ImportPlan<T>(counts, updated, added);
+    }
+
     private static readonly TrimmedTextComparer SameText = new();
 
     private sealed class TrimmedTextComparer : IEqualityComparer<string?>

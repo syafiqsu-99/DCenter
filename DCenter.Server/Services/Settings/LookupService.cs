@@ -1,5 +1,5 @@
+using System.Data;
 using System.Globalization;
-using DCenter.Server.Data;
 using DCenter.Server.Entities;
 using DCenter.Server.Models;
 using Microsoft.EntityFrameworkCore;
@@ -7,7 +7,7 @@ using static DCenter.Server.Services.ReferenceCsv;
 
 namespace DCenter.Server.Services;
 
-public class LookupService(WeldReportContext db, ILogger<LookupService> logger)
+public class LookupService(StoredProcedures sp, ILogger<LookupService> logger)
 {
     public static readonly string[] Categories =
         ["Process", ConsumableItemService.LookupSize, ConsumableItemService.LookupType, ConsumableItemService.LookupBrand];
@@ -22,15 +22,8 @@ public class LookupService(WeldReportContext db, ILogger<LookupService> logger)
         new("IsActive", Required: false, Key: false, "IsActive", "Active"),
     ];
 
-    public Task<List<LookupDto>> ListAsync(string? category, CancellationToken ct)
-    {
-        var query = db.Lookups.AsNoTracking();
-        if (!string.IsNullOrWhiteSpace(category))
-            query = query.Where(l => l.Category == category);
-        return Ordered(query)
-            .Select(l => new LookupDto(l.Id, l.Category, l.Value, l.SortOrder, l.IsActive))
-            .ToListAsync(ct);
-    }
+    public async Task<List<LookupDto>> ListAsync(string? category, CancellationToken ct)
+        => (await ItemsAsync(string.IsNullOrWhiteSpace(category) ? null : category, ct)).Select(ToDto).ToList();
 
     public async Task<ServiceResult<LookupDto>> CreateAsync(LookupUpsert dto, CancellationToken ct)
     {
@@ -39,9 +32,9 @@ public class LookupService(WeldReportContext db, ILogger<LookupService> logger)
         if (await IsDuplicateAsync(category, value, null, ct)) return Duplicate<LookupDto>(category, value);
 
         var l = new LookupItem { Category = category, Value = value, SortOrder = dto.SortOrder, IsActive = dto.IsActive };
-        db.Lookups.Add(l);
-        if (!await TrySaveAsync(ct)) return Duplicate<LookupDto>(category, value);
-        return ServiceResult<LookupDto>.Ok(new LookupDto(l.Id, l.Category, l.Value, l.SortOrder, l.IsActive));
+        var created = await TrySaveAsync([], [l], ct);
+        if (created is null) return Duplicate<LookupDto>(category, value);
+        return ServiceResult<LookupDto>.Ok(ToDto(created.Single()));
     }
 
     public async Task<ServiceResult<bool>> UpdateAsync(int id, LookupUpsert dto, CancellationToken ct)
@@ -49,57 +42,51 @@ public class LookupService(WeldReportContext db, ILogger<LookupService> logger)
         var (category, value, error) = Validate(dto);
         if (error is not null) return ServiceResult<bool>.Fail(error);
 
-        var l = await db.Lookups.FindAsync([id], ct);
-        if (l is null) return ServiceResult<bool>.NotFound();
+        if (!await sp.ScalarAsync<bool>("SP_DCenter_Lookup_Exists", ct, Sql.Int("@Id", id))) return ServiceResult<bool>.NotFound();
         if (await IsDuplicateAsync(category, value, id, ct)) return Duplicate<bool>(category, value);
 
-        (l.Category, l.Value, l.SortOrder, l.IsActive) = (category, value, dto.SortOrder, dto.IsActive);
-        if (!await TrySaveAsync(ct)) return Duplicate<bool>(category, value);
+        var l = new LookupItem { Id = id, Category = category, Value = value, SortOrder = dto.SortOrder, IsActive = dto.IsActive };
+        if (await TrySaveAsync([l], [], ct) is null) return Duplicate<bool>(category, value);
         return ServiceResult<bool>.Ok(true);
     }
 
     public async Task ReorderAsync(List<int> ids, CancellationToken ct)
     {
-        var items = await db.Lookups.Where(l => ids.Contains(l.Id)).ToListAsync(ct);
-        foreach (var l in items) l.SortOrder = ids.IndexOf(l.Id);
-        await db.SaveChangesAsync(ct);
+        var rows = new DataTable();
+        rows.Columns.Add("Id", typeof(int));
+        rows.Columns.Add("SortOrder", typeof(int));
+        foreach (var id in ids.Distinct()) rows.Rows.Add(id, ids.IndexOf(id));
+        await StoredProcedures.Write(sp.ExecuteAsync("SP_DCenter_Lookup_Reorder", ct, Sql.Table("@Rows", "dbo.TT_DCenter_IdOrder", rows)));
     }
 
     public async Task<ServiceResult<bool>> DeleteAsync(int id, CancellationToken ct)
     {
-        var l = await db.Lookups.FindAsync([id], ct);
-        if (l is null) return ServiceResult<bool>.NotFound();
-        db.Lookups.Remove(l);
-        await db.SaveChangesAsync(ct);
+        if (!await sp.ScalarAsync<bool>("SP_DCenter_Lookup_Exists", ct, Sql.Int("@Id", id))) return ServiceResult<bool>.NotFound();
+        await StoredProcedures.Write(sp.ExecuteAsync("SP_DCenter_Lookup_Delete", ct, Sql.Int("@Id", id)));
         return ServiceResult<bool>.Ok(true);
     }
 
     public async Task<byte[]> ExportAsync(CancellationToken ct)
-        => Export(Columns, (await Ordered(db.Lookups.AsNoTracking()).ToListAsync(ct)).Select(Values));
+        => Export(Columns, (await ItemsAsync(null, ct)).Select(Values));
 
     public async Task<ServiceResult<ImportCounts>> ImportAsync(IFormFile? file, CancellationToken ct)
     {
         var sheet = await ReadAsync(file, Columns, ct);
         if (sheet.Errors.Count > 0) return ServiceResult<ImportCounts>.Fail(string.Join(" ", sheet.Errors));
 
-        var existing = await db.Lookups.ToListAsync(ct);
-        var counts = Upsert(Columns, sheet.Rows.Select(NormalizeRow), existing, Values, Write, () =>
-        {
-            var l = new LookupItem();
-            db.Lookups.Add(l);
-            return l;
-        });
+        var existing = await ItemsAsync(null, ct);
+        var plan = UpsertPlan(Columns, sheet.Rows.Select(NormalizeRow), existing, Values, Write, () => new LookupItem());
 
         try
         {
-            await db.SaveChangesAsync(ct);
+            await SaveAsync(plan.Updated, plan.Added, ct);
         }
         catch (DbUpdateException ex)
         {
             logger.LogError(ex, "Dropdown list import failed to save");
             return ServiceResult<ImportCounts>.Fail(ImportSaveConflict, StatusCodes.Status409Conflict);
         }
-        return ServiceResult<ImportCounts>.Ok(counts);
+        return ServiceResult<ImportCounts>.Ok(plan.Counts);
     }
 
     internal static (string Category, string Value, string? Error) Validate(LookupUpsert dto)
@@ -134,25 +121,43 @@ public class LookupService(WeldReportContext db, ILogger<LookupService> logger)
         l.IsActive = v[3] == "1";
     }
 
-    private static IQueryable<LookupItem> Ordered(IQueryable<LookupItem> q)
-        => q.OrderBy(l => l.Category).ThenBy(l => l.SortOrder).ThenBy(l => l.Value);
+    private static LookupDto ToDto(LookupItem l) => new(l.Id, l.Category, l.Value, l.SortOrder, l.IsActive);
+
+    private Task<List<LookupItem>> ItemsAsync(string? category, CancellationToken ct)
+        => sp.EntitiesAsync<LookupItem>("SP_DCenter_Lookup_List", ct, Sql.NVarChar("@Category", category, 50));
 
     private Task<bool> IsDuplicateAsync(string category, string value, int? excludeId, CancellationToken ct)
-        => db.Lookups.AnyAsync(l => l.Category == category && l.Value == value && l.Id != (excludeId ?? 0), ct);
+        => sp.ScalarAsync<bool>("SP_DCenter_Lookup_IsDuplicate", ct,
+            Sql.NVarChar("@Category", category, 50), Sql.NVarChar("@Value", value, MaxValueLength), Sql.Int("@ExcludeId", excludeId ?? 0));
 
     private static ServiceResult<T> Duplicate<T>(string category, string value)
         => ServiceResult<T>.Fail($"'{value}' already exists in {category}.", StatusCodes.Status409Conflict);
 
-    private async Task<bool> TrySaveAsync(CancellationToken ct)
+    // Updates the rows that have an Id, inserts the others in order, and returns the inserted rows.
+    private Task<List<LookupItem>> SaveAsync(IEnumerable<LookupItem> updated, IEnumerable<LookupItem> added, CancellationToken ct)
+    {
+        var rows = new DataTable();
+        rows.Columns.Add("Seq", typeof(int));
+        rows.Columns.Add("Id", typeof(int));
+        rows.Columns.Add("Category", typeof(string));
+        rows.Columns.Add("Value", typeof(string));
+        rows.Columns.Add("SortOrder", typeof(int));
+        rows.Columns.Add("IsActive", typeof(bool));
+        foreach (var l in updated) rows.Rows.Add(rows.Rows.Count, l.Id, l.Category, l.Value, l.SortOrder, l.IsActive);
+        foreach (var l in added) rows.Rows.Add(rows.Rows.Count, DBNull.Value, l.Category, l.Value, l.SortOrder, l.IsActive);
+        return StoredProcedures.Write(sp.EntitiesAsync<LookupItem>("SP_DCenter_Lookup_Save", ct, Sql.Table("@Rows", "dbo.TT_DCenter_LookupRows", rows)));
+    }
+
+    // Null when the category/value pair already exists.
+    private async Task<List<LookupItem>?> TrySaveAsync(IEnumerable<LookupItem> updated, IEnumerable<LookupItem> added, CancellationToken ct)
     {
         try
         {
-            await db.SaveChangesAsync(ct);
-            return true;
+            return await SaveAsync(updated, added, ct);
         }
         catch (DbUpdateException ex) when (ReportSaveRules.IsDuplicateKey(ex))
         {
-            return false;
+            return null;
         }
     }
 }

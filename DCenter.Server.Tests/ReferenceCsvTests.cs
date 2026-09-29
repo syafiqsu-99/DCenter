@@ -108,4 +108,18 @@ public class ReferenceCsvTests
         Assert.Single(table);
         Assert.Equal("2", table[0].V[3]);
     }
+
+    [Fact]
+    public void UpsertPlan_SeparatesChangedRowsFromNewRowsInFileOrder()
+    {
+        var existing = new List<Row> { new() { V = ["SA-516", "70", "1", "1"] }, new() { V = ["SA-106", "B", "1", "1"] } };
+        var sheet = Read("SpecNo,Designation,PNo,GroupNo\nSA-516,70,1,2\nSA-333,6,1,1\nSA-516,70,1,3\nSA-106,B,1,1\nSA-240,304,8,1\n", Columns);
+
+        var plan = UpsertPlan(Columns, sheet.Rows, existing, r => r.V, (r, v) => r.V = [.. v], () => new Row());
+
+        Assert.Equal(new ImportCounts(2, 2, 1, 0), plan.Counts);
+        Assert.Same(existing[0], Assert.Single(plan.Updated));
+        Assert.Equal("3", existing[0].V[3]);
+        Assert.Equal(["SA-333", "SA-240"], plan.Added.Select(r => r.V[0]));
+    }
 }

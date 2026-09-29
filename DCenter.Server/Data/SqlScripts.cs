@@ -27,6 +27,11 @@ public static partial class SqlScripts
             .Order(StringComparer.Ordinal)
             .ToArray();
 
+    // The files in a folder for this version whose object name starts with one of the prefixes, so a
+    // migration keeps running the same files after later stages add their own.
+    public static string[] Matching(string folder, string version, params string[] prefixes)
+        => Folder(folder, version).Where(f => prefixes.Any(p => ObjectName(f).StartsWith(p, StringComparison.Ordinal))).ToArray();
+
     public static string ObjectName(string file) => Path.GetFileName(file).Split('.')[0];
 
     public static string Read(string file)

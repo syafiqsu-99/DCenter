@@ -9,20 +9,47 @@ namespace DCenter.Server.Services;
 // transaction when one is open (so sp_getapplock ordering and transaction scope stay in C#).
 public sealed class StoredProcedures(WeldReportContext db)
 {
+    // THROW number a procedure raises when a row it must update or delete is gone, like EF's concurrency check.
+    public const int RowChanged = 50001;
+
     public Task<List<T>> QueryAsync<T>(string procedure, CancellationToken ct, params SqlParameter[] parameters)
-        => db.Database.SqlQueryRaw<T>(Exec(procedure, parameters), parameters.Cast<object>().ToArray()).ToListAsync(ct);
+        => db.Database.SqlQueryRaw<T>(Exec(procedure, parameters), Args(parameters)).ToListAsync(ct);
+
+    public Task<List<TEntity>> EntitiesAsync<TEntity>(string procedure, CancellationToken ct, params SqlParameter[] parameters)
+        where TEntity : class
+        => db.Set<TEntity>().FromSqlRaw(Exec(procedure, parameters), Args(parameters)).AsNoTracking().ToListAsync(ct);
 
     public async Task<T?> FirstOrDefaultAsync<T>(string procedure, CancellationToken ct, params SqlParameter[] parameters)
         => (await QueryAsync<T>(procedure, ct, parameters)).FirstOrDefault();
 
+    // The single column of a procedure's single row; the column must be named Value.
+    public async Task<T> ScalarAsync<T>(string procedure, CancellationToken ct, params SqlParameter[] parameters)
+        => (await QueryAsync<T>(procedure, ct, parameters)).First();
+
     public Task<int> ExecuteAsync(string procedure, CancellationToken ct, params SqlParameter[] parameters)
-        => db.Database.ExecuteSqlRawAsync(Exec(procedure, parameters), parameters.Cast<object>(), ct);
+        => db.Database.ExecuteSqlRawAsync(Exec(procedure, parameters), Args(parameters), ct);
+
+    // Wraps a procedure call that writes, so its SQL errors surface as the DbUpdateException that
+    // SaveChanges raised before (duplicate-key and truncation checks read the inner SqlException).
+    public static async Task<T> Write<T>(Task<T> call)
+    {
+        try
+        {
+            return await call;
+        }
+        catch (SqlException ex)
+        {
+            throw ex.Number == RowChanged ? new DbUpdateConcurrencyException(ex.Message, ex) : new DbUpdateException(ex.Message, ex);
+        }
+    }
 
     internal static string Exec(string procedure, SqlParameter[] parameters)
         => parameters.Length == 0
             ? $"EXEC dbo.{procedure}"
             : $"EXEC dbo.{procedure} " + string.Join(", ", parameters.Select(p =>
                 $"{p.ParameterName} = {p.ParameterName}{(p.Direction is ParameterDirection.Output or ParameterDirection.InputOutput ? " OUTPUT" : "")}"));
+
+    private static object[] Args(SqlParameter[] parameters) => [.. parameters];
 }
 
 // Typed SqlParameter factories: every value goes in with an explicit SqlDbType.
@@ -48,6 +75,14 @@ public static class Sql
 
     public static SqlParameter Table(string name, string typeName, DataTable rows)
         => new(name, SqlDbType.Structured) { TypeName = typeName, Value = rows };
+
+    public static SqlParameter IdList(string name, IEnumerable<int> ids)
+    {
+        var rows = new DataTable();
+        rows.Columns.Add("Id", typeof(int));
+        foreach (var id in ids) rows.Rows.Add(id);
+        return Table(name, "dbo.TT_DCenter_IdList", rows);
+    }
 
     private static SqlParameter Make(string name, SqlDbType type, object? value, int size = 0)
     {

@@ -1,19 +1,16 @@
-using DCenter.Server.Data;
-using DCenter.Server.Entities;
 using DCenter.Server.Models;
+using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 
 namespace DCenter.Server.Services;
 
-public class ProcessTypeLinkService(WeldReportContext db)
+public class ProcessTypeLinkService(StoredProcedures sp)
 {
     public const int MaxLength = 200;
     private const string Exists = "That Process–Type link already exists.";
 
     public Task<List<ProcessTypeLinkDto>> ListAsync(CancellationToken ct)
-        => db.ProcessTypeLinks.AsNoTracking().OrderBy(x => x.Process).ThenBy(x => x.Type)
-            .Select(x => new ProcessTypeLinkDto(x.Id, x.Process, x.Type))
-            .ToListAsync(ct);
+        => sp.QueryAsync<ProcessTypeLinkDto>("SP_DCenter_ProcessTypeLink_List", ct);
 
     public async Task<ServiceResult<ProcessTypeLinkDto>> CreateAsync(ProcessTypeLinkUpsert dto, CancellationToken ct)
     {
@@ -24,28 +21,26 @@ public class ProcessTypeLinkService(WeldReportContext db)
         if (process.Length > MaxLength || type.Length > MaxLength)
             return ServiceResult<ProcessTypeLinkDto>.Fail($"Process and Type are limited to {MaxLength} characters.");
 
-        if (await db.ProcessTypeLinks.AnyAsync(x => x.Process == process && x.Type == type, ct))
+        if (await sp.ScalarAsync<bool>("SP_DCenter_ProcessTypeLink_Exists", ct, Key(process, type)))
             return ServiceResult<ProcessTypeLinkDto>.Fail(Exists, StatusCodes.Status409Conflict);
 
-        var link = new ProcessTypeLink { Process = process, Type = type };
-        db.ProcessTypeLinks.Add(link);
         try
         {
-            await db.SaveChangesAsync(ct);
+            var link = await StoredProcedures.Write(sp.QueryAsync<ProcessTypeLinkDto>("SP_DCenter_ProcessTypeLink_Insert", ct, Key(process, type)));
+            return ServiceResult<ProcessTypeLinkDto>.Ok(link.Single());
         }
         catch (DbUpdateException ex) when (ReportSaveRules.IsDuplicateKey(ex))
         {
             return ServiceResult<ProcessTypeLinkDto>.Fail(Exists, StatusCodes.Status409Conflict);
         }
-        return ServiceResult<ProcessTypeLinkDto>.Ok(new ProcessTypeLinkDto(link.Id, link.Process, link.Type));
     }
 
     public async Task<ServiceResult<bool>> DeleteAsync(int id, CancellationToken ct)
     {
-        var link = await db.ProcessTypeLinks.FindAsync([id], ct);
-        if (link is null) return ServiceResult<bool>.NotFound();
-        db.ProcessTypeLinks.Remove(link);
-        await db.SaveChangesAsync(ct);
-        return ServiceResult<bool>.Ok(true);
+        var deleted = await StoredProcedures.Write(sp.ScalarAsync<int>("SP_DCenter_ProcessTypeLink_Delete", ct, Sql.Int("@Id", id)));
+        return deleted == 0 ? ServiceResult<bool>.NotFound() : ServiceResult<bool>.Ok(true);
     }
+
+    private static SqlParameter[] Key(string process, string type)
+        => [Sql.NVarChar("@Process", process, MaxLength), Sql.NVarChar("@Type", type, MaxLength)];
 }
