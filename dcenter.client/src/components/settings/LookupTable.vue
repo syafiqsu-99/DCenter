@@ -15,6 +15,8 @@
 
     <v-alert v-if="importMsg" type="info" variant="tonal" density="compact" class="mx-4 mt-2"
              closable @click:close="importMsg = ''">{{ importMsg }}</v-alert>
+    <v-alert v-if="error" type="error" variant="tonal" density="compact" class="mx-4 mt-2"
+             closable @click:close="error = ''">{{ error }}</v-alert>
 
     <v-card-text class="pb-0 flex-grow-0">
       <v-btn-toggle v-model="category" mandatory divided color="primary" class="mb-2">
@@ -98,6 +100,7 @@
   import { computed, onMounted, ref, watch } from 'vue';
   import { useCrudApi } from '@/composables/useCrudApi';
   import { saveBlob } from '@/utils/files';
+  import { errorText } from '@/utils/errors';
   import ConfirmDeleteDialog from '@/components/common/ConfirmDeleteDialog.vue';
 
   const categories = ['Process', 'Size', 'Type', 'Manuf'];
@@ -119,6 +122,7 @@
   const fileInput = ref(null);
 
   const dialogError = ref('');
+  const error = ref('');
 
   const headers = [
     { title: '',       key: 'drag',     width: '10%', sortable: false },
@@ -151,6 +155,8 @@
     loading.value = true;
     try {
       items.value = await lookups.list({ category: category.value });
+    } catch (e) {
+      error.value = errorText(e, 'Could not load the list. Reload the page to try again.');
     } finally {
       loading.value = false;
     }
@@ -179,8 +185,7 @@
       dialog.value = false
       await load()
     } catch (e) {
-      const data = e.response?.data
-      dialogError.value = typeof data === 'string' && data.trim() ? data : (data?.title ?? 'Could not save this value.')
+      dialogError.value = errorText(e, 'Could not save this value.')
     } finally {
       saving.value = false
     }
@@ -197,6 +202,8 @@
     try {
       await lookups.remove(pendingDelete.value.id);
       await load();
+    } catch (e) {
+      error.value = errorText(e, 'Could not delete this value. Reload and try again.');
     } finally {
       deleting.value = false;
       confirmDelete.value = false;
@@ -214,11 +221,20 @@
     const [moved] = list.splice(from, 1);
     list.splice(to, 0, moved);
     items.value = list;
-    await lookups.put('reorder', list.map((i) => i.id));
+    try {
+      await lookups.put('reorder', list.map((i) => i.id));
+    } catch (e) {
+      error.value = errorText(e, 'Could not save the new order. The list was reloaded.');
+      await load();
+    }
   }
 
   async function exportCsv() {
-    saveBlob(await lookups.exportBlob(), 'dropdown-lists.csv');
+    try {
+      saveBlob(await lookups.exportBlob(), 'dropdown-lists.csv');
+    } catch (e) {
+      error.value = errorText(e, 'Could not export the dropdown lists.');
+    }
   }
 
   async function importCsv(e) {
@@ -231,7 +247,8 @@
       importMsg.value = `Imported: ${data.added} added, ${data.updated} updated, ${data.unchanged} unchanged, ${data.skipped} skipped.`;
       await load();
     } catch (err) {
-      importMsg.value = err.response?.data ?? 'Import failed.';
+      importMsg.value = '';
+      error.value = errorText(err, 'Import failed. Export the lists to see the expected columns.');
     } finally {
       importing.value = false;
       e.target.value = '';

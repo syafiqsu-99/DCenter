@@ -126,6 +126,9 @@ async function fetchChildren(items) {
   }))
 }
 let traceToken = 0
+let reportToken = 0
+let autofillToken = 0
+let dashboardToken = 0
 let woOptionTimer = null
 let woOptionToken = 0
 
@@ -388,30 +391,31 @@ export const useReportStore = defineStore('report', {
       }
     },
 
+    // null when the work order does not exist; connection or server errors are thrown so they are not
+    // reported to the user as "not found".
     async fetchHeader(workOrderNumber) {
-      try {
-        const { data } = await api.get(`/workorders/${encodeURIComponent(workOrderNumber)}/header`)
-        return data && typeof data === 'object'
-          ? { assemblyItem: data.partNo, assemblyDesc: data.description }
-          : null
-      } catch {
-        return null
-      }
+      const { data } = await api.get(`/workorders/${encodeURIComponent(workOrderNumber)}/header`)
+      return data && typeof data === 'object'
+        ? { assemblyItem: data.partNo, assemblyDesc: data.description }
+        : null
     },
 
     async loadForWorkOrder(workOrderNumber, { force = false } = {}) {
       const wo = (workOrderNumber ?? '').trim()
       if (!wo) return false
       if (!force && this.confirmed && this.report?.workOrderNumber === wo) return true
+      const token = ++reportToken
       this.loading = true
       this.error = ''
       this.conflict = false
       this.history = []
       try {
         const res = await api.get(`/reports/${encodeURIComponent(wo)}`)
+        if (token !== reportToken) return false
         const isNew = res.status === 204 || !res.data
         if (isNew) {
           const summary = this.searchResults.find((r) => r.workOrderNumber === wo) ?? await this.fetchHeader(wo)
+          if (token !== reportToken) return false
           if (!summary) {
             this.backToList()
             this.error = `Work order ${wo} was not found.`
@@ -431,11 +435,12 @@ export const useReportStore = defineStore('report', {
         this.loadTree(wo).catch(() => {})
         return true
       } catch {
+        if (token !== reportToken) return false
         this.backToList()
         this.error = `Could not open the report for ${wo}.`
         return false
       } finally {
-        this.loading = false
+        if (token === reportToken) this.loading = false
       }
     },
 
@@ -598,10 +603,12 @@ export const useReportStore = defineStore('report', {
     },
 
     async duplicateReport(workOrderNumber) {
+      const token = ++reportToken
       this.loading = true
       this.error = ''
       try {
         const res = await api.get(`/reports/${encodeURIComponent(workOrderNumber)}`)
+        if (token !== reportToken) return false
         if (res.status === 204 || !res.data) {
           this.error = 'That report no longer exists.'
           return false
@@ -633,10 +640,10 @@ export const useReportStore = defineStore('report', {
         this.ensureRefData()
         return true
       } catch {
-        this.error = 'Could not duplicate the report.'
+        if (token === reportToken) this.error = 'Could not duplicate the report.'
         return false
       } finally {
-        this.loading = false
+        if (token === reportToken) this.loading = false
       }
     },
 
@@ -650,8 +657,11 @@ export const useReportStore = defineStore('report', {
         : ''
       if (!wo) { this.reportParts = []; return }
       this.loadReportParts(wo)
+      const token = ++autofillToken
+      const report = this.report
       try {
         const { data } = await api.get(`/workorders/${encodeURIComponent(wo)}/header`)
+        if (token !== autofillToken || this.report !== report) return
         if (data && typeof data === 'object') {
           this.report.partNo = data.partNo ?? ''
           this.report.description = data.description ?? ''
@@ -662,16 +672,17 @@ export const useReportStore = defineStore('report', {
     },
 
     async loadDashboard(months = this.dashboardMonths) {
+      const token = ++dashboardToken
       this.dashboardMonths = months
       this.loadingDashboard = true
       this.dashboardError = ''
       try {
         const { data } = await api.get('/reports/dashboard', { params: { months } })
-        this.dashboard = data
+        if (token === dashboardToken) this.dashboard = data
       } catch {
-        this.dashboardError = 'Could not load the report dashboard.'
+        if (token === dashboardToken) this.dashboardError = 'Could not load the report dashboard.'
       } finally {
-        this.loadingDashboard = false
+        if (token === dashboardToken) this.loadingDashboard = false
       }
     },
 

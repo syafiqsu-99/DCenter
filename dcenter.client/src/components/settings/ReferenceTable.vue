@@ -70,8 +70,9 @@
 
 <script setup>
   import { computed, onMounted, ref, useTemplateRef } from 'vue';
-  import api from '@/utils/api';
   import { useCrudApi } from '@/composables/useCrudApi';
+  import { errorText } from '@/utils/errors';
+  import { saveBlob } from '@/utils/files';
   import ConfirmDeleteDialog from '@/components/common/ConfirmDeleteDialog.vue';
 
   const props = defineProps({
@@ -125,15 +126,11 @@
     loading.value = true;
     try {
       items.value = await crud.list();
+    } catch (err) {
+      importResult.value = { type: 'error', text: errorText(err, 'Could not load this table. Reload the page to try again.') };
     } finally {
       loading.value = false;
     }
-  }
-
-  function errorText(err, fallback) {
-    const data = err?.response?.data;
-    if (typeof data === 'string' && data) return data;
-    return data?.detail || data?.title || fallback;
   }
 
   function openNew() {
@@ -174,6 +171,8 @@
     try {
       await crud.remove(pendingDelete.value.id);
       await load();
+    } catch (err) {
+      importResult.value = { type: 'error', text: errorText(err, 'Could not delete this row. Reload and try again.') };
     } finally {
       deleting.value = false;
       confirmDelete.value = false;
@@ -181,8 +180,12 @@
     }
   }
 
-  function exportCsv() {
-    window.open(`${api.defaults.baseURL}${props.apiBase}/export`, '_blank');
+  async function exportCsv() {
+    try {
+      saveBlob(await crud.exportBlob(), `${props.apiBase.replace('/', '')}.csv`);
+    } catch (err) {
+      importResult.value = { type: 'error', text: errorText(err, 'Could not export this table.') };
+    }
   }
 
   async function importCsv(e) {

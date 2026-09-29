@@ -42,6 +42,7 @@
   import { useRouter } from 'vue-router';
   import { useReportStore } from '@/store/reportStore';
   import ReportStatusChip from '@/components/report/ReportStatusChip.vue';
+  import { downloadCsv as saveCsv } from '@/utils/files';
 
   const router = useRouter();
   const { traceResults, traceTruncated, traceSearched, loadingTrace, traceField, traceQuery } = storeToRefs(useReportStore());
@@ -66,23 +67,11 @@
     router.push({ name: 'report-editor', params: { workOrderNumber } });
   }
 
-  function csvCell(v) {
-    let s = (v ?? '').toString();
-    if (/^[=+\-@\t\r]/.test(s)) s = `'${s}`;
-    return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
-  }
-
   function downloadCsv() {
     const cols = ['workOrderNumber', 'partNo', 'status', 'dateWelded', 'jointNumber', 'wpsNo',
       'welderName', 'welderNo', 'heatNumberLeft', 'heatNumberRight', 'heatLots'];
-    const lines = [cols.join(','), ...traceResults.value.map((r) => cols.map((c) => csvCell(r[c])).join(','))];
-    const blob = new Blob([`﻿${lines.join('\r\n')}`], { type: 'text/csv;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `trace-${traceField.value}-${traceQuery.value.trim().replace(/[^\w.-]+/g, '_')}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
+    const rows = traceResults.value.map((r) => cols.map((c) => r[c]));
+    saveCsv(`trace-${traceField.value}-${traceQuery.value.trim().replace(/[^\w.-]+/g, '_')}.csv`, [cols, ...rows]);
   }
 </script>
 

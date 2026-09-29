@@ -112,7 +112,7 @@
   const isDuplicate = computed(() => mode.value === 'duplicate');
   const lockedFromSearch = computed(() => mode.value === 'new');
 
-  useLookupStore().load();
+  useLookupStore().load().catch(() => {});
 
   function onWorkOrderPick(v) {
     store.autofillFromWorkOrder(v);

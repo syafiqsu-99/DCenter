@@ -26,13 +26,15 @@ export function usePagedList(fetchPage, messages) {
   }
 
   async function loadMore() {
+    const current = token
     loadingMore.value = true
     try {
       const page = await fetchPage(items.value.length)
+      if (current !== token) return
       items.value = [...items.value, ...page.items]
       total.value = page.total
     } catch (e) {
-      error.value = errorText(e, messages.more)
+      if (current === token) error.value = errorText(e, messages.more)
     } finally {
       loadingMore.value = false
     }

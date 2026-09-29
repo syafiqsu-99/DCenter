@@ -1,5 +1,10 @@
-function csvCell(value) {
-  const text = String(value ?? '')
+const FORMULA_START = /^[=+\-@\t\r]/
+
+// Same rule as the server export: a cell a spreadsheet would run as a formula gets a leading apostrophe;
+// plain numbers (including negative ones) stay as they are.
+export function csvCell(value) {
+  let text = String(value ?? '')
+  if (FORMULA_START.test(text) && !Number.isFinite(Number(text.trim()))) text = `'${text}`
   return /[",\r\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text
 }
 

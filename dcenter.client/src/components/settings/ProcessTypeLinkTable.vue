@@ -8,6 +8,8 @@
     </v-card-item>
 
     <v-card-text class="px-0">
+      <v-alert v-if="error" type="error" variant="tonal" density="compact" class="mb-3"
+               closable @click:close="error = ''">{{ error }}</v-alert>
       <v-row dense>
         <v-col cols="12" sm="4">
           <v-select v-model="process" :items="processOptions" label="Process"
@@ -48,15 +50,17 @@
 </template>
 
 <script setup>
-import { computed, onMounted, ref, watch } from 'vue';
+  import { computed, onMounted, ref, watch } from 'vue';
   import { storeToRefs } from 'pinia';
   import { useCrudApi } from '@/composables/useCrudApi';
   import { useLookupStore } from '@/store/lookupStore';
+  import { errorText } from '@/utils/errors';
 
   const lookupStore = useLookupStore();
   const { options } = storeToRefs(lookupStore);
 
   const links = ref([]);
+  const error = ref('');
   const process = ref(null);
   const typesToAdd = ref([])
   const adding = ref(false);
@@ -85,6 +89,8 @@ import { computed, onMounted, ref, watch } from 'vue';
         links.value.push(await linksApi.create({ process: process.value, type }))
       }
       typesToAdd.value = []
+    } catch (e) {
+      error.value = errorText(e, 'Could not add the link.')
     } finally {
       adding.value = false
     }
@@ -95,13 +101,19 @@ import { computed, onMounted, ref, watch } from 'vue';
     try {
       await linksApi.remove(link.id);
       links.value = links.value.filter((l) => l.id !== link.id);
+    } catch (e) {
+      error.value = errorText(e, 'Could not remove the link.');
     } finally {
       deletingId.value = null;
     }
   }
 
   onMounted(async () => {
-    await lookupStore.load();
-    await load();
+    try {
+      await lookupStore.load();
+      await load();
+    } catch (e) {
+      error.value = errorText(e, 'Could not load the process and type lists. Reload the page to try again.');
+    }
   });
 </script>
