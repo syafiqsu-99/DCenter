@@ -83,14 +83,14 @@
   import { storeToRefs } from 'pinia';
   import { useRouter } from 'vue-router';
   import { useReportStore } from '@/store/reportStore';
-  import { useConsumableStore } from '@/store/consumableStore';
+  import { useSupervisorStore } from '@/store/supervisorStore';
   import ConfirmDeleteDialog from '@/components/common/ConfirmDeleteDialog.vue';
   import ReportStatusChip from '@/components/report/ReportStatusChip.vue';
   import { REPORT_STATUS } from '@/utils/constants';
   import ReportPdfDialog from '@/components/report/ReportPdfDialog.vue';
 
   const store = useReportStore();
-  const supervisor = useConsumableStore();
+  const supervisor = useSupervisorStore();
   const router = useRouter();
   const { savedReports, loadingSaved, listTab } = storeToRefs(store);
   const savedSearch = ref('');

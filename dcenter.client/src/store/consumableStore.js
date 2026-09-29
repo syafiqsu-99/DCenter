@@ -3,9 +3,8 @@ import api from '@/utils/api'
 import { daysAgoIso } from '@/utils/date'
 import { useLookupStore } from '@/store/lookupStore'
 import { ALL, categoryParam, monthStartIso, todayIso } from '@/utils/consumables'
-import { SUPERVISOR_HEADER } from '@/utils/constants'
+import { useSupervisorStore } from '@/store/supervisorStore'
 
-const SUPERVISOR_KEY = 'dcenter.consumables.supervisor'
 const HEADER_KEY = 'dcenter.consumables.receiveHeader'
 const PIC_KEY = 'dcenter.consumables.personInCharge'
 const ENTERED_BY_HEADER = 'X-Entered-By'
@@ -33,33 +32,6 @@ function applyEnteredBy(name) {
   if (value) api.defaults.headers[ENTERED_BY_HEADER] = encodeURIComponent(value)
   else delete api.defaults.headers[ENTERED_BY_HEADER]
 }
-
-function applySupervisorToken(token) {
-  if (token) api.defaults.headers[SUPERVISOR_HEADER] = token
-  else delete api.defaults.headers[SUPERVISOR_HEADER]
-}
-
-function readSession() {
-  try {
-    const raw = sessionStorage.getItem(SUPERVISOR_KEY)
-    const session = raw ? JSON.parse(raw) : null
-    return session && new Date(session.expiresAt) > new Date() ? session : null
-  } catch {
-    return null
-  }
-}
-
-function writeSession(session) {
-  try {
-    if (session) sessionStorage.setItem(SUPERVISOR_KEY, JSON.stringify(session))
-    else sessionStorage.removeItem(SUPERVISOR_KEY)
-  } catch {
-    return
-  }
-}
-
-const SUPERVISOR_RENEW_MS = 60 * 60 * 1000
-let refreshing = false
 
 function fingerprint(text) {
   let hash = 0x811c9dc5
@@ -111,9 +83,6 @@ export const useConsumableStore = defineStore('consumables', {
     catalogLoaded: false,
 
     enteredBy: '',
-    supervisor: null,
-    clock: Date.now(),
-    reloginPrompt: false,
     receiveHeader: { source: '', receiver: null },
 
     todayReceipts: [],
@@ -156,7 +125,8 @@ export const useConsumableStore = defineStore('consumables', {
 
   getters: {
     hasEnteredBy: (s) => !!s.enteredBy.trim(),
-    isSupervisor: (s) => !!s.supervisor && Date.parse(s.supervisor.expiresAt) > s.clock,
+    supervisor: () => useSupervisorStore().supervisor,
+    isSupervisor: () => useSupervisorStore().isSupervisor,
     earliestEntryDate() {
       return this.isSupervisor ? undefined : daysAgoIso(this.catalog.welderBackdateDays ?? 7)
     },
@@ -199,9 +169,7 @@ export const useConsumableStore = defineStore('consumables', {
     init() {
       this.receiveHeader = { source: '', receiver: null, ...readLocal(HEADER_KEY, {}) }
       this.personInCharge = readLocal(PIC_KEY, '')
-      this.supervisor = readSession()
-      this.clock = Date.now()
-      applySupervisorToken(this.supervisor?.token)
+      useSupervisorStore().restore()
       api.defaults.onUnauthorized = () => {
         if (this.supervisor) this.lockSupervisor()
       }
@@ -209,7 +177,7 @@ export const useConsumableStore = defineStore('consumables', {
     },
 
     tick() {
-      this.clock = Date.now()
+      useSupervisorStore().tick()
       if (this.supervisor && !this.isSupervisor) this.lockSupervisor()
     },
 
@@ -224,57 +192,33 @@ export const useConsumableStore = defineStore('consumables', {
     },
 
     async unlockSupervisor(name, password) {
-      const { data } = await api.post('/supervisor/login', { name, password })
-      this.supervisor = { name: data.name, token: data.token, expiresAt: data.expiresAt }
-      this.clock = Date.now()
+      const session = await useSupervisorStore().login(name, password)
       this.counterWelder = null
-      writeSession(this.supervisor)
-      applySupervisorToken(data.token)
       this.syncActor()
-      return this.supervisor
+      return session
     },
 
     async logoutSupervisor() {
-      if (this.supervisor) await api.post('/supervisor/logout').catch(() => {})
+      await useSupervisorStore().logout()
       this.lockSupervisor()
     },
 
     lockSupervisor() {
-      this.supervisor = null
+      useSupervisorStore().clear()
       this.counterWelder = null
-      writeSession(null)
-      applySupervisorToken(null)
       this.dashboard = null
       this.syncActor()
     },
 
-    async refreshSupervisorIfNeeded() {
-      if (!this.supervisor || refreshing) return
-      if (Date.parse(this.supervisor.expiresAt) - Date.now() > SUPERVISOR_RENEW_MS) return
-      refreshing = true
-      try {
-        const { data } = await api.post('/supervisor/session/refresh')
-        if (!this.supervisor || !data?.token) return
-        this.supervisor = { name: data.name, token: data.token, expiresAt: data.expiresAt }
-        this.clock = Date.now()
-        writeSession(this.supervisor)
-        applySupervisorToken(data.token)
-      } catch {
-        // 401 locks the session through onUnauthorized; network errors retry on the next check
-      } finally {
-        refreshing = false
-      }
+    refreshSupervisorIfNeeded() {
+      return useSupervisorStore().refreshIfNeeded()
     },
 
     async verifySupervisor() {
       if (!this.supervisor) return false
-      try {
-        await api.get('/supervisor/session')
-        return true
-      } catch {
-        this.lockSupervisor()
-        return false
-      }
+      const ok = await useSupervisorStore().verify()
+      if (!ok) this.lockSupervisor()
+      return ok
     },
 
     async loadMonthConsumption(month) {
@@ -289,14 +233,12 @@ export const useConsumableStore = defineStore('consumables', {
       return data
     },
 
-    async loadPasswordStatus() {
-      const { data } = await api.get('/supervisor/password')
-      return data
+    loadPasswordStatus() {
+      return useSupervisorStore().loadPasswordStatus()
     },
 
     async changePassword(currentPassword, newPassword) {
-      const { data } = await api.post('/supervisor/password', { currentPassword, newPassword })
-      this.reloginPrompt = true
+      const data = await useSupervisorStore().changePassword(currentPassword, newPassword)
       this.lockSupervisor()
       return data
     },

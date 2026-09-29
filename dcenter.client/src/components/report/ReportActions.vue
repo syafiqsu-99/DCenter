@@ -110,7 +110,7 @@
   import { storeToRefs } from 'pinia';
   import { useRouter } from 'vue-router';
   import { useReportStore } from '@/store/reportStore';
-  import { useConsumableStore } from '@/store/consumableStore';
+  import { useSupervisorStore } from '@/store/supervisorStore';
   import { saveBlob } from '@/utils/files';
   import { reportFileName } from '@/utils/fileName';
   import ConfirmDeleteDialog from '@/components/common/ConfirmDeleteDialog.vue';
@@ -118,7 +118,7 @@
   import { REPORT_ACTION, REPORT_STATUS } from '@/utils/constants';
 
   const store = useReportStore();
-  const supervisor = useConsumableStore();
+  const supervisor = useSupervisorStore();
   const router = useRouter();
   const { report, saving, deleting, hasDateWelded, isComplete, isDirty, conflict, error,
           history, loadingHistory } = storeToRefs(store);

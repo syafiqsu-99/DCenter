@@ -105,6 +105,7 @@
   import { useReportStore } from '@/store/reportStore';
   import { useLookupStore } from '@/store/lookupStore';
   import { useConsumableStore } from '@/store/consumableStore';
+  import { useSupervisorStore } from '@/store/supervisorStore';
   import logo from '@/assets/DCenter.png'
   import logonobg from '@/assets/DCenter_No_bg.png';
   import { useLeaveGuard } from '@/composables/useLeaveGuard';
@@ -114,12 +115,13 @@
   const route = useRoute();
   const router = useRouter();
   const consumableStore = useConsumableStore();
+  const supervisorStore = useSupervisorStore();
   const allNavItems = [
     { to: '/report', label: 'Report', icon: 'mdi-file-document-edit-outline' },
     { to: '/consumables', label: 'Consumables', icon: 'mdi-package-variant-closed' },
     { to: '/settings', label: 'Settings', icon: 'mdi-cog-outline', supervisor: true },
   ];
-  const navItems = computed(() => allNavItems.filter((item) => !item.supervisor || consumableStore.isSupervisor));
+  const navItems = computed(() => allNavItems.filter((item) => !item.supervisor || supervisorStore.isSupervisor));
 
   const year = computed(() => new Date().getFullYear());
 
