@@ -2,14 +2,15 @@ using System.Globalization;
 using DCenter.Server.Data;
 using DCenter.Server.Entities;
 using DCenter.Server.Models;
-using Microsoft.EntityFrameworkCore;
 using Cat = DCenter.Server.Entities.StockCatalog;
 using G = DCenter.Server.Services.ConsumableGuards;
 using T = DCenter.Server.Services.ConsumableText;
 
 namespace DCenter.Server.Services;
 
-public class StockImportService(WeldReportContext db, ConsumableItemService items, ConsumableLedger ledger, TimeProvider time)
+public class StockImportService(
+    WeldReportContext db, StoredProcedures sp, ConsumableStore store, ConsumableItemService items, ConsumableLedger ledger,
+    TimeProvider time)
 {
     public const long MaxFileBytes = CsvText.MaxUploadBytes;
     private const int MaxRows = 5000;
@@ -91,29 +92,20 @@ public class StockImportService(WeldReportContext db, ConsumableItemService item
         await using var tx = commit ? await db.Database.BeginTransactionAsync(ct) : null;
         if (commit) await StockLocks.AcquireAsync(db, StockLocks.Master, ct);
 
-        var existing = (await db.ConsumableItems.AsNoTracking().ToListAsync(ct))
+        var existing = (await store.ItemsAsync(null, null, ct))
             .ToDictionary(i => Key(i.Specification, i.Diameter));
-        var brands = (await db.Lookups.AsNoTracking()
-                .Where(l => l.Category == ConsumableItemService.LookupBrand)
-                .Select(l => l.Value)
-                .ToListAsync(ct))
+        var brands = (await store.LookupsAsync(ConsumableItemService.LookupBrand, ct)).Select(l => l.Value)
             .GroupBy(v => v.Trim(), StringComparer.OrdinalIgnoreCase)
             .ToDictionary(g => g.Key, g => g.First(), StringComparer.OrdinalIgnoreCase);
         var keyById = existing.Values.ToDictionary(i => i.Id, i => Key(i.Specification, i.Diameter));
-        var occupants = (await ledger.ActivatedBinsAsync(m => m.ToCompartmentId != null || m.FromCompartmentId != null, ct))
+        var occupants = (await ledger.ActivatedBinsAsync(new LedgerFilter(AnyCompartment: true), ct))
             .Where(b => b.CompartmentId is not null && b.Kg > 0)
             .GroupBy(b => b.CompartmentId!.Value)
             .ToDictionary(g => g.Key, g => g.Select(b => keyById.GetValueOrDefault(b.ItemId, $"#{b.ItemId}")).ToHashSet());
         var newItems = new Dictionary<string, ItemInput>();
         var specifications = await items.SpecificationNamesAsync(ct);
-        var imported = (await ledger.Live()
-                .Where(m => m.TxnType == Cat.TxnReceive && m.ReferenceNo == OpeningReference)
-                .Select(m => new
-                {
-                    m.TxnNo, m.TxnDate, m.QuantityKg, m.ToStage, m.ToCompartmentId,
-                    m.Lot.Item.Specification, m.Lot.Item.Diameter, m.Lot.Brand, m.Lot.LotNumber,
-                })
-                .ToListAsync(ct))
+        var imported = (await sp.QueryAsync<OpeningReceipt>("SP_DCenter_Ledger_OpeningReceipts", ct,
+                Sql.NVarChar("@ReferenceNo", OpeningReference, 60)))
             .GroupBy(m => OpeningKey(Key(m.Specification, m.Diameter), m.Brand, m.LotNumber, m.QuantityKg, m.ToStage ?? "",
                 m.ToCompartmentId, m.TxnDate))
             .ToDictionary(g => g.Key, g => g.First().TxnNo);
@@ -154,36 +146,37 @@ public class StockImportService(WeldReportContext db, ConsumableItemService item
             }
             else
             {
-                var id = existing[key].Id;
-                itemsByKey[key] = await db.ConsumableItems.FirstAsync(i => i.Id == id, ct);
+                itemsByKey[key] = (await store.ItemAsync(existing[key].Id, ct))!;
             }
         }
 
         var existingIds = itemsByKey.Values.Where(i => i.Id != 0).Select(i => i.Id).ToList();
-        var lots = (await db.ConsumableItemLots.Where(l => existingIds.Contains(l.ItemId)).ToListAsync(ct))
+        var lots = (await store.LotsAsync(null, existingIds, null, ct))
             .GroupBy(l => (l.ItemId, l.Brand.ToUpperInvariant(), l.LotNumber.ToUpperInvariant()))
-            .ToDictionary(g => g.Key, g => g.OrderBy(l => l.Id).First());
-        var newLots = new Dictionary<(string, string, string), ConsumableItemLot>();
+            .ToDictionary(g => g.Key, g => g.OrderBy(l => l.Id).First().Id);
+        var newLots = new Dictionary<(string, string, string), int>();
+        var receipts = new List<ConsumableMovement>();
 
         var txnNo = await ledger.NextTxnNoAsync(ct);
         foreach (var p in accepted)
         {
             var item = itemsByKey[p.ItemKey!];
-            ConsumableItemLot? lot = null;
-            if (item.Id != 0) lots.TryGetValue((item.Id, p.Brand.ToUpperInvariant(), p.LotNumber.ToUpperInvariant()), out lot);
             var newKey = (p.ItemKey!, p.Brand.ToUpperInvariant(), p.LotNumber.ToUpperInvariant());
-            if (lot is null && !newLots.TryGetValue(newKey, out lot))
+            if (!lots.TryGetValue((item.Id, p.Brand.ToUpperInvariant(), p.LotNumber.ToUpperInvariant()), out var lotId)
+                && !newLots.TryGetValue(newKey, out lotId))
             {
-                lot = db.ConsumableItemLots.Add(new ConsumableItemLot { Item = item, Brand = p.Brand, LotNumber = p.LotNumber }).Entity;
-                newLots[newKey] = lot;
+                var lot = new ConsumableItemLot { ItemId = item.Id, Brand = p.Brand, LotNumber = p.LotNumber };
+                await store.InsertLotAsync(lot, ct);
+                lotId = lot.Id;
+                newLots[newKey] = lotId;
             }
 
-            db.ConsumableMovements.Add(new ConsumableMovement
+            receipts.Add(new ConsumableMovement
             {
                 TxnNo = txnNo,
                 TxnType = Cat.TxnReceive,
                 TxnDate = p.Date,
-                Lot = lot,
+                LotId = lotId,
                 QuantityKg = p.Qty,
                 ToStage = p.Stage,
                 ToCompartmentId = p.CompartmentId,
@@ -203,7 +196,7 @@ public class StockImportService(WeldReportContext db, ConsumableItemService item
                 (ConsumableItemService.LookupType, itemsByKey[p.ItemKey!].Specification),
             }),
             ct);
-        await db.SaveChangesAsync(ct);
+        await store.AddMovementsAsync(receipts, ct);
         await tx!.CommitAsync(ct);
 
         return Ok(new StockImportResultDto(true, plan.Count, ready, newItems.Count, rejected, skipped, txnNo, rows, []));
@@ -415,4 +408,8 @@ public class StockImportService(WeldReportContext db, ConsumableItemService item
 
     private static ServiceResult<StockImportResultDto> Fail(string error, int status = StatusCodes.Status400BadRequest)
         => ServiceResult<StockImportResultDto>.Fail(error, status);
+
+    private sealed record OpeningReceipt(
+        string TxnNo, DateOnly TxnDate, decimal QuantityKg, string? ToStage, int? ToCompartmentId,
+        string Specification, string Diameter, string Brand, string LotNumber);
 }

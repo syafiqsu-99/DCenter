@@ -1,15 +1,14 @@
-using System.Linq.Expressions;
 using DCenter.Server.Data;
 using DCenter.Server.Entities;
 using DCenter.Server.Models;
-using Microsoft.EntityFrameworkCore;
 using Cat = DCenter.Server.Entities.StockCatalog;
 using G = DCenter.Server.Services.ConsumableGuards;
 using T = DCenter.Server.Services.ConsumableText;
 
 namespace DCenter.Server.Services;
 
-public class StockCountService(WeldReportContext db, ConsumableLedger ledger, ConsumableGuards guards, TimeProvider time)
+public class StockCountService(
+    WeldReportContext db, ConsumableStore store, ConsumableLedger ledger, ConsumableGuards guards, TimeProvider time)
 {
     private const int MaxLines = 2000;
 
@@ -19,7 +18,7 @@ public class StockCountService(WeldReportContext db, ConsumableLedger ledger, Co
         if (stage is null) return ServiceResult<CountSheetDto>.Fail("Scope must be Activated or Normal.");
         if (!T.TryCategoryFilter(category, out var cat)) return ServiceResult<CountSheetDto>.Fail("Unknown consumable type.");
 
-        Expression<Func<ConsumableMovement, bool>>? filter = cat is null ? null : m => m.Lot.Item.Category == cat;
+        var filter = LedgerFilter.ForCategory(cat);
         var raw = stage == Cat.Normal
             ? (await ledger.LotStagesAsync(filter, ct))
                 .Where(l => l.Totals.NormalKg > 0)
@@ -31,10 +30,7 @@ public class StockCountService(WeldReportContext db, ConsumableLedger ledger, Co
                 .ToList();
 
         var lotIds = raw.Select(r => r.LotId).Distinct().ToList();
-        var meta = await db.ConsumableItemLots.AsNoTracking()
-            .Where(l => lotIds.Contains(l.Id))
-            .Select(l => new { l.Id, l.ItemId, l.Brand, l.LotNumber, l.Item.Category, l.Item.Specification, l.Item.Diameter })
-            .ToDictionaryAsync(l => l.Id, ct);
+        var meta = (await store.LotsAsync(lotIds, null, null, ct)).ToDictionary(l => l.Id);
         var labels = await ledger.CompartmentLabelsAsync(
             raw.Where(r => r.CompartmentId is not null).Select(r => r.CompartmentId!.Value), ct);
 
@@ -90,10 +86,7 @@ public class StockCountService(WeldReportContext db, ConsumableLedger ledger, Co
         foreach (var itemId in itemIds) await StockLocks.AcquireAsync(db, StockLocks.Item(itemId), ct);
 
         var lotIds = lines.Select(l => l.LotId).Distinct().ToList();
-        var lotItems = await db.ConsumableItemLots.AsNoTracking()
-            .Where(l => lotIds.Contains(l.Id))
-            .Select(l => new { l.Id, l.ItemId, l.LotNumber, l.Item.Category })
-            .ToDictionaryAsync(l => l.Id, ct);
+        var lotItems = (await store.LotsAsync(lotIds, null, null, ct)).ToDictionary(l => l.Id);
         foreach (var line in lines)
         {
             if (!lotItems.TryGetValue(line.LotId, out var lot) || lot.ItemId != line.ItemId)
@@ -105,12 +98,12 @@ public class StockCountService(WeldReportContext db, ConsumableLedger ledger, Co
         Dictionary<(int LotId, int? Bin), decimal> current;
         if (stage == Cat.Normal)
         {
-            current = (await ledger.LotStagesAsync(m => itemIds.Contains(m.Lot.ItemId), ct))
+            current = (await ledger.LotStagesAsync(LedgerFilter.ForItems(itemIds), ct))
                 .ToDictionary(l => (l.LotId, (int?)null), l => l.Totals.NormalKg);
         }
         else
         {
-            current = (await ledger.ActivatedBinsAsync(m => itemIds.Contains(m.Lot.ItemId), ct))
+            current = (await ledger.ActivatedBinsAsync(LedgerFilter.ForItems(itemIds), ct))
                 .GroupBy(b => (b.LotId, b.CompartmentId))
                 .ToDictionary(g => g.Key, g => g.Sum(b => b.Kg));
         }
@@ -144,13 +137,14 @@ public class StockCountService(WeldReportContext db, ConsumableLedger ledger, Co
         var referenceNo = await ledger.NextStockCountNoAsync(ct);
         string? txnNo = changed.Count > 0 ? await ledger.NextTxnNoAsync(ct) : null;
         decimal gain = 0m, loss = 0m;
+        var adjustments = new List<ConsumableMovement>();
         foreach (var line in changed)
         {
             var difference = line.Counted - line.System;
             var bin = stage == Cat.Activated ? line.CompartmentId : null;
             if (difference > 0) gain += difference;
             else loss -= difference;
-            db.ConsumableMovements.Add(new ConsumableMovement
+            adjustments.Add(new ConsumableMovement
             {
                 TxnNo = txnNo!,
                 TxnType = Cat.TxnAdjust,
@@ -183,53 +177,35 @@ public class StockCountService(WeldReportContext db, ConsumableLedger ledger, Co
             Remarks = remarks,
             CreatedBy = user,
         };
-        db.StockCounts.Add(count);
-        await db.SaveChangesAsync(ct);
+        await store.AddMovementsAsync(adjustments, ct);
+        await store.AddStockCountAsync(count, ct);
         await tx.CommitAsync(ct);
 
-        return ServiceResult<StockCountDto>.Ok((await ToDtosAsync(db.StockCounts.AsNoTracking().Where(c => c.Id == count.Id), ct))[0]);
+        var (saved, _) = await store.SearchStockCountsAsync(count.Id, null, null, null, null, 0, 1, ct);
+        return ServiceResult<StockCountDto>.Ok(ToDto(saved[0]));
     }
 
     public async Task<StockCountPage> GetCountsAsync(DateOnly? from, DateOnly? to, string? scope, int skip, int take, CancellationToken ct)
     {
-        var q = db.StockCounts.AsNoTracking();
-        if (from is DateOnly f) q = q.Where(c => c.CountDate >= f);
-        if (to is DateOnly t) q = q.Where(c => c.CountDate <= t);
-        if (Scope(scope) is string stage) q = q.Where(c => c.Scope == stage);
-        var total = await q.CountAsync(ct);
-        var rows = await ToDtosAsync(q.OrderByDescending(c => c.Id).Skip(Math.Max(skip, 0)).Take(Math.Clamp(take, 1, T.MaxPageSize)), ct);
-        return new StockCountPage(rows, total);
+        var (rows, total) = await store.SearchStockCountsAsync(null, null, from, to, Scope(scope), Math.Max(skip, 0),
+            Math.Clamp(take, 1, T.MaxPageSize), ct);
+        return new StockCountPage(rows.Select(ToDto).ToList(), total);
     }
 
     public async Task<ServiceResult<StockCountDetailDto>> GetCountAsync(string referenceNo, CancellationToken ct)
     {
-        var rows = await ToDtosAsync(db.StockCounts.AsNoTracking().Where(c => c.ReferenceNo == referenceNo), ct);
+        var (rows, _) = await store.SearchStockCountsAsync(null, referenceNo, null, null, null, 0, int.MaxValue, ct);
         if (rows.Count == 0) return ServiceResult<StockCountDetailDto>.Fail("Stock count not found.", StatusCodes.Status404NotFound);
-        var count = rows[0];
+        var count = ToDto(rows[0]);
         List<TransactionDto> adjustments = count.TxnNo is null
             ? []
-            : await ConsumableLedger.Project(db.ConsumableMovements.AsNoTracking()
-                    .Where(m => m.TxnNo == count.TxnNo)
-                    .OrderBy(m => m.Lot.Item.Category).ThenBy(m => m.Lot.Item.Specification).ThenBy(m => m.Lot.LotNumber))
-                .ToListAsync(ct);
+            : (await store.TransactionsAsync(new MovementQuery(TxnNo: count.TxnNo, Sort: MovementSort.TypeSpecLot), ct)).Rows;
         return ServiceResult<StockCountDetailDto>.Ok(new StockCountDetailDto(count, adjustments));
     }
 
-    private async Task<List<StockCountDto>> ToDtosAsync(IQueryable<StockCount> q, CancellationToken ct)
-    {
-        var rows = await q.ToListAsync(ct);
-        var txnNos = rows.Where(c => c.TxnNo is not null).Select(c => c.TxnNo!).ToList();
-        var voided = await db.ConsumableMovements.AsNoTracking()
-            .Where(m => txnNos.Contains(m.TxnNo) && m.IsVoided)
-            .Select(m => m.TxnNo)
-            .Distinct()
-            .ToListAsync(ct);
-        return rows
-            .Select(c => new StockCountDto(c.Id, c.ReferenceNo, c.CountDate, c.Scope, c.Category, c.LinesCounted, c.LinesAdjusted,
-                c.GainKg, c.LossKg, c.GainKg - c.LossKg, c.TxnNo, c.TxnNo is not null && voided.Contains(c.TxnNo), c.Remarks,
-                c.CreatedBy, c.CreatedAt))
-            .ToList();
-    }
+    private static StockCountDto ToDto(StockCountRow c)
+        => new(c.Id, c.ReferenceNo, c.CountDate, c.Scope, c.Category, c.LinesCounted, c.LinesAdjusted,
+            c.GainKg, c.LossKg, c.GainKg - c.LossKg, c.TxnNo, c.IsVoided, c.Remarks, c.CreatedBy, c.CreatedAt);
 
     private static string? Scope(string? raw)
         => Cat.ActiveStages.FirstOrDefault(s => string.Equals(s, raw?.Trim(), StringComparison.OrdinalIgnoreCase));

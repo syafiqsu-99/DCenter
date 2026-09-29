@@ -128,6 +128,77 @@ IF TYPE_ID(N'dbo.TT_DCenter_ReportJointMaterials') IS NULL
     );
 GO
 
+IF TYPE_ID(N'dbo.TT_DCenter_TextList') IS NULL
+    CREATE TYPE dbo.TT_DCenter_TextList AS TABLE
+    (
+        [Seq] INT NOT NULL PRIMARY KEY,
+        [Value] NVARCHAR(4000) NOT NULL
+    );
+GO
+
+IF TYPE_ID(N'dbo.TT_DCenter_IdStatus') IS NULL
+    CREATE TYPE dbo.TT_DCenter_IdStatus AS TABLE
+    (
+        [Id] INT NOT NULL PRIMARY KEY,
+        [Status] NVARCHAR(20) NOT NULL
+    );
+GO
+
+IF TYPE_ID(N'dbo.TT_DCenter_MovementRows') IS NULL
+    CREATE TYPE dbo.TT_DCenter_MovementRows AS TABLE
+    (
+        [Seq] INT NOT NULL PRIMARY KEY,
+        [TxnNo] NVARCHAR(20) NOT NULL,
+        [TxnType] NVARCHAR(20) NOT NULL,
+        [TxnDate] DATE NOT NULL,
+        [LotId] INT NOT NULL,
+        [QuantityKg] DECIMAL(10, 2) NOT NULL,
+        [FromStage] NVARCHAR(20) NULL,
+        [ToStage] NVARCHAR(20) NULL,
+        [FromCompartmentId] INT NULL,
+        [ToCompartmentId] INT NULL,
+        [BakingRecordId] INT NULL,
+        [Source] NVARCHAR(20) NULL,
+        [Requestor] NVARCHAR(200) NULL,
+        [WelderId] INT NULL,
+        [Reason] NVARCHAR(40) NULL,
+        [CountedQtyKg] DECIMAL(10, 2) NULL,
+        [ReferenceNo] NVARCHAR(60) NULL,
+        [Remarks] NVARCHAR(500) NULL,
+        [IsVoided] BIT NOT NULL,
+        [VoidsMovementId] INT NULL,
+        [CreatedBy] NVARCHAR(100) NULL,
+        [CreatedAt] DATETIME2 NOT NULL
+    );
+GO
+
+IF TYPE_ID(N'dbo.TT_DCenter_BakingRows') IS NULL
+    CREATE TYPE dbo.TT_DCenter_BakingRows AS TABLE
+    (
+        [Seq] INT NOT NULL PRIMARY KEY,
+        [BakingNo] NVARCHAR(20) NOT NULL,
+        [LotId] INT NOT NULL,
+        [QuantityKg] DECIMAL(10, 2) NOT NULL,
+        [PersonInCharge] NVARCHAR(100) NOT NULL,
+        [BakingDate] DATE NOT NULL,
+        [Status] NVARCHAR(20) NOT NULL,
+        [Remarks] NVARCHAR(500) NULL,
+        [CreatedBy] NVARCHAR(100) NULL,
+        [CreatedAt] DATETIME2 NOT NULL
+    );
+GO
+
+IF TYPE_ID(N'dbo.TT_DCenter_BakingTimes') IS NULL
+    CREATE TYPE dbo.TT_DCenter_BakingTimes AS TABLE
+    (
+        [Id] INT NOT NULL PRIMARY KEY,
+        [BakeStart] DATETIME2 NULL,
+        [BakeStop] DATETIME2 NULL,
+        [RebakeStart] DATETIME2 NULL,
+        [RebakeStop] DATETIME2 NULL
+    );
+GO
+
 /* ===== Settings: welders ===== */
 
 CREATE OR ALTER PROCEDURE dbo.SP_DCenter_Welder_List
@@ -921,5 +992,987 @@ BEGIN
        OR (@Field = N'heatLot' AND EXISTS (
             SELECT 1 FROM dbo.DCenter_JointMaterials m WHERE m.[JointId] = j.[Id] AND CHARINDEX(@Q, m.[HeatLot]) > 0))
     ORDER BY r.[DateWelded] DESC, r.[WorkOrderNumber], j.[JointNumber];
+END
+GO
+
+/* ===== Consumables ===== */
+
+-- Next number from one of the fixed DCenter sequences.
+CREATE OR ALTER PROCEDURE dbo.SP_DCenter_Sequence_Next
+    @Sequence NVARCHAR(50)
+AS
+BEGIN
+    SET NOCOUNT ON;
+    IF @Sequence = N'DCenter_ConsumableTxnSeq' SELECT NEXT VALUE FOR dbo.DCenter_ConsumableTxnSeq AS [Value];
+    ELSE IF @Sequence = N'DCenter_BakingNoSeq' SELECT NEXT VALUE FOR dbo.DCenter_BakingNoSeq AS [Value];
+    ELSE IF @Sequence = N'DCenter_HoldingNoSeq' SELECT NEXT VALUE FOR dbo.DCenter_HoldingNoSeq AS [Value];
+    ELSE IF @Sequence = N'DCenter_StockCountSeq' SELECT NEXT VALUE FOR dbo.DCenter_StockCountSeq AS [Value];
+    ELSE THROW 50002, N'Unknown sequence.', 1;
+END
+GO
+
+-- Live stock per lot and stage (voided lines and void entries excluded).
+CREATE OR ALTER PROCEDURE dbo.SP_DCenter_Ledger_LotStages
+    @ByItems BIT,
+    @ItemIds dbo.TT_DCenter_IdList READONLY,
+    @Category NVARCHAR(30)
+AS
+BEGIN
+    SET NOCOUNT ON;
+    SELECT m.[LotId], l.[ItemId],
+           SUM((CASE WHEN m.[ToStage] = N'Normal' THEN m.[QuantityKg] ELSE 0 END) - (CASE WHEN m.[FromStage] = N'Normal' THEN m.[QuantityKg] ELSE 0 END)) AS [NormalKg],
+           SUM((CASE WHEN m.[ToStage] = N'Baking' THEN m.[QuantityKg] ELSE 0 END) - (CASE WHEN m.[FromStage] = N'Baking' THEN m.[QuantityKg] ELSE 0 END)) AS [BakingKg],
+           SUM((CASE WHEN m.[ToStage] = N'Activated' THEN m.[QuantityKg] ELSE 0 END) - (CASE WHEN m.[FromStage] = N'Activated' THEN m.[QuantityKg] ELSE 0 END)) AS [ActivatedKg]
+    FROM dbo.DCenter_ConsumableMovements m
+    JOIN dbo.DCenter_ConsumableItemLots l ON l.[Id] = m.[LotId]
+    JOIN dbo.DCenter_ConsumableItems i ON i.[Id] = l.[ItemId]
+    WHERE m.[IsVoided] = 0 AND m.[TxnType] <> N'Void'
+      AND (@ByItems = 0 OR l.[ItemId] IN (SELECT [Id] FROM @ItemIds))
+      AND (@Category IS NULL OR i.[Category] = @Category)
+    GROUP BY m.[LotId], l.[ItemId]
+    ORDER BY m.[LotId]
+    OPTION (RECOMPILE);
+END
+GO
+
+-- Activated stock per lot and compartment (NULL compartment = unassigned / rack).
+CREATE OR ALTER PROCEDURE dbo.SP_DCenter_Ledger_ActivatedBins
+    @ByItems BIT,
+    @ItemIds dbo.TT_DCenter_IdList READONLY,
+    @Category NVARCHAR(30),
+    @AnyCompartment BIT,
+    @CompartmentId INT
+AS
+BEGIN
+    SET NOCOUNT ON;
+    WITH Live AS
+    (
+        SELECT m.[LotId], l.[ItemId], m.[QuantityKg], m.[FromStage], m.[ToStage], m.[FromCompartmentId], m.[ToCompartmentId]
+        FROM dbo.DCenter_ConsumableMovements m
+        JOIN dbo.DCenter_ConsumableItemLots l ON l.[Id] = m.[LotId]
+        JOIN dbo.DCenter_ConsumableItems i ON i.[Id] = l.[ItemId]
+        WHERE m.[IsVoided] = 0 AND m.[TxnType] <> N'Void'
+          AND (@ByItems = 0 OR l.[ItemId] IN (SELECT [Id] FROM @ItemIds))
+      AND (@Category IS NULL OR i.[Category] = @Category)
+          AND (@AnyCompartment = 0 OR m.[FromCompartmentId] IS NOT NULL OR m.[ToCompartmentId] IS NOT NULL)
+          AND (@CompartmentId IS NULL OR m.[FromCompartmentId] = @CompartmentId OR m.[ToCompartmentId] = @CompartmentId)
+    ),
+    Flows AS
+    (
+        SELECT [LotId], [ItemId], [ToCompartmentId] AS [CompartmentId], SUM([QuantityKg]) AS [Kg]
+        FROM Live WHERE [ToStage] = N'Activated'
+        GROUP BY [LotId], [ItemId], [ToCompartmentId]
+        UNION ALL
+        SELECT [LotId], [ItemId], [FromCompartmentId], -SUM([QuantityKg])
+        FROM Live WHERE [FromStage] = N'Activated'
+        GROUP BY [LotId], [ItemId], [FromCompartmentId]
+    )
+    SELECT [LotId], [ItemId], [CompartmentId], SUM([Kg]) AS [Kg]
+    FROM Flows
+    GROUP BY [LotId], [ItemId], [CompartmentId]
+    HAVING SUM([Kg]) <> 0
+    ORDER BY [LotId], [ItemId], [CompartmentId]
+    OPTION (RECOMPILE);
+END
+GO
+
+CREATE OR ALTER PROCEDURE dbo.SP_DCenter_Ledger_BakingBalances
+    @Ids dbo.TT_DCenter_IdList READONLY
+AS
+BEGIN
+    SET NOCOUNT ON;
+    SELECT m.[BakingRecordId] AS [Id], SUM((CASE WHEN m.[ToStage] = N'Baking' THEN m.[QuantityKg] ELSE 0 END) - (CASE WHEN m.[FromStage] = N'Baking' THEN m.[QuantityKg] ELSE 0 END)) AS [Kg]
+    FROM dbo.DCenter_ConsumableMovements m
+    WHERE m.[IsVoided] = 0 AND m.[TxnType] <> N'Void' AND m.[BakingRecordId] IN (SELECT [Id] FROM @Ids)
+    GROUP BY m.[BakingRecordId];
+END
+GO
+
+CREATE OR ALTER PROCEDURE dbo.SP_DCenter_Ledger_BakingFacts
+    @Ids dbo.TT_DCenter_IdList READONLY
+AS
+BEGIN
+    SET NOCOUNT ON;
+    SELECT m.[BakingRecordId] AS [Id],
+           SUM(CASE WHEN m.[TxnType] = N'SendToBake' THEN 1 ELSE 0 END) AS [Sent],
+           SUM(CASE WHEN m.[TxnType] = N'Return' AND m.[ToStage] = N'Baking' THEN 1 ELSE 0 END) AS [Rebake],
+           SUM((CASE WHEN m.[ToStage] = N'Baking' THEN m.[QuantityKg] ELSE 0 END) - (CASE WHEN m.[FromStage] = N'Baking' THEN m.[QuantityKg] ELSE 0 END)) AS [Balance]
+    FROM dbo.DCenter_ConsumableMovements m
+    WHERE m.[IsVoided] = 0 AND m.[TxnType] <> N'Void' AND m.[BakingRecordId] IN (SELECT [Id] FROM @Ids)
+    GROUP BY m.[BakingRecordId];
+END
+GO
+
+-- Re-bake and placement facts for one baking record.
+CREATE OR ALTER PROCEDURE dbo.SP_DCenter_Ledger_BakingFlags
+    @BakingRecordId INT
+AS
+BEGIN
+    SET NOCOUNT ON;
+    SELECT
+        CAST(CASE WHEN EXISTS (SELECT 1 FROM dbo.DCenter_ConsumableMovements m WHERE m.[IsVoided] = 0 AND m.[TxnType] <> N'Void'
+            AND m.[BakingRecordId] = @BakingRecordId AND m.[TxnType] = N'Return' AND m.[ToStage] = N'Baking') THEN 1 ELSE 0 END AS BIT) AS [RebakeReturned],
+        CAST(CASE WHEN EXISTS (SELECT 1 FROM dbo.DCenter_ConsumableMovements m WHERE m.[IsVoided] = 0 AND m.[TxnType] <> N'Void'
+            AND m.[BakingRecordId] = @BakingRecordId AND m.[FromStage] = N'Baking') THEN 1 ELSE 0 END AS BIT) AS [Placed],
+        (SELECT SUM(m.[QuantityKg]) FROM dbo.DCenter_ConsumableMovements m WHERE m.[IsVoided] = 0 AND m.[TxnType] <> N'Void'
+            AND m.[BakingRecordId] = @BakingRecordId AND m.[FromStage] = N'Baking' AND m.[ToStage] = N'Activated') AS [IssuedToActivatedKg];
+END
+GO
+
+CREATE OR ALTER PROCEDURE dbo.SP_DCenter_Ledger_RecentQuantities
+    @ItemId INT,
+    @TxnType NVARCHAR(20),
+    @Take INT
+AS
+BEGIN
+    SET NOCOUNT ON;
+    SELECT TOP (@Take) m.[QuantityKg] AS [Value]
+    FROM dbo.DCenter_ConsumableMovements m
+    JOIN dbo.DCenter_ConsumableItemLots l ON l.[Id] = m.[LotId]
+    WHERE m.[IsVoided] = 0 AND m.[TxnType] <> N'Void' AND m.[TxnType] = @TxnType AND l.[ItemId] = @ItemId
+    ORDER BY m.[Id] DESC;
+END
+GO
+
+CREATE OR ALTER PROCEDURE dbo.SP_DCenter_Ledger_LotFlows
+    @Category NVARCHAR(30)
+AS
+BEGIN
+    SET NOCOUNT ON;
+    SELECT m.[LotId],
+           SUM(CASE WHEN m.[TxnType] = N'Receive' THEN m.[QuantityKg] ELSE 0 END) AS [Received],
+           SUM(CASE WHEN m.[TxnType] = N'Issue' OR m.[TxnType] = N'Finish' THEN m.[QuantityKg]
+                    WHEN m.[TxnType] = N'Return' THEN -m.[QuantityKg] ELSE 0 END) AS [Taken],
+           SUM((CASE WHEN m.[ToStage] = N'Normal' THEN m.[QuantityKg] ELSE 0 END) - (CASE WHEN m.[FromStage] = N'Normal' THEN m.[QuantityKg] ELSE 0 END)) AS [NormalKg],
+           SUM((CASE WHEN m.[ToStage] = N'Baking' THEN m.[QuantityKg] ELSE 0 END) - (CASE WHEN m.[FromStage] = N'Baking' THEN m.[QuantityKg] ELSE 0 END)) AS [BakingKg],
+           SUM((CASE WHEN m.[ToStage] = N'Activated' THEN m.[QuantityKg] ELSE 0 END) - (CASE WHEN m.[FromStage] = N'Activated' THEN m.[QuantityKg] ELSE 0 END)) AS [ActivatedKg]
+    FROM dbo.DCenter_ConsumableMovements m
+    JOIN dbo.DCenter_ConsumableItemLots l ON l.[Id] = m.[LotId]
+    JOIN dbo.DCenter_ConsumableItems i ON i.[Id] = l.[ItemId]
+    WHERE m.[IsVoided] = 0 AND m.[TxnType] <> N'Void' AND (@Category IS NULL OR i.[Category] = @Category)
+    GROUP BY m.[LotId]
+    OPTION (RECOMPILE);
+END
+GO
+
+-- What a welder picked and returned per consumable since a date, with the last issue from Activated storage.
+CREATE OR ALTER PROCEDURE dbo.SP_DCenter_Ledger_WelderWindow
+    @WelderId INT,
+    @Since DATE,
+    @Category NVARCHAR(30)
+AS
+BEGIN
+    SET NOCOUNT ON;
+    SELECT l.[ItemId],
+           SUM(CASE WHEN m.[TxnType] = N'Issue' THEN m.[QuantityKg] ELSE 0 END) AS [Picked],
+           SUM(CASE WHEN m.[TxnType] = N'Return' THEN m.[QuantityKg] ELSE 0 END) AS [Returned],
+           MAX(CASE WHEN m.[TxnType] = N'Issue' AND m.[FromStage] = N'Activated' THEN m.[Id] END) AS [LastIssueId]
+    FROM dbo.DCenter_ConsumableMovements m
+    JOIN dbo.DCenter_ConsumableItemLots l ON l.[Id] = m.[LotId]
+    JOIN dbo.DCenter_ConsumableItems i ON i.[Id] = l.[ItemId]
+    WHERE m.[IsVoided] = 0 AND m.[TxnType] <> N'Void' AND m.[WelderId] = @WelderId AND m.[TxnDate] >= @Since
+      AND (@Category IS NULL OR i.[Category] = @Category)
+    GROUP BY l.[ItemId]
+    OPTION (RECOMPILE);
+END
+GO
+
+CREATE OR ALTER PROCEDURE dbo.SP_DCenter_Ledger_MonthlyFlows
+    @From DATE,
+    @Category NVARCHAR(30)
+AS
+BEGIN
+    SET NOCOUNT ON;
+    SELECT YEAR(m.[TxnDate]) AS [Year], MONTH(m.[TxnDate]) AS [Month], m.[TxnType], i.[Category], SUM(m.[QuantityKg]) AS [Kg]
+    FROM dbo.DCenter_ConsumableMovements m
+    JOIN dbo.DCenter_ConsumableItemLots l ON l.[Id] = m.[LotId]
+    JOIN dbo.DCenter_ConsumableItems i ON i.[Id] = l.[ItemId]
+    WHERE m.[IsVoided] = 0 AND m.[TxnType] <> N'Void' AND m.[TxnDate] >= @From
+      AND m.[TxnType] IN (N'Receive', N'Issue', N'Return', N'Finish', N'Adjust')
+      AND (@Category IS NULL OR i.[Category] = @Category)
+    GROUP BY YEAR(m.[TxnDate]), MONTH(m.[TxnDate]), m.[TxnType], i.[Category]
+    OPTION (RECOMPILE);
+END
+GO
+
+CREATE OR ALTER PROCEDURE dbo.SP_DCenter_Ledger_ItemConsumption
+    @Start DATE,
+    @End DATE,
+    @Category NVARCHAR(30)
+AS
+BEGIN
+    SET NOCOUNT ON;
+    SELECT l.[ItemId], i.[Category], i.[Diameter], i.[Specification],
+           SUM(CASE WHEN m.[TxnType] = N'Issue' THEN m.[QuantityKg] ELSE 0 END) AS [Picked],
+           SUM(CASE WHEN m.[TxnType] = N'Return' THEN m.[QuantityKg] ELSE 0 END) AS [Returned],
+           SUM(CASE WHEN m.[TxnType] = N'Finish' THEN m.[QuantityKg] ELSE 0 END) AS [Finished]
+    FROM dbo.DCenter_ConsumableMovements m
+    JOIN dbo.DCenter_ConsumableItemLots l ON l.[Id] = m.[LotId]
+    JOIN dbo.DCenter_ConsumableItems i ON i.[Id] = l.[ItemId]
+    WHERE m.[IsVoided] = 0 AND m.[TxnType] <> N'Void' AND m.[TxnDate] >= @Start AND m.[TxnDate] < @End
+      AND m.[TxnType] IN (N'Issue', N'Return', N'Finish')
+      AND (@Category IS NULL OR i.[Category] = @Category)
+    GROUP BY l.[ItemId], i.[Category], i.[Diameter], i.[Specification]
+    OPTION (RECOMPILE);
+END
+GO
+
+CREATE OR ALTER PROCEDURE dbo.SP_DCenter_Ledger_ItemMonthlyUse
+    @From DATE,
+    @Category NVARCHAR(30)
+AS
+BEGIN
+    SET NOCOUNT ON;
+    SELECT l.[ItemId], YEAR(m.[TxnDate]) AS [Year], MONTH(m.[TxnDate]) AS [Month],
+           SUM(CASE WHEN m.[TxnType] = N'Return' THEN -m.[QuantityKg] ELSE m.[QuantityKg] END) AS [Kg]
+    FROM dbo.DCenter_ConsumableMovements m
+    JOIN dbo.DCenter_ConsumableItemLots l ON l.[Id] = m.[LotId]
+    JOIN dbo.DCenter_ConsumableItems i ON i.[Id] = l.[ItemId]
+    WHERE m.[IsVoided] = 0 AND m.[TxnType] <> N'Void' AND m.[TxnDate] >= @From
+      AND m.[TxnType] IN (N'Issue', N'Return', N'Finish')
+      AND (@Category IS NULL OR i.[Category] = @Category)
+    GROUP BY l.[ItemId], YEAR(m.[TxnDate]), MONTH(m.[TxnDate])
+    OPTION (RECOMPILE);
+END
+GO
+
+CREATE OR ALTER PROCEDURE dbo.SP_DCenter_Ledger_LastIssued
+    @Category NVARCHAR(30)
+AS
+BEGIN
+    SET NOCOUNT ON;
+    SELECT l.[ItemId], MAX(m.[TxnDate]) AS [Last]
+    FROM dbo.DCenter_ConsumableMovements m
+    JOIN dbo.DCenter_ConsumableItemLots l ON l.[Id] = m.[LotId]
+    JOIN dbo.DCenter_ConsumableItems i ON i.[Id] = l.[ItemId]
+    WHERE m.[IsVoided] = 0 AND m.[TxnType] <> N'Void' AND m.[TxnType] = N'Issue' AND (@Category IS NULL OR i.[Category] = @Category)
+    GROUP BY l.[ItemId]
+    OPTION (RECOMPILE);
+END
+GO
+
+CREATE OR ALTER PROCEDURE dbo.SP_DCenter_Ledger_LastIssuedLot
+    @WelderId INT,
+    @ItemId INT
+AS
+BEGIN
+    SET NOCOUNT ON;
+    SELECT TOP (1) m.[LotId] AS [Value]
+    FROM dbo.DCenter_ConsumableMovements m
+    JOIN dbo.DCenter_ConsumableItemLots l ON l.[Id] = m.[LotId]
+    WHERE m.[IsVoided] = 0 AND m.[TxnType] <> N'Void' AND m.[TxnType] = N'Issue' AND m.[WelderId] = @WelderId AND l.[ItemId] = @ItemId
+    ORDER BY m.[Id] DESC;
+END
+GO
+
+-- Issued minus returned for a welder and consumable within the return window.
+CREATE OR ALTER PROCEDURE dbo.SP_DCenter_Ledger_Outstanding
+    @WelderId INT,
+    @ItemId INT,
+    @Since DATE,
+    @Until DATE
+AS
+BEGIN
+    SET NOCOUNT ON;
+    SELECT SUM(CASE WHEN m.[TxnType] = N'Issue' THEN m.[QuantityKg] ELSE -m.[QuantityKg] END) AS [Value]
+    FROM dbo.DCenter_ConsumableMovements m
+    JOIN dbo.DCenter_ConsumableItemLots l ON l.[Id] = m.[LotId]
+    WHERE m.[IsVoided] = 0 AND m.[TxnType] <> N'Void' AND m.[WelderId] = @WelderId AND l.[ItemId] = @ItemId
+      AND m.[TxnDate] >= @Since AND m.[TxnDate] <= @Until
+      AND m.[TxnType] IN (N'Issue', N'Return');
+END
+GO
+
+CREATE OR ALTER PROCEDURE dbo.SP_DCenter_Ledger_BinSince
+    @LotIds dbo.TT_DCenter_IdList READONLY
+AS
+BEGIN
+    SET NOCOUNT ON;
+    SELECT m.[ToCompartmentId] AS [CompartmentId], m.[LotId], MAX(m.[CreatedAt]) AS [Last]
+    FROM dbo.DCenter_ConsumableMovements m
+    WHERE m.[IsVoided] = 0 AND m.[TxnType] <> N'Void' AND m.[ToStage] = N'Activated' AND m.[ToCompartmentId] IS NOT NULL
+      AND m.[LotId] IN (SELECT [Id] FROM @LotIds)
+    GROUP BY m.[ToCompartmentId], m.[LotId];
+END
+GO
+
+CREATE OR ALTER PROCEDURE dbo.SP_DCenter_Ledger_OpeningReceipts
+    @ReferenceNo NVARCHAR(60)
+AS
+BEGIN
+    SET NOCOUNT ON;
+    SELECT m.[TxnNo], m.[TxnDate], m.[QuantityKg], m.[ToStage], m.[ToCompartmentId],
+           i.[Specification], i.[Diameter], l.[Brand], l.[LotNumber]
+    FROM dbo.DCenter_ConsumableMovements m
+    JOIN dbo.DCenter_ConsumableItemLots l ON l.[Id] = m.[LotId]
+    JOIN dbo.DCenter_ConsumableItems i ON i.[Id] = l.[ItemId]
+    WHERE m.[IsVoided] = 0 AND m.[TxnType] <> N'Void' AND m.[TxnType] = N'Receive' AND m.[ReferenceNo] = @ReferenceNo
+    ORDER BY m.[Id];
+END
+GO
+
+-- The first live receipt of each lot (date, source, received by).
+CREATE OR ALTER PROCEDURE dbo.SP_DCenter_Lot_FirstReceipts
+    @ItemId INT,
+    @Category NVARCHAR(30)
+AS
+BEGIN
+    SET NOCOUNT ON;
+    SELECT x.[LotId], x.[TxnDate], x.[Source], x.[Requestor]
+    FROM
+    (
+        SELECT m.[LotId], m.[TxnDate], m.[Source], m.[Requestor],
+               ROW_NUMBER() OVER (PARTITION BY m.[LotId] ORDER BY m.[TxnDate], m.[Id]) AS [N]
+        FROM dbo.DCenter_ConsumableMovements m
+        JOIN dbo.DCenter_ConsumableItemLots l ON l.[Id] = m.[LotId]
+        JOIN dbo.DCenter_ConsumableItems i ON i.[Id] = l.[ItemId]
+        WHERE m.[IsVoided] = 0 AND m.[TxnType] = N'Receive'
+          AND (@ItemId IS NULL OR l.[ItemId] = @ItemId)
+          AND (@Category IS NULL OR i.[Category] = @Category)
+    ) x
+    WHERE x.[N] = 1
+    OPTION (RECOMPILE);
+END
+GO
+
+-- Transaction lines for the history, today and result views. @Sort: 1 Id, 2 Id desc, 3 newest first, 4 type/spec/lot.
+CREATE OR ALTER PROCEDURE dbo.SP_DCenter_Movement_List
+    @TxnNo NVARCHAR(20),
+    @WelderId INT,
+    @CreatedFrom DATETIME2,
+    @TxnType NVARCHAR(20),
+    @ExcludeVoidEntries BIT,
+    @From DATE,
+    @To DATE,
+    @Stage NVARCHAR(20),
+    @Category NVARCHAR(30),
+    @ItemId INT,
+    @LotId INT,
+    @CompartmentId INT,
+    @BakingRecordId INT,
+    @Terms dbo.TT_DCenter_TextList READONLY,
+    @Sort INT,
+    @Skip INT,
+    @Take INT,
+    @Total INT OUTPUT
+AS
+BEGIN
+    SET NOCOUNT ON;
+    SELECT @Total = COUNT(*)
+    FROM dbo.DCenter_ConsumableMovements m
+    JOIN dbo.DCenter_ConsumableItemLots l ON l.[Id] = m.[LotId]
+    JOIN dbo.DCenter_ConsumableItems i ON i.[Id] = l.[ItemId]
+    WHERE (@TxnNo IS NULL OR m.[TxnNo] = @TxnNo)
+      AND (@WelderId IS NULL OR m.[WelderId] = @WelderId)
+      AND (@CreatedFrom IS NULL OR m.[CreatedAt] >= @CreatedFrom)
+      AND (@TxnType IS NULL OR m.[TxnType] = @TxnType)
+      AND (@ExcludeVoidEntries = 0 OR m.[TxnType] <> N'Void')
+      AND (@From IS NULL OR m.[TxnDate] >= @From)
+      AND (@To IS NULL OR m.[TxnDate] <= @To)
+      AND (@Stage IS NULL OR m.[FromStage] = @Stage OR m.[ToStage] = @Stage)
+      AND (@Category IS NULL OR i.[Category] = @Category)
+      AND (@ItemId IS NULL OR l.[ItemId] = @ItemId)
+      AND (@LotId IS NULL OR m.[LotId] = @LotId)
+      AND (@CompartmentId IS NULL OR m.[FromCompartmentId] = @CompartmentId OR m.[ToCompartmentId] = @CompartmentId)
+      AND (@BakingRecordId IS NULL OR m.[BakingRecordId] = @BakingRecordId)
+      AND (SELECT COUNT(*) FROM @Terms t WHERE CHARINDEX(t.[Value], m.[TxnNo]) > 0 OR CHARINDEX(t.[Value], l.[Brand]) > 0 OR CHARINDEX(t.[Value], l.[LotNumber]) > 0 OR CHARINDEX(t.[Value], i.[Specification]) > 0 OR CHARINDEX(t.[Value], i.[Diameter]) > 0 OR CHARINDEX(t.[Value], m.[Requestor]) > 0 OR CHARINDEX(t.[Value], m.[Remarks]) > 0 OR CHARINDEX(t.[Value], m.[CreatedBy]) > 0) = (SELECT COUNT(*) FROM @Terms)
+    OPTION (RECOMPILE);
+
+    SELECT m.[Id], m.[TxnNo], m.[TxnType], m.[TxnDate], m.[CreatedAt], m.[CreatedBy],
+           l.[ItemId], i.[Category], i.[Specification], i.[Diameter], i.[Diameter] + N' ' + i.[Specification] AS [DiaSpec],
+           m.[LotId], l.[Brand], l.[LotNumber], m.[QuantityKg], m.[FromStage], m.[ToStage],
+           m.[Source], m.[Requestor], m.[WelderId], w.[WelderName], m.[Reason], m.[CountedQtyKg],
+           m.[ReferenceNo], m.[Remarks], m.[IsVoided], m.[VoidsMovementId],
+           m.[FromCompartmentId], fo.[Code] + N'-' + fc.[Label] AS [FromCompartment],
+           m.[ToCompartmentId], tov.[Code] + N'-' + tc.[Label] AS [ToCompartment],
+           m.[BakingRecordId], b.[BakingNo]
+    FROM dbo.DCenter_ConsumableMovements m
+    JOIN dbo.DCenter_ConsumableItemLots l ON l.[Id] = m.[LotId]
+    JOIN dbo.DCenter_ConsumableItems i ON i.[Id] = l.[ItemId]
+    LEFT JOIN dbo.DCenter_Welders w ON w.[Id] = m.[WelderId]
+    LEFT JOIN dbo.DCenter_OvenCompartments fc ON fc.[Id] = m.[FromCompartmentId]
+    LEFT JOIN dbo.DCenter_Ovens fo ON fo.[Id] = fc.[OvenId]
+    LEFT JOIN dbo.DCenter_OvenCompartments tc ON tc.[Id] = m.[ToCompartmentId]
+    LEFT JOIN dbo.DCenter_Ovens tov ON tov.[Id] = tc.[OvenId]
+    LEFT JOIN dbo.DCenter_BakingRecords b ON b.[Id] = m.[BakingRecordId]
+    WHERE (@TxnNo IS NULL OR m.[TxnNo] = @TxnNo)
+      AND (@WelderId IS NULL OR m.[WelderId] = @WelderId)
+      AND (@CreatedFrom IS NULL OR m.[CreatedAt] >= @CreatedFrom)
+      AND (@TxnType IS NULL OR m.[TxnType] = @TxnType)
+      AND (@ExcludeVoidEntries = 0 OR m.[TxnType] <> N'Void')
+      AND (@From IS NULL OR m.[TxnDate] >= @From)
+      AND (@To IS NULL OR m.[TxnDate] <= @To)
+      AND (@Stage IS NULL OR m.[FromStage] = @Stage OR m.[ToStage] = @Stage)
+      AND (@Category IS NULL OR i.[Category] = @Category)
+      AND (@ItemId IS NULL OR l.[ItemId] = @ItemId)
+      AND (@LotId IS NULL OR m.[LotId] = @LotId)
+      AND (@CompartmentId IS NULL OR m.[FromCompartmentId] = @CompartmentId OR m.[ToCompartmentId] = @CompartmentId)
+      AND (@BakingRecordId IS NULL OR m.[BakingRecordId] = @BakingRecordId)
+      AND (SELECT COUNT(*) FROM @Terms t WHERE CHARINDEX(t.[Value], m.[TxnNo]) > 0 OR CHARINDEX(t.[Value], l.[Brand]) > 0 OR CHARINDEX(t.[Value], l.[LotNumber]) > 0 OR CHARINDEX(t.[Value], i.[Specification]) > 0 OR CHARINDEX(t.[Value], i.[Diameter]) > 0 OR CHARINDEX(t.[Value], m.[Requestor]) > 0 OR CHARINDEX(t.[Value], m.[Remarks]) > 0 OR CHARINDEX(t.[Value], m.[CreatedBy]) > 0) = (SELECT COUNT(*) FROM @Terms)
+    ORDER BY
+        CASE WHEN @Sort = 1 THEN m.[Id] END ASC,
+        CASE WHEN @Sort = 2 THEN m.[Id] END DESC,
+        CASE WHEN @Sort = 3 THEN m.[CreatedAt] END DESC,
+        CASE WHEN @Sort = 3 THEN m.[Id] END DESC,
+        CASE WHEN @Sort = 4 THEN i.[Category] END,
+        CASE WHEN @Sort = 4 THEN i.[Specification] END,
+        CASE WHEN @Sort = 4 THEN l.[LotNumber] END,
+        CASE WHEN @Sort = 4 THEN m.[Id] END
+    OFFSET @Skip ROWS FETCH NEXT @Take ROWS ONLY
+    OPTION (RECOMPILE);
+END
+GO
+
+CREATE OR ALTER PROCEDURE dbo.SP_DCenter_Movement_Get
+    @TxnNo NVARCHAR(20),
+    @NotVoidedOnly BIT,
+    @ByIds BIT,
+    @Ids dbo.TT_DCenter_IdList READONLY
+AS
+BEGIN
+    SET NOCOUNT ON;
+    SELECT [Id], [TxnNo], [TxnType], [TxnDate], [LotId], [QuantityKg], [FromStage], [ToStage], [FromCompartmentId], [ToCompartmentId], [BakingRecordId], [Source], [Requestor], [WelderId], [Reason], [CountedQtyKg], [ReferenceNo], [Remarks], [IsVoided], [VoidsMovementId], [CreatedBy], [CreatedAt]
+    FROM dbo.DCenter_ConsumableMovements
+    WHERE (@TxnNo IS NULL OR [TxnNo] = @TxnNo)
+      AND (@NotVoidedOnly = 0 OR [IsVoided] = 0)
+      AND (@ByIds = 0 OR [Id] IN (SELECT [Id] FROM @Ids))
+    ORDER BY [Id]
+    OPTION (RECOMPILE);
+END
+GO
+
+-- Adds ledger lines in Seq order, so their Ids follow the order the lines were built in.
+CREATE OR ALTER PROCEDURE dbo.SP_DCenter_Movement_Insert
+    @Rows dbo.TT_DCenter_MovementRows READONLY
+AS
+BEGIN
+    SET NOCOUNT ON;
+    INSERT INTO dbo.DCenter_ConsumableMovements ([TxnNo], [TxnType], [TxnDate], [LotId], [QuantityKg], [FromStage], [ToStage], [FromCompartmentId], [ToCompartmentId], [BakingRecordId], [Source], [Requestor], [WelderId], [Reason], [CountedQtyKg], [ReferenceNo], [Remarks], [IsVoided], [VoidsMovementId], [CreatedBy], [CreatedAt])
+    SELECT [TxnNo], [TxnType], [TxnDate], [LotId], [QuantityKg], [FromStage], [ToStage], [FromCompartmentId], [ToCompartmentId], [BakingRecordId], [Source], [Requestor], [WelderId], [Reason], [CountedQtyKg], [ReferenceNo], [Remarks], [IsVoided], [VoidsMovementId], [CreatedBy], [CreatedAt]
+    FROM @Rows
+    ORDER BY [Seq];
+END
+GO
+
+CREATE OR ALTER PROCEDURE dbo.SP_DCenter_Movement_SetVoided
+    @Ids dbo.TT_DCenter_IdList READONLY
+AS
+BEGIN
+    SET NOCOUNT ON;
+    UPDATE m SET [IsVoided] = 1
+    FROM dbo.DCenter_ConsumableMovements m
+    JOIN @Ids i ON i.[Id] = m.[Id];
+END
+GO
+
+CREATE OR ALTER PROCEDURE dbo.SP_DCenter_Item_List
+    @ByIds BIT,
+    @Ids dbo.TT_DCenter_IdList READONLY,
+    @Category NVARCHAR(30)
+AS
+BEGIN
+    SET NOCOUNT ON;
+    SELECT [Id], [Category], [Specification], [Diameter], [MinStockKg], [ActivatedMinKg], [FinishThresholdKg], [HoldingOvenType], [IsActive], [CreatedAt]
+    FROM dbo.DCenter_ConsumableItems
+    WHERE (@ByIds = 0 OR [Id] IN (SELECT [Id] FROM @Ids))
+      AND (@Category IS NULL OR [Category] = @Category)
+    ORDER BY [Id]
+    OPTION (RECOMPILE);
+END
+GO
+
+CREATE OR ALTER PROCEDURE dbo.SP_DCenter_Item_Search
+    @Terms dbo.TT_DCenter_TextList READONLY,
+    @Category NVARCHAR(30),
+    @ActiveOnly BIT,
+    @Take INT
+AS
+BEGIN
+    SET NOCOUNT ON;
+    SELECT TOP (@Take) [Id], [Category], [Specification], [Diameter], [MinStockKg], [ActivatedMinKg], [FinishThresholdKg], [HoldingOvenType], [IsActive], [CreatedAt]
+    FROM dbo.DCenter_ConsumableItems i
+    WHERE (@ActiveOnly = 0 OR i.[IsActive] = 1)
+      AND (@Category IS NULL OR i.[Category] = @Category)
+      AND (SELECT COUNT(*) FROM @Terms t WHERE CHARINDEX(t.[Value], i.[Specification]) > 0 OR CHARINDEX(t.[Value], i.[Diameter]) > 0 OR CHARINDEX(t.[Value], i.[Category]) > 0) = (SELECT COUNT(*) FROM @Terms)
+    ORDER BY i.[Category], i.[Specification], i.[Diameter], i.[Id]
+    OPTION (RECOMPILE);
+END
+GO
+
+CREATE OR ALTER PROCEDURE dbo.SP_DCenter_Item_FindBySpec
+    @Specification NVARCHAR(100),
+    @Diameter NVARCHAR(30),
+    @ExcludeId INT
+AS
+BEGIN
+    SET NOCOUNT ON;
+    SELECT TOP (1) [Id], [Category], [Specification], [Diameter], [MinStockKg], [ActivatedMinKg], [FinishThresholdKg], [HoldingOvenType], [IsActive], [CreatedAt]
+    FROM dbo.DCenter_ConsumableItems
+    WHERE [Specification] = @Specification AND [Diameter] = @Diameter AND [Id] <> @ExcludeId;
+END
+GO
+
+-- @Id NULL inserts a consumable; otherwise updates it. Returns the Id.
+CREATE OR ALTER PROCEDURE dbo.SP_DCenter_Item_Save
+    @Id INT,
+    @Category NVARCHAR(30),
+    @Specification NVARCHAR(100),
+    @Diameter NVARCHAR(30),
+    @MinStockKg DECIMAL(10, 2),
+    @ActivatedMinKg DECIMAL(10, 2),
+    @FinishThresholdKg DECIMAL(10, 2),
+    @HoldingOvenType NVARCHAR(30),
+    @IsActive BIT,
+    @CreatedAt DATETIME2
+AS
+BEGIN
+    SET NOCOUNT ON;
+    IF @Id IS NULL
+    BEGIN
+        INSERT INTO dbo.DCenter_ConsumableItems
+            ([Category], [Specification], [Diameter], [MinStockKg], [ActivatedMinKg], [FinishThresholdKg], [HoldingOvenType], [IsActive], [CreatedAt])
+        VALUES (@Category, @Specification, @Diameter, @MinStockKg, @ActivatedMinKg, @FinishThresholdKg, @HoldingOvenType, @IsActive, @CreatedAt);
+        SELECT CAST(SCOPE_IDENTITY() AS INT) AS [Value];
+        RETURN;
+    END
+
+    UPDATE dbo.DCenter_ConsumableItems
+    SET [Category] = @Category, [Specification] = @Specification, [Diameter] = @Diameter, [MinStockKg] = @MinStockKg,
+        [ActivatedMinKg] = @ActivatedMinKg, [FinishThresholdKg] = @FinishThresholdKg, [HoldingOvenType] = @HoldingOvenType,
+        [IsActive] = @IsActive
+    WHERE [Id] = @Id;
+
+    IF @@ROWCOUNT = 0
+        THROW 50001, N'The consumable was changed or deleted by someone else.', 1;
+    SELECT @Id AS [Value];
+END
+GO
+
+-- Deletes a consumable and its lots (the caller checks there is no stock history).
+CREATE OR ALTER PROCEDURE dbo.SP_DCenter_Item_Delete
+    @Id INT
+AS
+BEGIN
+    SET NOCOUNT ON;
+    SET XACT_ABORT ON;
+    BEGIN TRANSACTION;
+    DELETE FROM dbo.DCenter_ConsumableItemLots WHERE [ItemId] = @Id;
+    DELETE FROM dbo.DCenter_ConsumableItems WHERE [Id] = @Id;
+    IF @@ROWCOUNT = 0
+        THROW 50001, N'The consumable was changed or deleted by someone else.', 1;
+    COMMIT TRANSACTION;
+END
+GO
+
+CREATE OR ALTER PROCEDURE dbo.SP_DCenter_Item_History
+    @ItemId INT
+AS
+BEGIN
+    SET NOCOUNT ON;
+    SELECT
+        (SELECT COUNT(*) FROM dbo.DCenter_ConsumableMovements m
+         JOIN dbo.DCenter_ConsumableItemLots l ON l.[Id] = m.[LotId] WHERE l.[ItemId] = @ItemId) AS [Movements],
+        (SELECT COUNT(*) FROM dbo.DCenter_BakingRecords b
+         JOIN dbo.DCenter_ConsumableItemLots l ON l.[Id] = b.[LotId] WHERE l.[ItemId] = @ItemId) AS [Bakings];
+END
+GO
+
+-- Consumables with at least one ledger line.
+CREATE OR ALTER PROCEDURE dbo.SP_DCenter_Item_StockedIds
+AS
+BEGIN
+    SET NOCOUNT ON;
+    SELECT DISTINCT l.[ItemId] AS [Value]
+    FROM dbo.DCenter_ConsumableItemLots l
+    WHERE EXISTS (SELECT 1 FROM dbo.DCenter_ConsumableMovements m WHERE m.[LotId] = l.[Id]);
+END
+GO
+
+-- Specification spellings: the dropdown list first (in its order), then the ones already used by consumables.
+CREATE OR ALTER PROCEDURE dbo.SP_DCenter_Item_SpecificationNames
+    @LookupCategory NVARCHAR(50)
+AS
+BEGIN
+    SET NOCOUNT ON;
+    SELECT [Value]
+    FROM
+    (
+        SELECT 0 AS [Src], [SortOrder], [Id], [Value] FROM dbo.DCenter_Lookups WHERE [Category] = @LookupCategory
+        UNION ALL
+        SELECT 1, 0, [Id], [Specification] FROM dbo.DCenter_ConsumableItems
+    ) x
+    ORDER BY [Src], [SortOrder], [Id];
+END
+GO
+
+CREATE OR ALTER PROCEDURE dbo.SP_DCenter_Lot_List
+    @ByIds BIT,
+    @Ids dbo.TT_DCenter_IdList READONLY,
+    @ByItems BIT,
+    @ItemIds dbo.TT_DCenter_IdList READONLY,
+    @Category NVARCHAR(30)
+AS
+BEGIN
+    SET NOCOUNT ON;
+    SELECT l.[Id], l.[ItemId], l.[Brand], l.[LotNumber], l.[CreatedAt],
+           i.[Category], i.[Specification], i.[Diameter], i.[HoldingOvenType], i.[MinStockKg], i.[IsActive]
+    FROM dbo.DCenter_ConsumableItemLots l
+    JOIN dbo.DCenter_ConsumableItems i ON i.[Id] = l.[ItemId]
+    WHERE (@ByIds = 0 OR l.[Id] IN (SELECT [Id] FROM @Ids))
+      AND (@ByItems = 0 OR l.[ItemId] IN (SELECT [Id] FROM @ItemIds))
+      AND (@Category IS NULL OR i.[Category] = @Category)
+    ORDER BY l.[Id]
+    OPTION (RECOMPILE);
+END
+GO
+
+CREATE OR ALTER PROCEDURE dbo.SP_DCenter_Lot_Find
+    @ItemId INT,
+    @Brand NVARCHAR(100),
+    @LotNumber NVARCHAR(60)
+AS
+BEGIN
+    SET NOCOUNT ON;
+    SELECT TOP (1) [Id] AS [Value]
+    FROM dbo.DCenter_ConsumableItemLots
+    WHERE [ItemId] = @ItemId AND [Brand] = @Brand AND [LotNumber] = @LotNumber;
+END
+GO
+
+CREATE OR ALTER PROCEDURE dbo.SP_DCenter_Lot_Insert
+    @ItemId INT,
+    @Brand NVARCHAR(100),
+    @LotNumber NVARCHAR(60),
+    @CreatedAt DATETIME2
+AS
+BEGIN
+    SET NOCOUNT ON;
+    INSERT INTO dbo.DCenter_ConsumableItemLots ([ItemId], [Brand], [LotNumber], [CreatedAt])
+    VALUES (@ItemId, @Brand, @LotNumber, @CreatedAt);
+    SELECT CAST(SCOPE_IDENTITY() AS INT) AS [Value];
+END
+GO
+
+CREATE OR ALTER PROCEDURE dbo.SP_DCenter_Oven_Board
+AS
+BEGIN
+    SET NOCOUNT ON;
+    SELECT o.[Id] AS [OvenId], o.[Name], o.[Code], o.[OvenType], c.[Id] AS [CompartmentId], c.[Number], c.[Label]
+    FROM dbo.DCenter_Ovens o
+    LEFT JOIN dbo.DCenter_OvenCompartments c ON c.[OvenId] = o.[Id]
+    ORDER BY o.[Id], c.[Number];
+END
+GO
+
+-- Compartments with their display label (oven code-label) and oven type.
+CREATE OR ALTER PROCEDURE dbo.SP_DCenter_Compartment_List
+    @ByIds BIT,
+    @Ids dbo.TT_DCenter_IdList READONLY
+AS
+BEGIN
+    SET NOCOUNT ON;
+    SELECT c.[Id], o.[Code] + N'-' + c.[Label] AS [Label], o.[OvenType], c.[Number]
+    FROM dbo.DCenter_OvenCompartments c
+    JOIN dbo.DCenter_Ovens o ON o.[Id] = c.[OvenId]
+    WHERE @ByIds = 0 OR c.[Id] IN (SELECT [Id] FROM @Ids)
+    ORDER BY c.[Id];
+END
+GO
+
+CREATE OR ALTER PROCEDURE dbo.SP_DCenter_Baking_Get
+    @Ids dbo.TT_DCenter_IdList READONLY
+AS
+BEGIN
+    SET NOCOUNT ON;
+    SELECT [Id], [BakingNo], [LotId], [QuantityKg], [PersonInCharge], [BakingDate], [BakeStart], [BakeStop], [RebakeStart], [RebakeStop], [Status], [Remarks], [CreatedBy], [CreatedAt]
+    FROM dbo.DCenter_BakingRecords
+    WHERE [Id] IN (SELECT [Id] FROM @Ids)
+    ORDER BY [Id];
+END
+GO
+
+CREATE OR ALTER PROCEDURE dbo.SP_DCenter_Baking_Details
+    @Ids dbo.TT_DCenter_IdList READONLY
+AS
+BEGIN
+    SET NOCOUNT ON;
+    SELECT b.[Id], b.[BakingNo], l.[ItemId], i.[Category], i.[Diameter], i.[Specification], i.[HoldingOvenType],
+           b.[LotId], l.[Brand], l.[LotNumber], b.[QuantityKg], b.[PersonInCharge], b.[BakingDate],
+           b.[BakeStart], b.[BakeStop], b.[RebakeStart], b.[RebakeStop], b.[Status], b.[Remarks], b.[CreatedBy], b.[CreatedAt]
+    FROM dbo.DCenter_BakingRecords b
+    JOIN dbo.DCenter_ConsumableItemLots l ON l.[Id] = b.[LotId]
+    JOIN dbo.DCenter_ConsumableItems i ON i.[Id] = l.[ItemId]
+    WHERE b.[Id] IN (SELECT [Id] FROM @Ids)
+    ORDER BY b.[Id];
+END
+GO
+
+-- Baking record Ids (newest first) matching the filters, with the total count.
+CREATE OR ALTER PROCEDURE dbo.SP_DCenter_Baking_Search
+    @From DATE,
+    @To DATE,
+    @Status NVARCHAR(20),
+    @ByStatuses BIT,
+    @Statuses dbo.TT_DCenter_TextList READONLY,
+    @Terms dbo.TT_DCenter_TextList READONLY,
+    @Skip INT,
+    @Take INT,
+    @Total INT OUTPUT
+AS
+BEGIN
+    SET NOCOUNT ON;
+    DECLARE @Matches TABLE ([Id] INT NOT NULL PRIMARY KEY);
+    INSERT INTO @Matches ([Id])
+    SELECT b.[Id]
+    FROM dbo.DCenter_BakingRecords b
+    JOIN dbo.DCenter_ConsumableItemLots l ON l.[Id] = b.[LotId]
+    JOIN dbo.DCenter_ConsumableItems i ON i.[Id] = l.[ItemId]
+    WHERE (@From IS NULL OR b.[BakingDate] >= @From)
+      AND (@To IS NULL OR b.[BakingDate] <= @To)
+      AND (@Status IS NULL OR b.[Status] = @Status)
+      AND (@ByStatuses = 0 OR b.[Status] IN (SELECT [Value] FROM @Statuses))
+      AND (SELECT COUNT(*) FROM @Terms t WHERE CHARINDEX(t.[Value], b.[BakingNo]) > 0 OR CHARINDEX(t.[Value], b.[PersonInCharge]) > 0 OR CHARINDEX(t.[Value], l.[LotNumber]) > 0 OR CHARINDEX(t.[Value], l.[Brand]) > 0 OR CHARINDEX(t.[Value], i.[Specification]) > 0 OR CHARINDEX(t.[Value], i.[Diameter]) > 0) = (SELECT COUNT(*) FROM @Terms)
+    OPTION (RECOMPILE);
+
+    SELECT @Total = COUNT(*) FROM @Matches;
+    SELECT [Id] AS [Value] FROM @Matches ORDER BY [Id] DESC OFFSET @Skip ROWS FETCH NEXT @Take ROWS ONLY;
+END
+GO
+
+-- The baking record electrodes are returned to for re-baking: the requested one, or the lots latest finished bake.
+CREATE OR ALTER PROCEDURE dbo.SP_DCenter_Baking_ForRebake
+    @LotId INT,
+    @RequestedId INT
+AS
+BEGIN
+    SET NOCOUNT ON;
+    IF @RequestedId IS NOT NULL
+        SELECT TOP (1) [Id], [BakingNo], [LotId], [QuantityKg], [PersonInCharge], [BakingDate], [BakeStart], [BakeStop], [RebakeStart], [RebakeStop], [Status], [Remarks], [CreatedBy], [CreatedAt]
+        FROM dbo.DCenter_BakingRecords
+        WHERE [Id] = @RequestedId AND [LotId] = @LotId AND [Status] <> N'Cancelled';
+    ELSE
+        SELECT TOP (1) [Id], [BakingNo], [LotId], [QuantityKg], [PersonInCharge], [BakingDate], [BakeStart], [BakeStop], [RebakeStart], [RebakeStop], [Status], [Remarks], [CreatedBy], [CreatedAt]
+        FROM dbo.DCenter_BakingRecords
+        WHERE [LotId] = @LotId AND [BakeStop] IS NOT NULL AND [Status] <> N'Cancelled'
+        ORDER BY [Id] DESC;
+END
+GO
+
+-- Adds baking records in Seq order and returns their Ids in the same order.
+CREATE OR ALTER PROCEDURE dbo.SP_DCenter_Baking_Insert
+    @Rows dbo.TT_DCenter_BakingRows READONLY
+AS
+BEGIN
+    SET NOCOUNT ON;
+    DECLARE @Ids TABLE ([Id] INT NOT NULL PRIMARY KEY);
+    INSERT INTO dbo.DCenter_BakingRecords
+        ([BakingNo], [LotId], [QuantityKg], [PersonInCharge], [BakingDate], [Status], [Remarks], [CreatedBy], [CreatedAt])
+    OUTPUT inserted.[Id] INTO @Ids
+    SELECT [BakingNo], [LotId], [QuantityKg], [PersonInCharge], [BakingDate], [Status], [Remarks], [CreatedBy], [CreatedAt]
+    FROM @Rows
+    ORDER BY [Seq];
+    SELECT [Id] AS [Value] FROM @Ids ORDER BY [Id];
+END
+GO
+
+CREATE OR ALTER PROCEDURE dbo.SP_DCenter_Baking_Update
+    @Id INT,
+    @PersonInCharge NVARCHAR(100),
+    @BakingDate DATE,
+    @BakeStart DATETIME2,
+    @BakeStop DATETIME2,
+    @RebakeStart DATETIME2,
+    @RebakeStop DATETIME2,
+    @Remarks NVARCHAR(500)
+AS
+BEGIN
+    SET NOCOUNT ON;
+    UPDATE dbo.DCenter_BakingRecords
+    SET [PersonInCharge] = @PersonInCharge, [BakingDate] = @BakingDate, [BakeStart] = @BakeStart, [BakeStop] = @BakeStop,
+        [RebakeStart] = @RebakeStart, [RebakeStop] = @RebakeStop, [Remarks] = @Remarks
+    WHERE [Id] = @Id;
+    IF @@ROWCOUNT = 0
+        THROW 50001, N'The baking record was changed or deleted by someone else.', 1;
+END
+GO
+
+CREATE OR ALTER PROCEDURE dbo.SP_DCenter_Baking_SetTimes
+    @Rows dbo.TT_DCenter_BakingTimes READONLY
+AS
+BEGIN
+    SET NOCOUNT ON;
+    UPDATE b
+    SET [BakeStart] = r.[BakeStart], [BakeStop] = r.[BakeStop], [RebakeStart] = r.[RebakeStart], [RebakeStop] = r.[RebakeStop]
+    FROM dbo.DCenter_BakingRecords b
+    JOIN @Rows r ON r.[Id] = b.[Id];
+    IF @@ROWCOUNT <> (SELECT COUNT(*) FROM @Rows)
+        THROW 50001, N'A baking record was changed or deleted by someone else.', 1;
+END
+GO
+
+CREATE OR ALTER PROCEDURE dbo.SP_DCenter_Baking_SetStatus
+    @Rows dbo.TT_DCenter_IdStatus READONLY
+AS
+BEGIN
+    SET NOCOUNT ON;
+    UPDATE b SET [Status] = r.[Status]
+    FROM dbo.DCenter_BakingRecords b
+    JOIN @Rows r ON r.[Id] = b.[Id];
+END
+GO
+
+CREATE OR ALTER PROCEDURE dbo.SP_DCenter_Holding_Insert
+    @HoldingNo NVARCHAR(20),
+    @HoldingDate DATE,
+    @BakingRecordId INT,
+    @WelderId INT,
+    @WelderName NVARCHAR(200),
+    @CompartmentId INT,
+    @IsFinishedAfterBaking BIT,
+    @QuantityKg DECIMAL(10, 2),
+    @TxnNo NVARCHAR(20),
+    @Remarks NVARCHAR(500),
+    @CreatedBy NVARCHAR(100),
+    @CreatedAt DATETIME2
+AS
+BEGIN
+    SET NOCOUNT ON;
+    INSERT INTO dbo.DCenter_HoldingRecords
+        ([HoldingNo], [HoldingDate], [BakingRecordId], [WelderId], [WelderName], [CompartmentId], [IsFinishedAfterBaking],
+         [QuantityKg], [TxnNo], [IsVoided], [Remarks], [CreatedBy], [CreatedAt])
+    VALUES (@HoldingNo, @HoldingDate, @BakingRecordId, @WelderId, @WelderName, @CompartmentId, @IsFinishedAfterBaking,
+            @QuantityKg, @TxnNo, 0, @Remarks, @CreatedBy, @CreatedAt);
+    SELECT CAST(SCOPE_IDENTITY() AS INT) AS [Value];
+END
+GO
+
+-- Holding records (newest first) matching the filters, with the total count.
+CREATE OR ALTER PROCEDURE dbo.SP_DCenter_Holding_Search
+    @Id INT,
+    @From DATE,
+    @To DATE,
+    @Terms dbo.TT_DCenter_TextList READONLY,
+    @Skip INT,
+    @Take INT,
+    @Total INT OUTPUT
+AS
+BEGIN
+    SET NOCOUNT ON;
+    DECLARE @Matches TABLE ([Id] INT NOT NULL PRIMARY KEY);
+    INSERT INTO @Matches ([Id])
+    SELECT h.[Id]
+    FROM dbo.DCenter_HoldingRecords h
+    JOIN dbo.DCenter_BakingRecords b ON b.[Id] = h.[BakingRecordId]
+    JOIN dbo.DCenter_ConsumableItemLots l ON l.[Id] = b.[LotId]
+    JOIN dbo.DCenter_ConsumableItems i ON i.[Id] = l.[ItemId]
+    WHERE (@Id IS NULL OR h.[Id] = @Id)
+      AND (@From IS NULL OR h.[HoldingDate] >= @From)
+      AND (@To IS NULL OR h.[HoldingDate] <= @To)
+      AND (SELECT COUNT(*) FROM @Terms t WHERE CHARINDEX(t.[Value], h.[HoldingNo]) > 0 OR CHARINDEX(t.[Value], b.[BakingNo]) > 0 OR CHARINDEX(t.[Value], l.[LotNumber]) > 0 OR CHARINDEX(t.[Value], i.[Specification]) > 0 OR CHARINDEX(t.[Value], h.[WelderName]) > 0) = (SELECT COUNT(*) FROM @Terms)
+    OPTION (RECOMPILE);
+
+    SELECT @Total = COUNT(*) FROM @Matches;
+
+    SELECT h.[Id], h.[HoldingNo], h.[HoldingDate], h.[BakingRecordId], b.[BakingNo], l.[ItemId],
+           i.[Diameter] + N' ' + i.[Specification] AS [DiaSpec],
+           b.[LotId], l.[Brand], l.[LotNumber], h.[WelderId], h.[WelderName],
+           h.[CompartmentId], o.[Code] + N'-' + c.[Label] AS [CompartmentLabel], o.[OvenType], c.[Number] AS [CompartmentNumber],
+           h.[IsFinishedAfterBaking], h.[QuantityKg], h.[TxnNo], h.[IsVoided], h.[Remarks], h.[CreatedBy], h.[CreatedAt]
+    FROM dbo.DCenter_HoldingRecords h
+    JOIN (SELECT [Id] FROM @Matches ORDER BY [Id] DESC OFFSET @Skip ROWS FETCH NEXT @Take ROWS ONLY) p ON p.[Id] = h.[Id]
+    JOIN dbo.DCenter_BakingRecords b ON b.[Id] = h.[BakingRecordId]
+    JOIN dbo.DCenter_ConsumableItemLots l ON l.[Id] = b.[LotId]
+    JOIN dbo.DCenter_ConsumableItems i ON i.[Id] = l.[ItemId]
+    LEFT JOIN dbo.DCenter_OvenCompartments c ON c.[Id] = h.[CompartmentId]
+    LEFT JOIN dbo.DCenter_Ovens o ON o.[Id] = c.[OvenId]
+    ORDER BY h.[Id] DESC;
+END
+GO
+
+CREATE OR ALTER PROCEDURE dbo.SP_DCenter_Holding_VoidByTxnNo
+    @TxnNo NVARCHAR(20)
+AS
+BEGIN
+    SET NOCOUNT ON;
+    UPDATE dbo.DCenter_HoldingRecords SET [IsVoided] = 1 WHERE [TxnNo] = @TxnNo AND [IsVoided] = 0;
+END
+GO
+
+-- Moves open holding records of the given lots to another compartment.
+CREATE OR ALTER PROCEDURE dbo.SP_DCenter_Holding_Relocate
+    @FromCompartmentId INT,
+    @ToCompartmentId INT,
+    @LotIds dbo.TT_DCenter_IdList READONLY
+AS
+BEGIN
+    SET NOCOUNT ON;
+    UPDATE h SET [CompartmentId] = @ToCompartmentId
+    FROM dbo.DCenter_HoldingRecords h
+    JOIN dbo.DCenter_BakingRecords b ON b.[Id] = h.[BakingRecordId]
+    WHERE h.[IsVoided] = 0 AND h.[IsFinishedAfterBaking] = 0 AND h.[CompartmentId] = @FromCompartmentId
+      AND b.[LotId] IN (SELECT [Id] FROM @LotIds);
+END
+GO
+
+CREATE OR ALTER PROCEDURE dbo.SP_DCenter_StockCount_Insert
+    @ReferenceNo NVARCHAR(20),
+    @CountDate DATE,
+    @Scope NVARCHAR(20),
+    @Category NVARCHAR(30),
+    @LinesCounted INT,
+    @LinesAdjusted INT,
+    @GainKg DECIMAL(10, 2),
+    @LossKg DECIMAL(10, 2),
+    @TxnNo NVARCHAR(20),
+    @Remarks NVARCHAR(500),
+    @CreatedBy NVARCHAR(100),
+    @CreatedAt DATETIME2
+AS
+BEGIN
+    SET NOCOUNT ON;
+    INSERT INTO dbo.DCenter_StockCounts
+        ([ReferenceNo], [CountDate], [Scope], [Category], [LinesCounted], [LinesAdjusted], [GainKg], [LossKg], [TxnNo], [Remarks], [CreatedBy], [CreatedAt])
+    VALUES (@ReferenceNo, @CountDate, @Scope, @Category, @LinesCounted, @LinesAdjusted, @GainKg, @LossKg, @TxnNo, @Remarks, @CreatedBy, @CreatedAt);
+    SELECT CAST(SCOPE_IDENTITY() AS INT) AS [Value];
+END
+GO
+
+-- Stock counts (newest first); IsVoided is set when the counts adjustment was voided.
+CREATE OR ALTER PROCEDURE dbo.SP_DCenter_StockCount_Search
+    @Id INT,
+    @ReferenceNo NVARCHAR(20),
+    @From DATE,
+    @To DATE,
+    @Scope NVARCHAR(20),
+    @Skip INT,
+    @Take INT,
+    @Total INT OUTPUT
+AS
+BEGIN
+    SET NOCOUNT ON;
+    SELECT @Total = COUNT(*)
+    FROM dbo.DCenter_StockCounts c
+    WHERE (@Id IS NULL OR c.[Id] = @Id)
+      AND (@ReferenceNo IS NULL OR c.[ReferenceNo] = @ReferenceNo)
+      AND (@From IS NULL OR c.[CountDate] >= @From)
+      AND (@To IS NULL OR c.[CountDate] <= @To)
+      AND (@Scope IS NULL OR c.[Scope] = @Scope)
+    OPTION (RECOMPILE);
+
+    SELECT c.[Id], c.[ReferenceNo], c.[CountDate], c.[Scope], c.[Category], c.[LinesCounted], c.[LinesAdjusted],
+           c.[GainKg], c.[LossKg], c.[TxnNo],
+           CAST(CASE WHEN c.[TxnNo] IS NOT NULL AND EXISTS (
+               SELECT 1 FROM dbo.DCenter_ConsumableMovements m WHERE m.[TxnNo] = c.[TxnNo] AND m.[IsVoided] = 1)
+               THEN 1 ELSE 0 END AS BIT) AS [IsVoided],
+           c.[Remarks], c.[CreatedBy], c.[CreatedAt]
+    FROM dbo.DCenter_StockCounts c
+    WHERE (@Id IS NULL OR c.[Id] = @Id)
+      AND (@ReferenceNo IS NULL OR c.[ReferenceNo] = @ReferenceNo)
+      AND (@From IS NULL OR c.[CountDate] >= @From)
+      AND (@To IS NULL OR c.[CountDate] <= @To)
+      AND (@Scope IS NULL OR c.[Scope] = @Scope)
+    ORDER BY c.[Id] DESC
+    OFFSET @Skip ROWS FETCH NEXT @Take ROWS ONLY
+    OPTION (RECOMPILE);
 END
 GO

@@ -28,6 +28,10 @@ public sealed class StoredProcedures(WeldReportContext db)
     public async Task<T> ScalarAsync<T>(string procedure, CancellationToken ct, params SqlParameter[] parameters)
         => (await QueryAsync<T>(procedure, ct, parameters)).First();
 
+    // The single row of a procedure that always returns exactly one row.
+    public async Task<T> ScalarRowAsync<T>(string procedure, CancellationToken ct, params SqlParameter[] parameters)
+        => (await QueryAsync<T>(procedure, ct, parameters)).Single();
+
     public Task<int> ExecuteAsync(string procedure, CancellationToken ct, params SqlParameter[] parameters)
         => Run(procedure, db.Database.ExecuteSqlRawAsync(Exec(procedure, parameters), Args(parameters), ct));
 
@@ -98,9 +102,20 @@ public static class Sql
     {
         var rows = new DataTable();
         rows.Columns.Add("Id", typeof(int));
-        foreach (var id in ids) rows.Rows.Add(id);
+        foreach (var id in ids.Distinct()) rows.Rows.Add(id);
         return Table(name, "dbo.TT_DCenter_IdList", rows);
     }
+
+    public static SqlParameter TextList(string name, IEnumerable<string> values)
+    {
+        var rows = new DataTable();
+        rows.Columns.Add("Seq", typeof(int));
+        rows.Columns.Add("Value", typeof(string));
+        foreach (var value in values) rows.Rows.Add(rows.Rows.Count, value);
+        return Table(name, "dbo.TT_DCenter_TextList", rows);
+    }
+
+    public static SqlParameter BigInt(string name, long? value) => Make(name, SqlDbType.BigInt, value);
 
     private static SqlParameter Make(string name, SqlDbType type, object? value, int size = 0)
     {

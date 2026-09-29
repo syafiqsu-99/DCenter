@@ -1,38 +1,30 @@
-using DCenter.Server.Data;
 using DCenter.Server.Models;
-using Microsoft.EntityFrameworkCore;
 using Cat = DCenter.Server.Entities.StockCatalog;
 
 namespace DCenter.Server.Services;
 
-public class OvenService(WeldReportContext db, ConsumableLedger ledger)
+public class OvenService(StoredProcedures sp, ConsumableStore store, ConsumableLedger ledger)
 {
     public async Task<OvenBoardDto> GetBoardAsync(CancellationToken ct)
     {
-        var ovens = await db.Ovens.AsNoTracking()
-            .OrderBy(o => o.Id)
-            .Select(o => new
+        var ovens = (await sp.QueryAsync<BoardRow>("SP_DCenter_Oven_Board", ct))
+            .GroupBy(r => r.OvenId)
+            .Select(g => new
             {
-                o.Id, o.Name, o.Code, o.OvenType,
-                Compartments = o.Compartments.OrderBy(c => c.Number).Select(c => new { c.Id, c.Number, c.Label }).ToList(),
+                Id = g.Key, g.First().Name, g.First().Code, g.First().OvenType,
+                Compartments = g.Where(r => r.CompartmentId is not null)
+                    .Select(r => new { Id = r.CompartmentId!.Value, Number = r.Number!.Value, Label = r.Label! }).ToList(),
             })
-            .ToListAsync(ct);
+            .ToList();
 
-        var positive = (await ledger.ActivatedBinsAsync(m => m.Lot.Item.Category == Cat.ElectrodeFiller, ct))
+        var positive = (await ledger.ActivatedBinsAsync(LedgerFilter.ForCategory(Cat.ElectrodeFiller), ct))
             .Where(b => b.Kg > 0)
             .ToList();
         var lotIds = positive.Select(b => b.LotId).Distinct().ToList();
-        var lots = await db.ConsumableItemLots.AsNoTracking()
-            .Where(l => lotIds.Contains(l.Id))
-            .Select(l => new { l.Id, l.ItemId, l.Brand, l.LotNumber, l.Item.Category, l.Item.Diameter, l.Item.Specification, l.Item.HoldingOvenType })
-            .ToDictionaryAsync(l => l.Id, ct);
+        var lots = (await store.LotsAsync(lotIds, null, null, ct)).ToDictionary(l => l.Id);
 
-        var since = (await ledger.Live()
-                .Where(m => m.ToStage == Cat.Activated && m.ToCompartmentId != null && lotIds.Contains(m.LotId))
-                .GroupBy(m => new { m.ToCompartmentId, m.LotId })
-                .Select(g => new { g.Key.ToCompartmentId, g.Key.LotId, Last = g.Max(m => m.CreatedAt) })
-                .ToListAsync(ct))
-            .ToDictionary(x => (x.ToCompartmentId, x.LotId), x => x.Last);
+        var since = (await sp.QueryAsync<BinSince>("SP_DCenter_Ledger_BinSince", ct, Sql.IdList("@LotIds", lotIds)))
+            .ToDictionary(x => ((int?)x.CompartmentId, x.LotId), x => x.Last);
 
         BinLotDto ToLot(BinRow b)
         {
@@ -58,4 +50,8 @@ public class OvenService(WeldReportContext db, ConsumableLedger ledger)
         var unassigned = positive.Where(b => b.CompartmentId is null).OrderBy(b => b.LotId).Select(ToLot).ToList();
         return new OvenBoardDto(ovenDtos, unassigned);
     }
+
+    private sealed record BoardRow(int OvenId, string Name, string Code, string OvenType, int? CompartmentId, int? Number, string? Label);
+
+    private sealed record BinSince(int CompartmentId, int LotId, DateTime Last);
 }

@@ -1,6 +1,6 @@
 using DCenter.Server.Data;
 using DCenter.Server.Entities;
-using Microsoft.EntityFrameworkCore;
+using DCenter.Server.Models;
 using Microsoft.Extensions.Options;
 using Cat = DCenter.Server.Entities.StockCatalog;
 using T = DCenter.Server.Services.ConsumableText;
@@ -20,7 +20,7 @@ public sealed record ReceiverRef(string WelderName, bool IsActive);
 public sealed record StockLine(int LotId, decimal Kg);
 
 public class ConsumableGuards(
-    WeldReportContext db, ConsumableLedger ledger, ISupervisorContext supervisor,
+    WeldReportContext db, StoredProcedures sp, ConsumableStore store, ConsumableLedger ledger, ISupervisorContext supervisor,
     IOptions<ConsumableOptions> options, TimeProvider time)
 {
     public static string? BackdateError(DateOnly date, DateOnly today, bool supervisor, int days)
@@ -58,11 +58,11 @@ public class ConsumableGuards(
         return (welder.WelderName, null);
     }
 
-    public Task<ReceiverRef?> ReceiverAsync(int? welderId, CancellationToken ct)
-        => welderId is int id
-            ? db.Welders.AsNoTracking().Where(w => w.Id == id)
-                .Select(w => new ReceiverRef(w.WelderName, w.IsActive)).FirstOrDefaultAsync(ct)
-            : Task.FromResult<ReceiverRef?>(null);
+    public async Task<ReceiverRef?> ReceiverAsync(int? welderId, CancellationToken ct)
+        => welderId is int id && await WelderAsync(id, ct) is { } w ? new ReceiverRef(w.WelderName, w.IsActive) : null;
+
+    private Task<WelderDto?> WelderAsync(int id, CancellationToken ct)
+        => sp.FirstOrDefaultAsync<WelderDto>("SP_DCenter_Welder_Get", ct, Sql.Int("@Id", id));
 
     public static (int? Bin, string? Error) ResolveBin(ItemRef item, int? compartmentId)
         => item.IsElectrode || compartmentId is null
@@ -88,19 +88,14 @@ public class ConsumableGuards(
         return (null, $"Only {total:0.00} kg is in {where}.");
     }
 
-    public Task<ItemRef?> ItemAsync(int id, CancellationToken ct)
-        => db.ConsumableItems.AsNoTracking()
-            .Where(i => i.Id == id)
-            .Select(i => new ItemRef(i.Id, i.Category, i.Diameter + " " + i.Specification, i.FinishThresholdKg, i.IsActive,
-                i.HoldingOvenType))
-            .FirstOrDefaultAsync(ct);
+    public async Task<ItemRef?> ItemAsync(int id, CancellationToken ct)
+        => await store.ItemAsync(id, ct) is { } i
+            ? new ItemRef(i.Id, i.Category, i.Diameter + " " + i.Specification, i.FinishThresholdKg, i.IsActive, i.HoldingOvenType)
+            : null;
 
     public async Task<(WelderRef? Welder, string? Error)> StockWelderAsync(int id, CancellationToken ct)
     {
-        var w = await db.Welders.AsNoTracking()
-            .Where(x => x.Id == id)
-            .Select(x => new { x.Id, x.WelderName, x.IsActive, x.UsageScope })
-            .FirstOrDefaultAsync(ct);
+        var w = await WelderAsync(id, ct);
         if (w is null) return (null, "Welder not found.");
         if (!w.IsActive) return (null, $"{w.WelderName} is inactive.");
         if (w.UsageScope != WelderScope.ReportAndStock)
@@ -109,7 +104,7 @@ public class ConsumableGuards(
     }
 
     public async Task<List<(int LotId, decimal Available)>> BinLotsAsync(int itemId, int? bin, CancellationToken ct)
-        => (await ledger.ActivatedBinsAsync(m => m.Lot.ItemId == itemId, ct))
+        => (await ledger.ActivatedBinsAsync(LedgerFilter.ForItem(itemId), ct))
             .Where(b => b.CompartmentId == bin)
             .Select(b => (b.LotId, b.Kg))
             .ToList();
@@ -125,10 +120,7 @@ public class ConsumableGuards(
     {
         await StockLocks.AcquireAsync(db, StockLocks.Compartment(compartmentId), ct);
 
-        var c = await db.OvenCompartments.AsNoTracking()
-            .Where(x => x.Id == compartmentId)
-            .Select(x => new { x.Oven.OvenType, Label = x.Oven.Code + "-" + x.Label })
-            .FirstOrDefaultAsync(ct);
+        var c = (await store.CompartmentsAsync([compartmentId], ct)).FirstOrDefault();
         if (c is null) return "Compartment not found.";
         if (!item.IsElectrode) return "Only electrodes are kept in holding-oven compartments.";
         if (item.HoldingOvenType is null)
@@ -136,8 +128,7 @@ public class ConsumableGuards(
         if (c.OvenType != item.HoldingOvenType)
             return $"{item.DiaSpec} belongs in a {item.HoldingOvenType} oven, not {c.Label} ({c.OvenType}).";
 
-        var occupiedByOther = (await ledger.ActivatedBinsAsync(
-                m => m.ToCompartmentId == compartmentId || m.FromCompartmentId == compartmentId, ct))
+        var occupiedByOther = (await ledger.ActivatedBinsAsync(new LedgerFilter(CompartmentId: compartmentId), ct))
             .Any(b => b.CompartmentId == compartmentId && b.Kg > 0 && b.ItemId != item.Id);
         return occupiedByOther
             ? $"{c.Label} already holds a different consumable. Choose an empty compartment or one holding {item.DiaSpec}."
@@ -146,25 +137,16 @@ public class ConsumableGuards(
 
     public async Task<string?> SameItemOtherLotWarningAsync(int itemId, int lotId, int compartmentId, CancellationToken ct)
     {
-        var others = (await ledger.ActivatedBinsAsync(
-                m => m.ToCompartmentId == compartmentId || m.FromCompartmentId == compartmentId, ct))
+        var others = (await ledger.ActivatedBinsAsync(new LedgerFilter(CompartmentId: compartmentId), ct))
             .Where(b => b.CompartmentId == compartmentId && b.Kg > 0 && b.ItemId == itemId && b.LotId != lotId)
             .Select(b => b.LotId)
             .ToList();
         if (others.Count == 0) return null;
-        var lotNumbers = await db.ConsumableItemLots.AsNoTracking()
-            .Where(l => others.Contains(l.Id))
-            .Select(l => l.LotNumber)
-            .ToListAsync(ct);
+        var lotNumbers = (await store.LotsAsync(others, null, null, ct)).Select(l => l.LotNumber).ToList();
         return $"This compartment also holds lot {string.Join(", ", lotNumbers)} of the same consumable.";
     }
 
     public async Task<decimal> OutstandingAsync(int welderId, int itemId, DateOnly since, DateOnly until, CancellationToken ct)
-    {
-        var window = ledger.Live()
-            .Where(m => m.WelderId == welderId && m.Lot.ItemId == itemId && m.TxnDate >= since && m.TxnDate <= until);
-        return await window
-            .Where(m => m.TxnType == Cat.TxnIssue || m.TxnType == Cat.TxnReturn)
-            .SumAsync(m => (decimal?)(m.TxnType == Cat.TxnIssue ? m.QuantityKg : -m.QuantityKg), ct) ?? 0m;
-    }
+        => await sp.ScalarAsync<decimal?>("SP_DCenter_Ledger_Outstanding", ct,
+            Sql.Int("@WelderId", welderId), Sql.Int("@ItemId", itemId), Sql.Date("@Since", since), Sql.Date("@Until", until)) ?? 0m;
 }

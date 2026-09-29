@@ -1,7 +1,5 @@
-using DCenter.Server.Data;
 using DCenter.Server.Entities;
 using DCenter.Server.Models;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using Cat = DCenter.Server.Entities.StockCatalog;
 using G = DCenter.Server.Services.ConsumableGuards;
@@ -38,7 +36,7 @@ public partial class ConsumableMovementService
         var item = await guards.ItemAsync(r.ItemId, ct);
         if (item is null) return ItemNotFound();
 
-        if (r.LotId is int requested && !await db.ConsumableItemLots.AnyAsync(l => l.Id == requested && l.ItemId == item.Id, ct))
+        if (r.LotId is int requested && !(await store.LotsAsync([requested], null, null, ct)).Any(l => l.ItemId == item.Id))
             return Fail("The selected lot does not belong to this consumable.");
 
         var (bin, binError) = G.ResolveBin(item, r.CompartmentId);
@@ -80,33 +78,28 @@ public partial class ConsumableMovementService
             }
             var target = r.LotId
                 ?? available.Where(l => l.Available > 0).OrderByDescending(l => l.LotId).Select(l => (int?)l.LotId).FirstOrDefault()
-                ?? await db.ConsumableItemLots.Where(l => l.ItemId == item.Id)
-                    .OrderByDescending(l => l.Id).Select(l => (int?)l.Id).FirstOrDefaultAsync(ct);
+                ?? (await store.LotsAsync(null, [item.Id], null, ct)).Select(l => (int?)l.Id).DefaultIfEmpty().Max();
             if (target is null) return Fail("Receive this consumable at least once before adjusting it.");
             lines = [new StockLine(target.Value, difference)];
         }
 
         var txnNo = await ledger.NextTxnNoAsync(ct);
-        foreach (var line in lines)
+        await store.AddMovementsAsync(lines.Select(line => new ConsumableMovement
         {
-            db.ConsumableMovements.Add(new ConsumableMovement
-            {
-                TxnNo = txnNo,
-                TxnType = Cat.TxnAdjust,
-                TxnDate = date,
-                LotId = line.LotId,
-                QuantityKg = line.Kg,
-                FromStage = fromStage,
-                ToStage = toStage,
-                FromCompartmentId = fromBin,
-                ToCompartmentId = toBin,
-                Reason = reason,
-                CountedQtyKg = counted,
-                Remarks = remarks,
-                CreatedBy = user,
-            });
-        }
-        await db.SaveChangesAsync(ct);
+            TxnNo = txnNo,
+            TxnType = Cat.TxnAdjust,
+            TxnDate = date,
+            LotId = line.LotId,
+            QuantityKg = line.Kg,
+            FromStage = fromStage,
+            ToStage = toStage,
+            FromCompartmentId = fromBin,
+            ToCompartmentId = toBin,
+            Reason = reason,
+            CountedQtyKg = counted,
+            Remarks = remarks,
+            CreatedBy = user,
+        }), ct);
         await tx.CommitAsync(ct);
 
         return Ok(await ResultAsync(txnNo, item.Id, [], null, ct));
@@ -120,10 +113,9 @@ public partial class ConsumableMovementService
         var remarks = T.FreeText(r.Remarks, 500);
         if (remarks is null) return Fail("Remarks are required to void a transaction.");
 
-        var heads = await db.ConsumableMovements.AsNoTracking()
-            .Where(m => m.TxnNo == txnNo)
-            .Select(m => new { m.TxnType, m.IsVoided, m.Lot.ItemId })
-            .ToListAsync(ct);
+        var headLines = await store.MovementsAsync(txnNo, false, null, ct);
+        var headLots = (await store.LotsAsync(headLines.Select(m => m.LotId), null, null, ct)).ToDictionary(l => l.Id);
+        var heads = headLines.Select(m => new { m.TxnType, m.IsVoided, headLots[m.LotId].ItemId }).ToList();
         if (heads.Count == 0) return Fail("Transaction not found.", StatusCodes.Status404NotFound);
         if (heads.Any(h => h.TxnType == Cat.TxnVoid)) return Fail("A void entry cannot itself be voided.");
         if (heads.All(h => h.IsVoided)) return Fail("This transaction has already been voided.", StatusCodes.Status409Conflict);
@@ -133,14 +125,13 @@ public partial class ConsumableMovementService
         await using var tx = await db.Database.BeginTransactionAsync(ct);
         foreach (var itemId in itemIds) await StockLocks.AcquireAsync(db, StockLocks.Item(itemId), ct);
 
-        var originals = await db.ConsumableMovements
-            .Include(m => m.Lot)
-            .Where(m => m.TxnNo == txnNo && !m.IsVoided)
-            .OrderBy(m => m.Id)
-            .ToListAsync(ct);
+        var originals = await store.MovementsAsync(txnNo, true, null, ct);
+        var originalLots = (await store.LotsAsync(originals.Select(o => o.LotId), null, null, ct)).ToDictionary(l => l.Id);
+        foreach (var o in originals)
+            o.Lot = new ConsumableItemLot { Id = o.LotId, ItemId = originalLots[o.LotId].ItemId, LotNumber = originalLots[o.LotId].LotNumber };
         if (originals.Count == 0) return Fail("This transaction has already been voided.", StatusCodes.Status409Conflict);
 
-        var stages = (await ledger.LotStagesAsync(m => itemIds.Contains(m.Lot.ItemId), ct))
+        var stages = (await ledger.LotStagesAsync(LedgerFilter.ForItems(itemIds), ct))
             .ToDictionary(l => l.LotId, l => l.Totals);
         foreach (var group in originals.Where(o => o.ToStage is not null).GroupBy(o => new { o.LotId, o.Lot.LotNumber, Stage = o.ToStage! }))
         {
@@ -181,7 +172,7 @@ public partial class ConsumableMovementService
                 return Fail($"Voiding {txnNo} would put stock back where it no longer fits: {compartmentError}", StatusCodes.Status409Conflict);
         }
 
-        var bins = await ledger.ActivatedBinsAsync(m => itemIds.Contains(m.Lot.ItemId), ct);
+        var bins = await ledger.ActivatedBinsAsync(LedgerFilter.ForItems(itemIds), ct);
         foreach (var group in originals.Where(o => o.ToStage == Cat.Activated).GroupBy(o => new { o.LotId, o.Lot.LotNumber, Bin = o.ToCompartmentId }))
         {
             var needed = group.Sum(o => o.QuantityKg);
@@ -193,34 +184,30 @@ public partial class ConsumableMovementService
         }
 
         var voidNo = await ledger.NextTxnNoAsync(ct);
-        foreach (var original in originals)
+        await store.SetVoidedAsync(originals.Select(o => o.Id), ct);
+        await store.AddMovementsAsync(originals.Select(original => new ConsumableMovement
         {
-            original.IsVoided = true;
-            db.ConsumableMovements.Add(new ConsumableMovement
-            {
-                TxnNo = voidNo,
-                TxnType = Cat.TxnVoid,
-                TxnDate = original.TxnDate,
-                LotId = original.LotId,
-                QuantityKg = original.QuantityKg,
-                FromStage = original.ToStage,
-                ToStage = original.FromStage,
-                FromCompartmentId = original.ToCompartmentId,
-                ToCompartmentId = original.FromCompartmentId,
-                BakingRecordId = original.BakingRecordId,
-                Source = original.Source,
-                Requestor = original.Requestor,
-                WelderId = original.WelderId,
-                Reason = original.Reason,
-                ReferenceNo = original.TxnNo,
-                Remarks = remarks,
-                VoidsMovementId = original.Id,
-                CreatedBy = user,
-            });
-        }
+            TxnNo = voidNo,
+            TxnType = Cat.TxnVoid,
+            TxnDate = original.TxnDate,
+            LotId = original.LotId,
+            QuantityKg = original.QuantityKg,
+            FromStage = original.ToStage,
+            ToStage = original.FromStage,
+            FromCompartmentId = original.ToCompartmentId,
+            ToCompartmentId = original.FromCompartmentId,
+            BakingRecordId = original.BakingRecordId,
+            Source = original.Source,
+            Requestor = original.Requestor,
+            WelderId = original.WelderId,
+            Reason = original.Reason,
+            ReferenceNo = original.TxnNo,
+            Remarks = remarks,
+            VoidsMovementId = original.Id,
+            CreatedBy = user,
+        }), ct);
 
-        var holdings = await db.HoldingRecords.Where(h => h.TxnNo == txnNo && !h.IsVoided).ToListAsync(ct);
-        foreach (var holding in holdings) holding.IsVoided = true;
+        await store.VoidHoldingsAsync(txnNo, ct);
 
         var rebakeIds = originals
             .Where(o => o.TxnType == Cat.TxnReturn && o.ToStage == Cat.Baking && o.BakingRecordId is not null)
@@ -229,14 +216,14 @@ public partial class ConsumableMovementService
             .ToList();
         if (rebakeIds.Count > 0)
         {
-            foreach (var record in await db.BakingRecords.Where(b => rebakeIds.Contains(b.Id)).ToListAsync(ct))
+            var records = await store.BakingRecordsAsync(rebakeIds, ct);
+            foreach (var record in records)
             {
                 record.RebakeStart = null;
                 record.RebakeStop = null;
             }
+            await store.SetBakingTimesAsync(records, ct);
         }
-
-        await db.SaveChangesAsync(ct);
 
         foreach (var moved in originals
                      .Where(o => o.TxnType == Cat.TxnMove && o.FromCompartmentId is not null && o.ToCompartmentId is not null)
@@ -244,14 +231,9 @@ public partial class ConsumableMovementService
         {
             await RelocateHoldingsAsync(moved.Key.ItemId, moved.Select(o => o.LotId), moved.Key.To, moved.Key.From, ct);
         }
-        await db.SaveChangesAsync(ct);
 
         var bakingIds = originals.Where(o => o.BakingRecordId is not null).Select(o => o.BakingRecordId!.Value).ToList();
-        if (bakingIds.Count > 0)
-        {
-            await ledger.RefreshBakingStatusAsync(bakingIds, ct);
-            await db.SaveChangesAsync(ct);
-        }
+        if (bakingIds.Count > 0) await ledger.RefreshBakingStatusAsync(bakingIds, ct);
         await tx.CommitAsync(ct);
 
         return Ok(await ResultAsync(voidNo, itemIds[0], [], null, ct));

@@ -52,6 +52,7 @@ builder.Services.Configure<WeldReportOptions>(builder.Configuration.GetSection(W
 builder.Services.AddScoped<PdfReportService>();
 builder.Services.AddScoped<ExcelReportService>();
 builder.Services.Configure<ConsumableOptions>(builder.Configuration.GetSection(ConsumableOptions.Section));
+builder.Services.AddScoped<ConsumableStore>();
 builder.Services.AddScoped<ConsumableLedger>();
 builder.Services.AddScoped<ConsumableItemService>();
 builder.Services.AddScoped<ConsumableMovementService>();

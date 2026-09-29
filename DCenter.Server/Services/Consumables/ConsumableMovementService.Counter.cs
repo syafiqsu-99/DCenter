@@ -1,7 +1,5 @@
-using DCenter.Server.Data;
 using DCenter.Server.Entities;
 using DCenter.Server.Models;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using Cat = DCenter.Server.Entities.StockCatalog;
 using G = DCenter.Server.Services.ConsumableGuards;
@@ -54,24 +52,20 @@ public partial class ConsumableMovementService
         }
 
         var txnNo = await ledger.NextTxnNoAsync(ct);
-        foreach (var line in lines)
+        await store.AddMovementsAsync(lines.Select(line => new ConsumableMovement
         {
-            db.ConsumableMovements.Add(new ConsumableMovement
-            {
-                TxnNo = txnNo,
-                TxnType = Cat.TxnIssue,
-                TxnDate = date,
-                LotId = line.LotId,
-                QuantityKg = line.Kg,
-                FromStage = Cat.Activated,
-                FromCompartmentId = bin,
-                WelderId = welder.Id,
-                Requestor = welder.WelderName,
-                Remarks = T.FreeText(r.Remarks, 500),
-                CreatedBy = user,
-            });
-        }
-        await db.SaveChangesAsync(ct);
+            TxnNo = txnNo,
+            TxnType = Cat.TxnIssue,
+            TxnDate = date,
+            LotId = line.LotId,
+            QuantityKg = line.Kg,
+            FromStage = Cat.Activated,
+            FromCompartmentId = bin,
+            WelderId = welder.Id,
+            Requestor = welder.WelderName,
+            Remarks = T.FreeText(r.Remarks, 500),
+            CreatedBy = user,
+        }), ct);
         await tx.CommitAsync(ct);
 
         List<ResidualLot> residuals = r.TakeAll ? [] : await ResidualsAsync(item, bin, binLots, lines, ct);
@@ -100,7 +94,7 @@ public partial class ConsumableMovementService
         int lotId;
         if (r.LotId is int requested)
         {
-            if (!await db.ConsumableItemLots.AnyAsync(l => l.Id == requested && l.ItemId == item.Id, ct))
+            if (!(await store.LotsAsync([requested], null, null, ct)).Any(l => l.ItemId == item.Id))
                 return Fail("The selected lot does not belong to this consumable.");
             lotId = requested;
         }
@@ -152,9 +146,7 @@ public partial class ConsumableMovementService
                         $"{settings.ReturnWindowDays} day(s). Ask a supervisor to record a larger return.", StatusCodes.Status409Conflict);
         if (r.ForRebake && movement.BakingRecordId is int rebakeId)
         {
-            var issuedFromRecord = await ledger.Live()
-                .Where(m => m.BakingRecordId == rebakeId && m.FromStage == Cat.Baking && m.ToStage == Cat.Activated)
-                .SumAsync(m => (decimal?)m.QuantityKg, ct) ?? 0m;
+            var issuedFromRecord = (await ledger.BakingFlagsAsync(rebakeId, ct)).IssuedToActivatedKg ?? 0m;
             if (qty > issuedFromRecord)
                 return Fail($"Only {issuedFromRecord:0.00} kg came out of this baking record, so no more than that can be re-baked.",
                     StatusCodes.Status409Conflict);
@@ -166,14 +158,10 @@ public partial class ConsumableMovementService
 
         var txnNo = await ledger.NextTxnNoAsync(ct);
         movement.TxnNo = txnNo;
-        db.ConsumableMovements.Add(movement);
-        await db.SaveChangesAsync(ct);
+        await store.AddMovementsAsync([movement], ct);
 
         if (movement.BakingRecordId is int bakingId)
-        {
             await ledger.RefreshBakingStatusAsync([bakingId], ct);
-            await db.SaveChangesAsync(ct);
-        }
         await tx.CommitAsync(ct);
 
         return Ok(await ResultAsync(txnNo, item.Id, [], warning, ct));
@@ -219,23 +207,19 @@ public partial class ConsumableMovementService
         }
 
         var txnNo = await ledger.NextTxnNoAsync(ct);
-        foreach (var line in lines)
+        await store.AddMovementsAsync(lines.Select(line => new ConsumableMovement
         {
-            db.ConsumableMovements.Add(new ConsumableMovement
-            {
-                TxnNo = txnNo,
-                TxnType = Cat.TxnFinish,
-                TxnDate = date,
-                LotId = line.LotId,
-                QuantityKg = line.Kg,
-                FromStage = Cat.Activated,
-                FromCompartmentId = bin,
-                Reason = reason,
-                Remarks = T.FreeText(r.Remarks, 500),
-                CreatedBy = user,
-            });
-        }
-        await db.SaveChangesAsync(ct);
+            TxnNo = txnNo,
+            TxnType = Cat.TxnFinish,
+            TxnDate = date,
+            LotId = line.LotId,
+            QuantityKg = line.Kg,
+            FromStage = Cat.Activated,
+            FromCompartmentId = bin,
+            Reason = reason,
+            Remarks = T.FreeText(r.Remarks, 500),
+            CreatedBy = user,
+        }), ct);
         await tx.CommitAsync(ct);
 
         return Ok(await ResultAsync(txnNo, item.Id, [], null, ct));
@@ -243,18 +227,11 @@ public partial class ConsumableMovementService
 
     private async Task<(BakingRecord? Record, string? Error)> RebakeRecordAsync(int lotId, int? requestedId, CancellationToken ct)
     {
-        var record = requestedId is int id
-            ? await db.BakingRecords.AsNoTracking()
-                .FirstOrDefaultAsync(b => b.Id == id && b.LotId == lotId && b.Status != Cat.StatusCancelled, ct)
-            : await db.BakingRecords.AsNoTracking()
-                .Where(b => b.LotId == lotId && b.BakeStop != null && b.Status != Cat.StatusCancelled)
-                .OrderByDescending(b => b.Id)
-                .FirstOrDefaultAsync(ct);
+        var record = await store.RebakeRecordAsync(lotId, requestedId, ct);
         if (record is null) return (null, "No completed baking record was found for this lot, so it cannot be re-baked.");
         if (record.BakeStop is null) return (null, $"{record.BakingNo} has not finished its first bake yet.");
 
-        var alreadyReturned = await ledger.Live().AnyAsync(m =>
-            m.BakingRecordId == record.Id && m.TxnType == Cat.TxnReturn && m.ToStage == Cat.Baking, ct);
+        var alreadyReturned = (await ledger.BakingFlagsAsync(record.Id, ct)).RebakeReturned;
         if (record.RebakeStart is not null || alreadyReturned)
             return (null, $"{record.BakingNo} has already been re-baked once. These electrodes cannot be re-baked again; " +
                           "scrap them outside the system (they are already counted as used).");
@@ -287,10 +264,7 @@ public partial class ConsumableMovementService
         if (candidates.Count == 0) return [];
 
         var ids = candidates.Select(c => c.LotId).ToList();
-        var meta = await db.ConsumableItemLots.AsNoTracking()
-            .Where(l => ids.Contains(l.Id))
-            .Select(l => new { l.Id, l.Brand, l.LotNumber })
-            .ToDictionaryAsync(l => l.Id, ct);
+        var meta = (await store.LotsAsync(ids, null, null, ct)).ToDictionary(l => l.Id);
         string? label = bin is int id ? (await ledger.CompartmentLabelsAsync([id], ct)).GetValueOrDefault(id) : null;
 
         return candidates
@@ -301,11 +275,8 @@ public partial class ConsumableMovementService
 
     private async Task<int?> DefaultReturnLotAsync(int welderId, int itemId, CancellationToken ct)
     {
-        var lastIssued = await ledger.Live()
-            .Where(m => m.TxnType == Cat.TxnIssue && m.WelderId == welderId && m.Lot.ItemId == itemId)
-            .OrderByDescending(m => m.Id)
-            .Select(m => (int?)m.LotId)
-            .FirstOrDefaultAsync(ct);
+        var lastIssued = await sp.FirstOrDefaultAsync<int?>("SP_DCenter_Ledger_LastIssuedLot", ct,
+            Sql.Int("@WelderId", welderId), Sql.Int("@ItemId", itemId));
         if (lastIssued is not null) return lastIssued;
 
         var activated = (await ledger.LotStagesForItemAsync(itemId, ct))
@@ -315,10 +286,6 @@ public partial class ConsumableMovementService
             .FirstOrDefault();
         if (activated is not null) return activated;
 
-        return await db.ConsumableItemLots.AsNoTracking()
-            .Where(l => l.ItemId == itemId)
-            .OrderByDescending(l => l.Id)
-            .Select(l => (int?)l.Id)
-            .FirstOrDefaultAsync(ct);
+        return (await store.LotsAsync(null, [itemId], null, ct)).Select(l => (int?)l.Id).DefaultIfEmpty().Max();
     }
 }
