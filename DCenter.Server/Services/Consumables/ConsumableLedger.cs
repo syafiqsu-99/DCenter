@@ -62,6 +62,9 @@ public class ConsumableLedger(WeldReportContext db, TimeProvider time)
     public Task<List<LotStageRow>> LotStagesForItemAsync(int itemId, CancellationToken ct)
         => LotStagesAsync(m => m.Lot.ItemId == itemId, ct);
 
+    public async Task<List<(int LotId, decimal Available)>> NormalLotsAsync(int itemId, CancellationToken ct)
+        => (await LotStagesForItemAsync(itemId, ct)).Select(l => (LotId: l.LotId, Available: l.Totals.NormalKg)).ToList();
+
     public async Task<List<BinRow>> ActivatedBinsAsync(Expression<Func<ConsumableMovement, bool>>? filter, CancellationToken ct)
     {
         var q = Live();

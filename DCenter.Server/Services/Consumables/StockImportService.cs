@@ -227,15 +227,7 @@ public class StockImportService(WeldReportContext db, ConsumableItemService item
         if (rawRemarks is not null && rawRemarks.StartsWith("EXAMPLE", StringComparison.OrdinalIgnoreCase))
             return Skip(r.Line, $"{T.WarningPrefix} example row from the template — skipped.");
 
-        var date = time.Today();
-        var rawDate = Cell(Col.Date);
-        if (rawDate is not null)
-        {
-            if (!DateOnly.TryParseExact(rawDate, DateFormats, CultureInfo.InvariantCulture, DateTimeStyles.None, out date))
-                messages.Add($"Date \"{rawDate}\" is not valid. Use YYYY-MM-DD (e.g. {time.Today():yyyy-MM-dd}) or DD/MM/YYYY.");
-            else if (date > time.Today())
-                messages.Add($"Date {date:yyyy-MM-dd} is in the future.");
-        }
+        var date = ParseDate(Cell(Col.Date), time.Today(), messages);
 
         var rawCategory = Cell(Col.Category);
         var rawSpec = Cell(Col.Specification);
@@ -265,56 +257,11 @@ public class StockImportService(WeldReportContext db, ConsumableItemService item
             }
         }
 
-        var rawBrand = Cell(Col.Brand);
-        var brand = rawBrand is null ? null : brands.GetValueOrDefault(T.Collapse(rawBrand)!) ?? T.TitleCase(T.Collapse(rawBrand)!);
-        if (brand is null) messages.Add("Brand is required.");
-        else if (brand.Length > 100) messages.Add("Brand is limited to 100 characters.");
-        else Note(T.Standardized("Brand", rawBrand, brand));
-
-        var rawLot = Cell(Col.Lot);
-        var lotNumber = T.Collapse(rawLot)?.ToUpperInvariant();
-        if (lotNumber is null) messages.Add("Lot / Heat No. is required.");
-        else if (lotNumber.Length > 60) messages.Add("Lot / Heat No. is limited to 60 characters.");
-        else Note(T.Standardized("Lot / Heat No.", rawLot, lotNumber));
-
-        var rawQty = Cell(Col.Quantity);
-        var qty = 0m;
-        if (rawQty is null) messages.Add("Quantity (KG) is required.");
-        else if (!decimal.TryParse(rawQty.Replace("kg", "", StringComparison.OrdinalIgnoreCase).Trim(), NumberStyles.Number,
-                     CultureInfo.InvariantCulture, out qty))
-            messages.Add($"Quantity \"{rawQty}\" is not a number. Use kg with a dot for decimals, e.g. 5.00.");
-        else
-        {
-            qty = T.RoundKg(qty);
-            if (qty <= 0) messages.Add("Quantity must be greater than 0.");
-            else if (qty > T.MaxKg) messages.Add(T.MaxKgError);
-        }
-
-        var rawStorage = Cell(Col.Storage);
-        var stage = Cat.Normal;
-        if (rawStorage is not null)
-        {
-            var (matched, suggestion) = T.MatchOption(rawStorage, Cat.ActiveStages);
-            if (matched is null) messages.Add(T.OptionError("Storage", rawStorage, Cat.ActiveStages, suggestion));
-            else
-            {
-                stage = matched;
-                Note(T.Standardized("Storage", rawStorage, matched));
-            }
-        }
-
-        var rawSource = Cell(Col.Source);
-        var source = Cat.WeldShop;
-        if (rawSource is not null)
-        {
-            var (matched, suggestion) = T.MatchOption(rawSource, Cat.Sources);
-            if (matched is null) messages.Add(T.OptionError("Source", rawSource, Cat.Sources, suggestion));
-            else
-            {
-                source = matched;
-                Note(T.Standardized("Source", rawSource, matched));
-            }
-        }
+        var brand = ParseBrand(Cell(Col.Brand), brands, messages);
+        var lotNumber = ParseLot(Cell(Col.Lot), messages);
+        var qty = ParseQuantity(Cell(Col.Quantity), messages);
+        var stage = ParseOption(Cell(Col.Storage), "Storage", Cat.ActiveStages, Cat.Normal, messages);
+        var source = ParseOption(Cell(Col.Source), "Source", Cat.Sources, Cat.WeldShop, messages);
 
         int? compartmentId = null;
         string? location = stage;
@@ -387,27 +334,77 @@ public class StockImportService(WeldReportContext db, ConsumableItemService item
             itemKey, isNew ? input : null, current?.Id, brand, lotNumber, qty, stage, compartmentId, source, date, remarks);
     }
 
+    // An unparseable date becomes default(DateOnly), as TryParseExact leaves it; the row is rejected by its message.
+    internal static DateOnly ParseDate(string? raw, DateOnly today, List<string> messages)
+    {
+        if (raw is null) return today;
+        if (!DateOnly.TryParseExact(raw, DateFormats, CultureInfo.InvariantCulture, DateTimeStyles.None, out var date))
+            messages.Add($"Date \"{raw}\" is not valid. Use YYYY-MM-DD (e.g. {today:yyyy-MM-dd}) or DD/MM/YYYY.");
+        else if (date > today)
+            messages.Add($"Date {date:yyyy-MM-dd} is in the future.");
+        return date;
+    }
+
+    internal static string? ParseBrand(string? raw, IReadOnlyDictionary<string, string> brands, List<string> messages)
+    {
+        var brand = raw is null ? null : brands.GetValueOrDefault(T.Collapse(raw)!) ?? T.TitleCase(T.Collapse(raw)!);
+        if (brand is null) messages.Add("Brand is required.");
+        else if (brand.Length > 100) messages.Add("Brand is limited to 100 characters.");
+        else AddNote(messages, T.Standardized("Brand", raw, brand));
+        return brand;
+    }
+
+    internal static string? ParseLot(string? raw, List<string> messages)
+    {
+        var lotNumber = T.Collapse(raw)?.ToUpperInvariant();
+        if (lotNumber is null) messages.Add("Lot / Heat No. is required.");
+        else if (lotNumber.Length > 60) messages.Add("Lot / Heat No. is limited to 60 characters.");
+        else AddNote(messages, T.Standardized("Lot / Heat No.", raw, lotNumber));
+        return lotNumber;
+    }
+
+    internal static decimal ParseQuantity(string? raw, List<string> messages)
+    {
+        var qty = 0m;
+        if (raw is null) messages.Add("Quantity (KG) is required.");
+        else if (!decimal.TryParse(raw.Replace("kg", "", StringComparison.OrdinalIgnoreCase).Trim(), NumberStyles.Number,
+                     CultureInfo.InvariantCulture, out qty))
+            messages.Add($"Quantity \"{raw}\" is not a number. Use kg with a dot for decimals, e.g. 5.00.");
+        else
+        {
+            qty = T.RoundKg(qty);
+            if (qty <= 0) messages.Add("Quantity must be greater than 0.");
+            else if (qty > T.MaxKg) messages.Add(T.MaxKgError);
+        }
+        return qty;
+    }
+
+    internal static string ParseOption(string? raw, string label, IReadOnlyList<string> options, string fallback, List<string> messages)
+    {
+        if (raw is null) return fallback;
+        var (matched, suggestion) = T.MatchOption(raw, options);
+        if (matched is null)
+        {
+            messages.Add(T.OptionError(label, raw, options, suggestion));
+            return fallback;
+        }
+        AddNote(messages, T.Standardized(label, raw, matched));
+        return matched;
+    }
+
+    private static void AddNote(List<string> messages, string? message)
+    {
+        if (message is not null) messages.Add(message);
+    }
+
     private Planned Skip(int line, string message)
         => new(new StockImportRowDto(line, StatusSkipped, null, null, null, null, null, [message]),
             null, null, null, "", "", 0m, Cat.Normal, null, Cat.WeldShop, time.Today(), null);
 
     private static (Dictionary<Col, int> Columns, List<string> Errors) MapHeader(List<string> header)
-    {
-        var columns = new Dictionary<Col, int>();
-        var errors = new List<string>();
-        for (var i = 0; i < header.Count; i++)
-        {
-            var name = new string(header[i].Split('(')[0].Where(char.IsLetter).ToArray());
-            if (!Aliases.TryGetValue(name, out var col)) continue;
-            if (!columns.TryAdd(col, i)) errors.Add($"Column \"{header[i]}\" appears more than once.");
-        }
-        foreach (var required in Required)
-            if (!columns.ContainsKey(required))
-                errors.Add($"Missing required column \"{Header[(int)required]}\". Download the template to see the expected columns.");
-        return (columns, errors);
-    }
+        => CsvText.MapHeader(header, Aliases, Required, Header);
 
-    private static string Key(string specification, string diameter) => $"{specification}|{diameter}".ToUpperInvariant();
+    private static string Key(string specification, string diameter) => T.ItemKey(specification, diameter);
 
     private static string OpeningKey(string itemKey, string brand, string lotNumber, decimal qty, string stage, int? compartmentId, DateOnly date)
         => string.Join('|', itemKey, brand.ToUpperInvariant(), lotNumber.ToUpperInvariant(),

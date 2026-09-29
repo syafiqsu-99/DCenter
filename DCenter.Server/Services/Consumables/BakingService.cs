@@ -33,9 +33,7 @@ public class BakingService(
         if (item is null) return Fail<BakingResult>("Consumable not found.", StatusCodes.Status404NotFound);
         if (!item.IsElectrode) return Fail<BakingResult>("Only electrodes are sent for baking.");
 
-        var normal = (await ledger.LotStagesForItemAsync(item.Id, ct))
-            .Select(l => (LotId: l.LotId, Available: l.Totals.NormalKg))
-            .ToList();
+        var normal = await ledger.NormalLotsAsync(item.Id, ct);
         var (lines, takeError) = G.Take(normal, r.LotId, qty, "Normal storage");
         if (lines is null) return Fail<BakingResult>(takeError!, StatusCodes.Status409Conflict);
 
