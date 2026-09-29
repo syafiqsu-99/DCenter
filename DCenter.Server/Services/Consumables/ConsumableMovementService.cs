@@ -17,7 +17,7 @@ public class ConsumableMovementService(
 
     public async Task<ServiceResult<MovementResult>> ReceiveAsync(ReceiveRequest r, string? enteredBy, CancellationToken ct)
     {
-        var (user, date, error) = G.Common(enteredBy, r.TxnDate);
+        var (user, date, error) = guards.Common(enteredBy, r.TxnDate);
         if (error is not null) return Fail(error);
         if (guards.CheckBackdate(date) is string backdate) return Fail(backdate);
 
@@ -97,7 +97,7 @@ public class ConsumableMovementService(
 
     public async Task<ServiceResult<MovementResult>> TransferAsync(TransferRequest r, string? enteredBy, CancellationToken ct)
     {
-        var (user, date, error) = G.Common(enteredBy, r.TxnDate);
+        var (user, date, error) = guards.Common(enteredBy, r.TxnDate);
         if (error is not null) return Fail(error);
         if (guards.CheckBackdate(date) is string backdate) return Fail(backdate);
 
@@ -148,7 +148,7 @@ public class ConsumableMovementService(
 
     public async Task<ServiceResult<MovementResult>> IssueAsync(IssueRequest r, string? enteredBy, CancellationToken ct)
     {
-        var (user, date, error) = G.Common(enteredBy, r.TxnDate);
+        var (user, date, error) = guards.Common(enteredBy, r.TxnDate);
         if (error is not null) return Fail(error);
         if (guards.CheckBackdate(date) is string backdate) return Fail(backdate);
 
@@ -214,7 +214,7 @@ public class ConsumableMovementService(
 
     public async Task<ServiceResult<MovementResult>> ReturnAsync(ReturnRequest r, string? enteredBy, bool supervisor, CancellationToken ct)
     {
-        var (user, date, error) = G.Common(enteredBy, r.TxnDate);
+        var (user, date, error) = guards.Common(enteredBy, r.TxnDate);
         if (error is not null) return Fail(error);
         if (guards.CheckBackdate(date) is string backdate) return Fail(backdate);
 
@@ -315,7 +315,7 @@ public class ConsumableMovementService(
 
     public async Task<ServiceResult<MovementResult>> MoveAsync(MoveRequest r, string? enteredBy, CancellationToken ct)
     {
-        var (user, date, error) = G.Common(enteredBy, r.TxnDate);
+        var (user, date, error) = guards.Common(enteredBy, r.TxnDate);
         if (error is not null) return Fail(error);
         if (guards.CheckBackdate(date) is string backdate) return Fail(backdate);
         if (r.FromCompartmentId == r.ToCompartmentId) return Fail("Choose a different compartment to move to.");
@@ -398,7 +398,7 @@ public class ConsumableMovementService(
 
     public async Task<ServiceResult<MovementResult>> FinishAsync(FinishRequest r, string? enteredBy, bool supervisor, CancellationToken ct)
     {
-        var (user, date, error) = G.Common(enteredBy, null);
+        var (user, date, error) = guards.Common(enteredBy, null);
         if (error is not null) return Fail(error);
 
         var stage = r.Stage is null ? Cat.Activated : T.Stage(r.Stage);
@@ -460,7 +460,7 @@ public class ConsumableMovementService(
 
     public async Task<ServiceResult<MovementResult>> AdjustAsync(AdjustRequest r, string? enteredBy, CancellationToken ct)
     {
-        var (user, date, error) = G.Common(enteredBy, r.TxnDate);
+        var (user, date, error) = guards.Common(enteredBy, r.TxnDate);
         if (error is not null) return Fail(error);
         if (guards.CheckBackdate(date) is string backdate) return Fail(backdate);
 
@@ -560,7 +560,7 @@ public class ConsumableMovementService(
 
     public async Task<ServiceResult<MovementResult>> VoidAsync(string txnNo, VoidRequest r, string? enteredBy, CancellationToken ct)
     {
-        var (user, _, error) = G.Common(enteredBy, null);
+        var (user, _, error) = guards.Common(enteredBy, null);
         if (error is not null) return Fail(error);
 
         var remarks = T.FreeText(r.Remarks, 500);

@@ -41,6 +41,7 @@ builder.Services.AddRateLimiter(options =>
         http.Connection.RemoteIpAddress?.ToString() ?? "unknown",
         _ => new FixedWindowRateLimiterOptions { PermitLimit = 10, Window = TimeSpan.FromMinutes(1), QueueLimit = 0 }));
 });
+builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddSingleton<IdempotencyGate>();
 
 builder.Services.AddScoped<WorkOrderSearchService>();
@@ -62,6 +63,7 @@ builder.Services.AddDataProtection()
     .SetApplicationName("DCenter")
     .PersistKeysToFileSystem(new DirectoryInfo(keysPath));
 builder.Services.AddSingleton<SupervisorAuth>();
+builder.Services.AddScoped<ISupervisorContext, HttpSupervisorContext>();
 builder.Services.AddScoped<ConsumableImportService>();
 builder.Services.AddScoped<StockImportService>();
 builder.Services.AddScoped<SupervisorPasswordService>();

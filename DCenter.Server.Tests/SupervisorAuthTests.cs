@@ -7,7 +7,7 @@ namespace DCenter.Server.Tests;
 public class SupervisorAuthTests
 {
     private static SupervisorAuth Create() =>
-        new(new EphemeralDataProtectionProvider(), Options.Create(new ConsumableOptions { SupervisorSessionHours = 12 }));
+        new(new EphemeralDataProtectionProvider(), Options.Create(new ConsumableOptions { SupervisorSessionHours = 12 }), TimeProvider.System);
 
     [Fact]
     public void IssuedTokenValidatesWithTheSameName()

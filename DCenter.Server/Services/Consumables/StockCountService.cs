@@ -9,7 +9,7 @@ using T = DCenter.Server.Services.ConsumableText;
 
 namespace DCenter.Server.Services;
 
-public class StockCountService(WeldReportContext db, ConsumableLedger ledger, ConsumableGuards guards)
+public class StockCountService(WeldReportContext db, ConsumableLedger ledger, ConsumableGuards guards, TimeProvider time)
 {
     private const int MaxLines = 2000;
 
@@ -57,12 +57,12 @@ public class StockCountService(WeldReportContext db, ConsumableLedger ledger, Co
             .ThenBy(l => l.LotId)
             .ToList();
 
-        return ServiceResult<CountSheetDto>.Ok(new CountSheetDto(stage, cat, DateTime.Now, lines));
+        return ServiceResult<CountSheetDto>.Ok(new CountSheetDto(stage, cat, time.LocalNow(), lines));
     }
 
     public async Task<ServiceResult<StockCountDto>> PostAsync(StockCountRequest r, string? enteredBy, CancellationToken ct)
     {
-        var (user, date, error) = G.Common(enteredBy, r.CountDate);
+        var (user, date, error) = guards.Common(enteredBy, r.CountDate);
         if (error is not null) return Fail(error);
 
         var stage = Scope(r.Scope);

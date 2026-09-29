@@ -9,7 +9,7 @@ namespace DCenter.Server.Services;
 
 public sealed record SupervisorSession(string Name, DateTimeOffset ExpiresAt);
 
-public class SupervisorAuth(IDataProtectionProvider provider, IOptions<ConsumableOptions> options)
+public class SupervisorAuth(IDataProtectionProvider provider, IOptions<ConsumableOptions> options, TimeProvider time)
 {
     public const string TokenHeader = "X-Supervisor-Token";
 
@@ -28,7 +28,7 @@ public class SupervisorAuth(IDataProtectionProvider provider, IOptions<Consumabl
         var session = Validate(token);
         if (session is null) return;
         foreach (var (key, expiresAt) in revoked)
-            if (expiresAt <= DateTimeOffset.UtcNow) revoked.TryRemove(key, out _);
+            if (expiresAt <= time.GetUtcNow()) revoked.TryRemove(key, out _);
         revoked[Fingerprint(token!)] = session.ExpiresAt;
     }
 
@@ -36,7 +36,7 @@ public class SupervisorAuth(IDataProtectionProvider provider, IOptions<Consumabl
 
     public (string Token, DateTimeOffset ExpiresAt) Issue(string name)
     {
-        var now = DateTimeOffset.UtcNow;
+        var now = time.GetUtcNow();
         var expiresAt = now.AddHours(sessionHours);
         var payload = $"{now.ToUnixTimeMilliseconds().ToString(CultureInfo.InvariantCulture)}|{name}";
         return (protector.Protect(payload, expiresAt), expiresAt);
@@ -74,5 +74,15 @@ public class SupervisorAuth(IDataProtectionProvider provider, IOptions<Consumabl
         }
     }
 
-    public SupervisorSession? FromRequest(HttpRequest request) => Validate(request.Headers[TokenHeader].ToString());
+    private static readonly object RequestCacheKey = new();
+
+    // Validated once per request; the controller base, filters and guards all ask.
+    public SupervisorSession? FromRequest(HttpRequest request)
+    {
+        var items = request.HttpContext.Items;
+        if (items.TryGetValue(RequestCacheKey, out var cached)) return (SupervisorSession?)cached;
+        var session = Validate(request.Headers[TokenHeader].ToString());
+        items[RequestCacheKey] = session;
+        return session;
+    }
 }

@@ -9,7 +9,7 @@ using T = DCenter.Server.Services.ConsumableText;
 
 namespace DCenter.Server.Services;
 
-public class StockImportService(WeldReportContext db, ConsumableItemService items, ConsumableLedger ledger)
+public class StockImportService(WeldReportContext db, ConsumableItemService items, ConsumableLedger ledger, TimeProvider time)
 {
     public const long MaxFileBytes = CsvText.MaxUploadBytes;
     private const int MaxRows = 5000;
@@ -60,13 +60,13 @@ public class StockImportService(WeldReportContext db, ConsumableItemService item
         StockImportRowDto Row, string? ItemKey, ItemInput? NewItem, int? ItemId, string Brand, string LotNumber, decimal Qty,
         string Stage, int? CompartmentId, string Source, DateOnly Date, string? Remarks);
 
-    public static byte[] Template()
+    public static byte[] Template(DateOnly today)
         => CsvText.Write(new List<IEnumerable<string?>>
         {
             Header,
             new[]
             {
-                T.Today.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture), Cat.ElectrodeFiller, "E7018", "3.20", "Kobelco", "L12345", "5.00",
+                today.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture), Cat.ElectrodeFiller, "E7018", "3.20", "Kobelco", "L12345", "5.00",
                 Cat.Activated, "AS-1", Cat.OvenAlloySteel, Cat.WeldShop, "EXAMPLE - delete this row",
             },
         });
@@ -74,7 +74,7 @@ public class StockImportService(WeldReportContext db, ConsumableItemService item
     public async Task<ServiceResult<StockImportResultDto>> ImportAsync(
         Stream stream, bool commit, bool skipInvalid, string? enteredBy, CancellationToken ct)
     {
-        var (user, _, userError) = G.Common(enteredBy, null);
+        var (user, _, userError) = G.Common(enteredBy, null, time.Today());
         if (userError is not null) return Fail(userError);
 
         using var buffer = new MemoryStream();
@@ -227,13 +227,13 @@ public class StockImportService(WeldReportContext db, ConsumableItemService item
         if (rawRemarks is not null && rawRemarks.StartsWith("EXAMPLE", StringComparison.OrdinalIgnoreCase))
             return Skip(r.Line, $"{T.WarningPrefix} example row from the template — skipped.");
 
-        var date = T.Today;
+        var date = time.Today();
         var rawDate = Cell(Col.Date);
         if (rawDate is not null)
         {
             if (!DateOnly.TryParseExact(rawDate, DateFormats, CultureInfo.InvariantCulture, DateTimeStyles.None, out date))
-                messages.Add($"Date \"{rawDate}\" is not valid. Use YYYY-MM-DD (e.g. {T.Today:yyyy-MM-dd}) or DD/MM/YYYY.");
-            else if (date > T.Today)
+                messages.Add($"Date \"{rawDate}\" is not valid. Use YYYY-MM-DD (e.g. {time.Today():yyyy-MM-dd}) or DD/MM/YYYY.");
+            else if (date > time.Today())
                 messages.Add($"Date {date:yyyy-MM-dd} is in the future.");
         }
 
@@ -387,9 +387,9 @@ public class StockImportService(WeldReportContext db, ConsumableItemService item
             itemKey, isNew ? input : null, current?.Id, brand, lotNumber, qty, stage, compartmentId, source, date, remarks);
     }
 
-    private static Planned Skip(int line, string message)
+    private Planned Skip(int line, string message)
         => new(new StockImportRowDto(line, StatusSkipped, null, null, null, null, null, [message]),
-            null, null, null, "", "", 0m, Cat.Normal, null, Cat.WeldShop, T.Today, null);
+            null, null, null, "", "", 0m, Cat.Normal, null, Cat.WeldShop, time.Today(), null);
 
     private static (Dictionary<Col, int> Columns, List<string> Errors) MapHeader(List<string> header)
     {

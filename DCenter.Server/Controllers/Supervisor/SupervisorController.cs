@@ -7,7 +7,8 @@ namespace DCenter.Server.Controllers;
 
 [ApiController]
 [Route("api/supervisor")]
-public class SupervisorController(SupervisorAuth auth, SupervisorPasswordService passwords, ILogger<SupervisorController> logger)
+public class SupervisorController(
+    SupervisorAuth auth, SupervisorPasswordService passwords, TimeProvider time, ILogger<SupervisorController> logger)
     : ControllerBase
 {
     public const string LoginRateLimit = "supervisor-login";
@@ -84,7 +85,7 @@ public class SupervisorController(SupervisorAuth auth, SupervisorPasswordService
             if (result.Status == StatusCodes.Status403Forbidden) await Task.Delay(FailureDelay, ct);
             return StatusCode(result.Status, result.Error);
         }
-        auth.RevokeIssuedBefore(DateTimeOffset.UtcNow);
+        auth.RevokeIssuedBefore(time.GetUtcNow());
         logger.LogInformation("Supervisor password changed by {Name}", user);
         return Ok(result.Value);
     }

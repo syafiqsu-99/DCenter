@@ -5,7 +5,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace DCenter.Server.Services;
 
-public class ReportService(WeldReportContext db)
+public class ReportService(WeldReportContext db, TimeProvider time)
 {
     public async Task<Report?> GetEntityAsync(string workOrderNumber, CancellationToken ct)
         => await db.Reports
@@ -46,8 +46,9 @@ public class ReportService(WeldReportContext db)
         if (complete && ReportSaveRules.CompletionProblems(r) is { Count: > 0 } problems)
             return new(CompleteResult.Incomplete, problems);
 
-        r.CompletedAt = complete ? DateTime.Now : null;
-        r.UpdatedAt = DateTime.Now;
+        var now = time.LocalNow();
+        r.CompletedAt = complete ? now : null;
+        r.UpdatedAt = now;
         db.ReportStatusEvents.Add(new ReportStatusEvent
         {
             ReportId = r.Id,
@@ -91,12 +92,12 @@ public class ReportService(WeldReportContext db)
     public async Task<ReportDashboardDto> GetDashboardAsync(int months, CancellationToken ct)
     {
         months = Math.Clamp(months, 1, 24);
-        var today = DateOnly.FromDateTime(DateTime.Today);
+        var today = time.Today();
         var monthStart = new DateOnly(today.Year, today.Month, 1);
         var windowStart = monthStart.AddMonths(-(months - 1));
         var monthStartAt = monthStart.ToDateTime(TimeOnly.MinValue);
         var windowStartAt = windowStart.ToDateTime(TimeOnly.MinValue);
-        var staleBefore = DateTime.Now.AddDays(-StaleDraftDays);
+        var staleBefore = time.LocalNow().AddDays(-StaleDraftDays);
 
         var reports = await db.Reports
             .AsNoTracking()
@@ -170,7 +171,7 @@ public class ReportService(WeldReportContext db)
                 r.WorkOrderNumber, r.PartNo, r.Description, r.JointCount, r.DateWelded, r.UpdatedAt,
                 r.DateWelded is null
                     ? (r.UpdatedAt < staleBefore ? "No date welded · stale" : "No date welded")
-                    : $"No update for {(int)(DateTime.Now - r.UpdatedAt).TotalDays} days")).ToList());
+                    : $"No update for {(int)(time.LocalNow() - r.UpdatedAt).TotalDays} days")).ToList());
     }
 
     public static readonly string[] TraceFields = ["welder", "wps", "heat", "heatLot"];
@@ -222,7 +223,7 @@ public class ReportService(WeldReportContext db)
         string summary;
         if (r is null)
         {
-            r = new Report { WorkOrderNumber = dto.WorkOrderNumber, CreatedAt = DateTime.Now };
+            r = new Report { WorkOrderNumber = dto.WorkOrderNumber, CreatedAt = time.LocalNow() };
             db.Reports.Add(r);
             summary = "Report created";
         }
@@ -236,7 +237,7 @@ public class ReportService(WeldReportContext db)
         }
 
         ApplyHeader(r, dto);
-        r.UpdatedAt = DateTime.Now;
+        r.UpdatedAt = time.LocalNow();
 
         foreach (var jd in ReportSaveRules.Renumber(dto.Joints).Take(ReportSaveRules.MaxJoints))
         {

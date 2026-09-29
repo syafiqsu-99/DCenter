@@ -34,7 +34,7 @@ public sealed record LotStageRow(int LotId, int ItemId, StageTotals Totals);
 
 public sealed record BinRow(int LotId, int ItemId, int? CompartmentId, decimal Kg);
 
-public class ConsumableLedger(WeldReportContext db)
+public class ConsumableLedger(WeldReportContext db, TimeProvider time)
 {
     public IQueryable<ConsumableMovement> Live()
         => db.ConsumableMovements.AsNoTracking().Where(m => !m.IsVoided && m.TxnType != Cat.TxnVoid);
@@ -179,7 +179,7 @@ public class ConsumableLedger(WeldReportContext db)
         command.CommandText = $"SELECT NEXT VALUE FOR [dbo].[{sequence}]";
         command.Transaction = db.Database.CurrentTransaction?.GetDbTransaction();
         var next = Convert.ToInt64(await command.ExecuteScalarAsync(ct));
-        return $"{prefix}-{DateTime.Now:yy}-{next.ToString(pattern)}";
+        return $"{prefix}-{time.LocalNow():yy}-{next.ToString(pattern)}";
     }
 
     public static IQueryable<TransactionDto> Project(IQueryable<ConsumableMovement> q)

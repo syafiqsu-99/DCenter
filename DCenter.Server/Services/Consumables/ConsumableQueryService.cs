@@ -10,7 +10,7 @@ using T = DCenter.Server.Services.ConsumableText;
 
 namespace DCenter.Server.Services;
 
-public class ConsumableQueryService(WeldReportContext db, ConsumableLedger ledger, IOptions<ConsumableOptions> options)
+public class ConsumableQueryService(WeldReportContext db, ConsumableLedger ledger, IOptions<ConsumableOptions> options, TimeProvider time)
 {
     private readonly ConsumableOptions settings = options.Value;
 
@@ -152,7 +152,7 @@ public class ConsumableQueryService(WeldReportContext db, ConsumableLedger ledge
         var activity = new Dictionary<int, (decimal Picked, decimal Returned, int? LastLotId, int? LastCompartmentId)>();
         if (welderId is int wid)
         {
-            var since = T.Today.AddDays(-(Math.Max(settings.ReturnWindowDays, 1) - 1));
+            var since = time.Today().AddDays(-(Math.Max(settings.ReturnWindowDays, 1) - 1));
             var windowQuery = ledger.Live().Where(m => m.WelderId == wid && m.TxnDate >= since);
             if (filter is not null) windowQuery = windowQuery.Where(filter);
             var sums = await windowQuery
@@ -222,7 +222,7 @@ public class ConsumableQueryService(WeldReportContext db, ConsumableLedger ledge
 
     public Task<List<TransactionDto>> GetWelderTodayAsync(int welderId, CancellationToken ct)
     {
-        var start = DateTime.Today;
+        var start = time.LocalNow().Date;
         return ConsumableLedger.Project(db.ConsumableMovements.AsNoTracking()
                 .Where(m => m.WelderId == welderId && m.CreatedAt >= start && m.TxnType != Cat.TxnVoid)
                 .OrderByDescending(m => m.Id))
@@ -234,7 +234,7 @@ public class ConsumableQueryService(WeldReportContext db, ConsumableLedger ledge
         var txnType = T.TxnType(type);
         if (txnType is null) return ServiceResult<List<TransactionDto>>.Fail("Unknown transaction type.");
 
-        var start = DateTime.Today;
+        var start = time.LocalNow().Date;
         var rows = await ConsumableLedger.Project(db.ConsumableMovements.AsNoTracking()
                 .Where(m => m.TxnType == txnType && m.CreatedAt >= start)
                 .OrderByDescending(m => m.Id)
@@ -289,7 +289,7 @@ public class ConsumableQueryService(WeldReportContext db, ConsumableLedger ledge
         if (!T.TryCategoryFilter(category, out var cat))
             return ServiceResult<DashboardDto>.Fail("Unknown consumable type.");
 
-        var today = T.Today;
+        var today = time.Today();
         var monthStart = new DateOnly(today.Year, today.Month, 1);
         var first = monthStart.AddMonths(-11);
         List<string> flowTypes = [Cat.TxnReceive, Cat.TxnIssue, Cat.TxnReturn, Cat.TxnFinish, Cat.TxnAdjust];

@@ -6,7 +6,6 @@ namespace DCenter.Server.Services;
 
 internal static partial class ConsumableText
 {
-    public static DateOnly Today => DateOnly.FromDateTime(DateTime.Now);
 
     public static decimal RoundKg(decimal value) => Math.Round(value, 2, MidpointRounding.AwayFromZero);
 
