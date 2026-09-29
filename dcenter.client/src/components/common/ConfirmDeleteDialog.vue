@@ -29,7 +29,7 @@
     confirmText: { type: String, default: 'Delete' },
     loading: Boolean,
     confirmDisabled: Boolean,
-  });
+  })
 
-  defineEmits(['update:modelValue', 'confirm']);
+  defineEmits(['update:modelValue', 'confirm'])
 </script>

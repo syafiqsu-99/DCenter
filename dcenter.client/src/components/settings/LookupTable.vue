@@ -97,81 +97,81 @@
 </template>
 
 <script setup>
-  import { computed, onMounted, ref, watch } from 'vue';
-  import { useCrudApi } from '@/composables/useCrudApi';
-  import { saveBlob } from '@/utils/files';
-  import { errorText } from '@/utils/errors';
-  import ConfirmDeleteDialog from '@/components/common/ConfirmDeleteDialog.vue';
+  import { computed, onMounted, ref, watch } from 'vue'
+  import { useCrudApi } from '@/composables/useCrudApi'
+  import { saveBlob } from '@/utils/files'
+  import { errorText } from '@/utils/errors'
+  import ConfirmDeleteDialog from '@/components/common/ConfirmDeleteDialog.vue'
 
-  const categories = ['Process', 'Size', 'Type', 'Manuf'];
-  const category = ref('Process');
-  const items = ref([]);
-  const search = ref('');
-  const loading = ref(false);
-  const saving = ref(false);
-  const dialog = ref(false);
-  const editing = ref(blank());
-  const dragId = ref(null);
-  const selectedId = ref(null);
-  const confirmDelete = ref(false);
-  const pendingDelete = ref(null);
-  const deleting = ref(false);
+  const categories = ['Process', 'Size', 'Type', 'Manuf']
+  const category = ref('Process')
+  const items = ref([])
+  const search = ref('')
+  const loading = ref(false)
+  const saving = ref(false)
+  const dialog = ref(false)
+  const editing = ref(blank())
+  const dragId = ref(null)
+  const selectedId = ref(null)
+  const confirmDelete = ref(false)
+  const pendingDelete = ref(null)
+  const deleting = ref(false)
 
-  const importing = ref(false);
-  const importMsg = ref('');
-  const fileInput = ref(null);
+  const importing = ref(false)
+  const importMsg = ref('')
+  const fileInput = ref(null)
 
-  const dialogError = ref('');
-  const error = ref('');
+  const dialogError = ref('')
+  const error = ref('')
 
   const headers = [
     { title: '',       key: 'drag',     width: '10%', sortable: false },
     { title: 'Value',  key: 'value',    width: '70%' },
     { title: 'Active', key: 'isActive', width: '10%' },
     { title: '',       key: 'actions',  width: '10%', sortable: false, align: 'end' },
-  ];
+  ]
 
   const filteredItems = computed(() => {
-    const q = search.value?.trim().toLowerCase();
-    if (!q) return items.value;
-    return items.value.filter((i) => i.value.toLowerCase().includes(q));
-  });
+    const q = search.value?.trim().toLowerCase()
+    if (!q) return items.value
+    return items.value.filter((i) => i.value.toLowerCase().includes(q))
+  })
 
   const rowProps = ({ item }) => ({
     class: selectedId.value === item.id ? 'bg-blue-grey-lighten-5' : '',
     draggable: !search.value,
-    onDragstart: () => { dragId.value = item.id; },
+    onDragstart: () => { dragId.value = item.id },
     onDragover: (e) => e.preventDefault(),
     onDrop: () => onDrop(item),
-  });
+  })
 
-  const lookups = useCrudApi('/lookups');
+  const lookups = useCrudApi('/lookups')
 
   function blank() {
-    return { id: 0, category: category.value, value: '', isActive: true };
+    return { id: 0, category: category.value, value: '', isActive: true }
   }
 
   async function load() {
-    loading.value = true;
+    loading.value = true
     try {
-      items.value = await lookups.list({ category: category.value });
+      items.value = await lookups.list({ category: category.value })
     } catch (e) {
-      error.value = errorText(e, 'Could not load the list. Reload the page to try again.');
+      error.value = errorText(e, 'Could not load the list. Reload the page to try again.')
     } finally {
-      loading.value = false;
+      loading.value = false
     }
   }
 
   function openNew() {
     editing.value = blank()
-    dialogError.value = '';
-    dialog.value = true;
+    dialogError.value = ''
+    dialog.value = true
   }
 
   function openEdit(row) {
     editing.value = { ...row }
     dialogError.value = ''
-    dialog.value = true;
+    dialog.value = true
   }
 
   async function save() {
@@ -192,69 +192,69 @@
   }
 
   function askDelete(row) {
-    pendingDelete.value = row;
-    confirmDelete.value = true;
+    pendingDelete.value = row
+    confirmDelete.value = true
   }
 
   async function doDelete() {
-    if (!pendingDelete.value) return;
-    deleting.value = true;
+    if (!pendingDelete.value) return
+    deleting.value = true
     try {
-      await lookups.remove(pendingDelete.value.id);
-      await load();
+      await lookups.remove(pendingDelete.value.id)
+      await load()
     } catch (e) {
-      error.value = errorText(e, 'Could not delete this value. Reload and try again.');
+      error.value = errorText(e, 'Could not delete this value. Reload and try again.')
     } finally {
-      deleting.value = false;
-      confirmDelete.value = false;
-      pendingDelete.value = null;
+      deleting.value = false
+      confirmDelete.value = false
+      pendingDelete.value = null
     }
   }
 
   async function onDrop(targetItem) {
-    if (search.value || dragId.value === null || dragId.value === targetItem.id) return;
-    const from = items.value.findIndex((i) => i.id === dragId.value);
-    const to = items.value.findIndex((i) => i.id === targetItem.id);
-    dragId.value = null;
-    if (from === -1 || to === -1) return;
-    const list = [...items.value];
-    const [moved] = list.splice(from, 1);
-    list.splice(to, 0, moved);
-    items.value = list;
+    if (search.value || dragId.value === null || dragId.value === targetItem.id) return
+    const from = items.value.findIndex((i) => i.id === dragId.value)
+    const to = items.value.findIndex((i) => i.id === targetItem.id)
+    dragId.value = null
+    if (from === -1 || to === -1) return
+    const list = [...items.value]
+    const [moved] = list.splice(from, 1)
+    list.splice(to, 0, moved)
+    items.value = list
     try {
-      await lookups.put('reorder', list.map((i) => i.id));
+      await lookups.put('reorder', list.map((i) => i.id))
     } catch (e) {
-      error.value = errorText(e, 'Could not save the new order. The list was reloaded.');
-      await load();
+      error.value = errorText(e, 'Could not save the new order. The list was reloaded.')
+      await load()
     }
   }
 
   async function exportCsv() {
     try {
-      saveBlob(await lookups.exportBlob(), 'dropdown-lists.csv');
+      saveBlob(await lookups.exportBlob(), 'dropdown-lists.csv')
     } catch (e) {
-      error.value = errorText(e, 'Could not export the dropdown lists.');
+      error.value = errorText(e, 'Could not export the dropdown lists.')
     }
   }
 
   async function importCsv(e) {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    importing.value = true;
-    importMsg.value = '';
+    const file = e.target.files?.[0]
+    if (!file) return
+    importing.value = true
+    importMsg.value = ''
     try {
-      const data = await lookups.importCsv(file);
-      importMsg.value = `Imported: ${data.added} added, ${data.updated} updated, ${data.unchanged} unchanged, ${data.skipped} skipped.`;
-      await load();
+      const data = await lookups.importCsv(file)
+      importMsg.value = `Imported: ${data.added} added, ${data.updated} updated, ${data.unchanged} unchanged, ${data.skipped} skipped.`
+      await load()
     } catch (err) {
-      importMsg.value = '';
-      error.value = errorText(err, 'Import failed. Export the lists to see the expected columns.');
+      importMsg.value = ''
+      error.value = errorText(err, 'Import failed. Export the lists to see the expected columns.')
     } finally {
-      importing.value = false;
-      e.target.value = '';
+      importing.value = false
+      e.target.value = ''
     }
   }
 
-  watch(category, load);
-  onMounted(load);
+  watch(category, load)
+  onMounted(load)
 </script>

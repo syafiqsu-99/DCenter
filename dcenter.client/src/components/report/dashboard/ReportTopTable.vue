@@ -21,24 +21,24 @@
 </template>
 
 <script setup>
-  import { computed } from 'vue';
-  import { useRouter } from 'vue-router';
-  import { useReportInsightsStore } from '@/store/reportInsightsStore';
+  import { computed } from 'vue'
+  import { useRouter } from 'vue-router'
+  import { useReportInsightsStore } from '@/store/reportInsightsStore'
 
   const props = defineProps({
     title: { type: String, required: true },
     items: { type: Array, default: null },
     traceField: { type: String, required: true },
-  });
+  })
 
-  const store = useReportInsightsStore();
-  const router = useRouter();
-  const max = computed(() => Math.max(1, ...(props.items ?? []).map((r) => r.count)));
+  const store = useReportInsightsStore()
+  const router = useRouter()
+  const max = computed(() => Math.max(1, ...(props.items ?? []).map((r) => r.count)))
 
   function trace(row) {
-    store.traceField = props.traceField;
-    store.traceQuery = row.detail || row.name;
-    store.searchTrace();
-    router.push({ name: 'report-trace' });
+    store.traceField = props.traceField
+    store.traceQuery = row.detail || row.name
+    store.searchTrace()
+    router.push({ name: 'report-trace' })
   }
 </script>

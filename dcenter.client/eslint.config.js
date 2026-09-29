@@ -3,6 +3,7 @@ import globals from 'globals'
 import js from '@eslint/js'
 import pluginVue from 'eslint-plugin-vue'
 import pluginOxlint from 'eslint-plugin-oxlint'
+import stylistic from '@stylistic/eslint-plugin'
 
 export default defineConfig([
   {
@@ -24,8 +25,11 @@ export default defineConfig([
   ...pluginVue.configs['flat/essential'],
 
   {
+    plugins: { '@stylistic': stylistic },
     rules: {
       'vue/valid-v-slot': ['error', { allowModifiers: true }],
+      '@stylistic/semi': ['error', 'never'],
+      '@stylistic/quotes': ['error', 'single', { avoidEscape: true }],
     },
   },
 

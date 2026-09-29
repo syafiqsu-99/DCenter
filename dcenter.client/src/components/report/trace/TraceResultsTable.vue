@@ -37,15 +37,15 @@
 </template>
 
 <script setup>
-  import { computed } from 'vue';
-  import { storeToRefs } from 'pinia';
-  import { useRouter } from 'vue-router';
-  import { useReportInsightsStore } from '@/store/reportInsightsStore';
-  import ReportStatusChip from '@/components/report/ReportStatusChip.vue';
-  import { downloadCsv as saveCsv } from '@/utils/files';
+  import { computed } from 'vue'
+  import { storeToRefs } from 'pinia'
+  import { useRouter } from 'vue-router'
+  import { useReportInsightsStore } from '@/store/reportInsightsStore'
+  import ReportStatusChip from '@/components/report/ReportStatusChip.vue'
+  import { downloadCsv as saveCsv } from '@/utils/files'
 
-  const router = useRouter();
-  const { traceResults, traceTruncated, traceSearched, loadingTrace, traceField, traceQuery } = storeToRefs(useReportInsightsStore());
+  const router = useRouter()
+  const { traceResults, traceTruncated, traceSearched, loadingTrace, traceField, traceQuery } = storeToRefs(useReportInsightsStore())
 
   const headers = [
     { title: 'Work Order Number', key: 'workOrderNumber', width: '150px' },
@@ -57,21 +57,21 @@
     { title: 'Welder', key: 'welder', sortable: false },
     { title: 'Part heat no.', key: 'heat', sortable: false },
     { title: 'Electrode heat/lot', key: 'heatLots' },
-  ];
+  ]
 
-  const reportCount = computed(() => new Set(traceResults.value.map((r) => r.workOrderNumber)).size);
+  const reportCount = computed(() => new Set(traceResults.value.map((r) => r.workOrderNumber)).size)
   const noDataText = computed(() =>
-    traceSearched.value ? 'No joints match this search.' : 'Type at least 2 characters to search.');
+    traceSearched.value ? 'No joints match this search.' : 'Type at least 2 characters to search.')
 
   function open(workOrderNumber) {
-    router.push({ name: 'report-editor', params: { workOrderNumber } });
+    router.push({ name: 'report-editor', params: { workOrderNumber } })
   }
 
   function downloadCsv() {
     const cols = ['workOrderNumber', 'partNo', 'status', 'dateWelded', 'jointNumber', 'wpsNo',
-      'welderName', 'welderNo', 'heatNumberLeft', 'heatNumberRight', 'heatLots'];
-    const rows = traceResults.value.map((r) => cols.map((c) => r[c]));
-    saveCsv(`trace-${traceField.value}-${traceQuery.value.trim().replace(/[^\w.-]+/g, '_')}.csv`, [cols, ...rows]);
+      'welderName', 'welderNo', 'heatNumberLeft', 'heatNumberRight', 'heatLots']
+    const rows = traceResults.value.map((r) => cols.map((c) => r[c]))
+    saveCsv(`trace-${traceField.value}-${traceQuery.value.trim().replace(/[^\w.-]+/g, '_')}.csv`, [cols, ...rows])
   }
 </script>
 

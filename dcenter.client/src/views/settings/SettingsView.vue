@@ -23,27 +23,27 @@
 </template>
 
 <script setup>
-  import { computed, ref, watch } from 'vue';
-  import { useRoute } from 'vue-router';
-  import WelderTable from '@/components/settings/WelderTable.vue';
-  import LookupTable from '@/components/settings/LookupTable.vue';
-  import ReferenceTable from '@/components/settings/ReferenceTable.vue';
-  import ProcessTypeLinkTable from '@/components/settings/ProcessTypeLinkTable.vue';
-  import SupervisorPasswordPanel from '@/components/settings/SupervisorPasswordPanel.vue';
+  import { computed, ref, watch } from 'vue'
+  import { useRoute } from 'vue-router'
+  import WelderTable from '@/components/settings/WelderTable.vue'
+  import LookupTable from '@/components/settings/LookupTable.vue'
+  import ReferenceTable from '@/components/settings/ReferenceTable.vue'
+  import ProcessTypeLinkTable from '@/components/settings/ProcessTypeLinkTable.vue'
+  import SupervisorPasswordPanel from '@/components/settings/SupervisorPasswordPanel.vue'
 
   const wpsFields = [
     { key: 'wpsNo',     label: 'WPS No.',     width: '30%' },
     { key: 'pNo',       label: 'P-No.',       width: '10%' },
     { key: 'baseMetal', label: 'Base Metal',  width: '30%' },
     { key: 'process',   label: 'Process',     width: '20%' },
-  ];
+  ]
 
   const mrnFields = [
     { key: 'mrn', label: 'MRN', width: '20%' },
     { key: 'specNo', label: 'Spec No.', width: '20%' },
     { key: 'form', label: 'Form', width: '20%' },
     { key: 'fullSpecification', label: 'Full Specification', width: '40%' },
-  ];
+  ]
 
   const bpvcFields = [
     { key: 'specNo', label: 'Spec No.', width: '8%' },
@@ -57,7 +57,7 @@
     { key: 'nominalComposition', label: 'Nominal Composition', width: '15%' },
     { key: 'typicalProductForm', label: 'Typical Product Form', width: '15%' },
     { key: 'nominalThicknessLimits', label: 'Nominal Thickness Limits', width: '11%' },
-  ];
+  ]
 
   const sections = [
     { value: 'welders', label: 'Welders', icon: 'mdi-account-hard-hat', component: WelderTable },
@@ -82,15 +82,15 @@
       },
     },
     { value: 'supervisor', label: 'Supervisor Password', icon: 'mdi-key-change', component: SupervisorPasswordPanel },
-  ];
+  ]
 
-  const route = useRoute();
-  const sectionFromQuery = () => (sections.some((s) => s.value === route.query.section) ? route.query.section : null);
-  const sub = ref(sectionFromQuery() ?? 'welders');
-  const active = computed(() => sections.find((s) => s.value === sub.value));
+  const route = useRoute()
+  const sectionFromQuery = () => (sections.some((s) => s.value === route.query.section) ? route.query.section : null)
+  const sub = ref(sectionFromQuery() ?? 'welders')
+  const active = computed(() => sections.find((s) => s.value === sub.value))
 
   watch(() => route.query.section, () => {
-    const section = sectionFromQuery();
-    if (section) sub.value = section;
-  });
+    const section = sectionFromQuery()
+    if (section) sub.value = section
+  })
 </script>

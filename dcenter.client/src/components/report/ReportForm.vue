@@ -99,67 +99,67 @@
 </template>
 
 <script setup>
-  import { computed, watch } from 'vue';
-  import { storeToRefs } from 'pinia';
-  import { useReportStore } from '@/store/reportStore';
-  import { useLookupStore } from '@/store/lookupStore';
-  import JointForm from '@/components/report/JointForm.vue';
-  import { useBpvcStore } from '@/store/bpvcStore';
-  import { MAX_JOINTS } from '@/utils/constants';
+  import { computed, watch } from 'vue'
+  import { storeToRefs } from 'pinia'
+  import { useReportStore } from '@/store/reportStore'
+  import { useLookupStore } from '@/store/lookupStore'
+  import JointForm from '@/components/report/JointForm.vue'
+  import { useBpvcStore } from '@/store/bpvcStore'
+  import { MAX_JOINTS } from '@/utils/constants'
 
-  const store = useReportStore();
-  const { report, jointCount, mode, workOrderOptions, loadingWorkOrderNumbers, isComplete } = storeToRefs(store);
-  const isDuplicate = computed(() => mode.value === 'duplicate');
-  const lockedFromSearch = computed(() => mode.value === 'new');
+  const store = useReportStore()
+  const { report, jointCount, mode, workOrderOptions, loadingWorkOrderNumbers, isComplete } = storeToRefs(store)
+  const isDuplicate = computed(() => mode.value === 'duplicate')
+  const lockedFromSearch = computed(() => mode.value === 'new')
 
-  useLookupStore().load().catch(() => {});
+  useLookupStore().load().catch(() => {})
 
   function onWorkOrderPick(v) {
-    store.autofillFromWorkOrder(v);
+    store.autofillFromWorkOrder(v)
   }
 
-  const bpvc = useBpvcStore();
-  bpvc.load();
-  const { materialOptions } = storeToRefs(bpvc);
+  const bpvc = useBpvcStore()
+  bpvc.load()
+  const { materialOptions } = storeToRefs(bpvc)
 
   function gradeItems(col) {
-    const list = bpvc.gradesFor(report.value[`materialSpec${col}`]);
-    const current = report.value[`grade${col}`];
-    return current && !list.includes(current) ? [current, ...list] : list;
+    const list = bpvc.gradesFor(report.value[`materialSpec${col}`])
+    const current = report.value[`grade${col}`]
+    return current && !list.includes(current) ? [current, ...list] : list
   }
 
   function pNoTitle(col) {
-    const r = report.value;
-    if (!r[`materialSpec${col}`] || !r[`grade${col}`]) return 'Fill Material and Grade to look up the P-No from BPVC.';
+    const r = report.value
+    if (!r[`materialSpec${col}`] || !r[`grade${col}`]) return 'Fill Material and Grade to look up the P-No from BPVC.'
     return bpvc.resolvePNo(r[`materialSpec${col}`], r[`grade${col}`])
       ? 'Filled from BPVC — you can still overwrite it.'
-      : 'No BPVC entry for this Material and Grade — enter the P-No manually.';
+      : 'No BPVC entry for this Material and Grade — enter the P-No manually.'
   }
 
   watch(
     () => [report.value, bpvc.items, ...[1, 2, 3].flatMap((c) => [report.value?.[`materialSpec${c}`], report.value?.[`grade${c}`]])],
     (now, before) => {
-      const sameSource = !!before && before[0] === now[0] && before[1] === now[1];
-      store.syncPNumbers({ overwrite: sameSource });
+      const sameSource = !!before && before[0] === now[0] && before[1] === now[1]
+      store.syncPNumbers({ overwrite: sameSource })
     },
     { immediate: true },
-  );
+  )
 
-  const yesNo = [{ t: 'YES', v: true }, { t: 'NO', v: false }];
+  const yesNo = [{ t: 'YES', v: true }, { t: 'NO', v: false }]
 
-  const f = computed(() => ({ density: 'compact', variant: 'plain', hideDetails: true, readonly: isComplete.value }));
+  const f = computed(() => ({ density: 'compact', variant: 'plain', hideDetails: true, readonly: isComplete.value }))
 
-  const wrap = 'background:#fff;padding:12px;border:1px solid #000;margin-bottom:16px;overflow-x:auto;';
-  const titleStyle = 'text-align:center;font-weight:bold;font-size:15px;text-decoration:underline;margin-bottom:10px;';
-  const tbl = 'border-collapse:collapse;width:100%;';
-  const innerTbl = 'border-collapse:collapse;width:100%;table-layout:fixed;';
-  const cell = 'border:1px solid #000;padding:0 4px;font-size:12px;vertical-align:middle;height:26px;';
-  const lbl = 'border:1px solid #000;padding:0 4px;font-size:12px;font-weight:bold;white-space:nowrap;vertical-align:middle;width:35%;';
-  const lblR = lbl + 'text-align:right;';
-  const hdrC = 'border:1px solid #000;padding:0 4px;font-size:12px;font-weight:bold;text-align:center;';
+  const wrap = 'background:#fff;padding:12px;border:1px solid #000;margin-bottom:16px;overflow-x:auto;'
+  const titleStyle = 'text-align:center;font-weight:bold;font-size:15px;text-decoration:underline;margin-bottom:10px;'
+  const tbl = 'border-collapse:collapse;width:100%;'
+  const innerTbl = 'border-collapse:collapse;width:100%;table-layout:fixed;'
+  const cell = 'border:1px solid #000;padding:0 4px;font-size:12px;vertical-align:middle;height:26px;'
+  const lbl = 'border:1px solid #000;padding:0 4px;font-size:12px;font-weight:bold;white-space:nowrap;vertical-align:middle;width:35%;'
+  const lblR = lbl + 'text-align:right;'
+  const hdrC = 'border:1px solid #000;padding:0 4px;font-size:12px;font-weight:bold;text-align:center;'
 
-  const dateWeldedMissing = computed(() => !report.value.dateWelded);
+  const dateWeldedMissing = computed(() => !report.value.dateWelded)
   const dateCell = computed(() =>
-    dateWeldedMissing.value ? cell + 'background:#fdecea;' : cell);
+    dateWeldedMissing.value ? cell + 'background:#fdecea;' : cell)
 
 </script>

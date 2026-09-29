@@ -27,27 +27,27 @@
 </template>
 
 <script setup>
-  import { computed, onBeforeUnmount } from 'vue';
-  import { storeToRefs } from 'pinia';
-  import { useReportInsightsStore } from '@/store/reportInsightsStore';
+  import { computed, onBeforeUnmount } from 'vue'
+  import { storeToRefs } from 'pinia'
+  import { useReportInsightsStore } from '@/store/reportInsightsStore'
 
-  const store = useReportInsightsStore();
-  const { traceField, traceQuery, loadingTrace, traceError } = storeToRefs(store);
+  const store = useReportInsightsStore()
+  const { traceField, traceQuery, loadingTrace, traceError } = storeToRefs(store)
 
   const fields = [
     { value: 'welder', label: 'Welder', hint: 'Welder no. or name' },
     { value: 'wps', label: 'WPS No.', hint: 'e.g. WPS-101' },
     { value: 'heat', label: 'Part heat number', hint: 'Joining-of or with side' },
     { value: 'heatLot', label: 'Electrode heat/lot', hint: 'Any electrode column' },
-  ];
-  const current = computed(() => fields.find((f) => f.value === traceField.value) ?? fields[0]);
+  ]
+  const current = computed(() => fields.find((f) => f.value === traceField.value) ?? fields[0])
 
-  let timer = null;
+  let timer = null
   function onInput(v) {
-    traceQuery.value = v ?? '';
-    clearTimeout(timer);
-    timer = setTimeout(() => store.searchTrace(), 400);
+    traceQuery.value = v ?? ''
+    clearTimeout(timer)
+    timer = setTimeout(() => store.searchTrace(), 400)
   }
 
-  onBeforeUnmount(() => clearTimeout(timer));
+  onBeforeUnmount(() => clearTimeout(timer))
 </script>

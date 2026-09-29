@@ -6,7 +6,7 @@
 </template>
 
 <script setup>
-  import { REPORT_STATUS } from '@/utils/constants';
+  import { REPORT_STATUS } from '@/utils/constants'
 
-  defineProps({ status: { type: String, default: '' } });
+  defineProps({ status: { type: String, default: '' } })
 </script>

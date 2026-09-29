@@ -19,12 +19,12 @@
 </template>
 
 <script setup>
-  import { onMounted } from 'vue';
-  import { storeToRefs } from 'pinia';
-  import { useReportInsightsStore } from '@/store/reportInsightsStore';
+  import { onMounted } from 'vue'
+  import { storeToRefs } from 'pinia'
+  import { useReportInsightsStore } from '@/store/reportInsightsStore'
 
-  const store = useReportInsightsStore();
-  const { dashboard, dashboardMonths, loadingDashboard, dashboardError } = storeToRefs(store);
+  const store = useReportInsightsStore()
+  const { dashboard, dashboardMonths, loadingDashboard, dashboardError } = storeToRefs(store)
 
-  onMounted(() => store.loadDashboard());
+  onMounted(() => store.loadDashboard())
 </script>

@@ -19,24 +19,24 @@
 </template>
 
 <script setup>
-  import { computed } from 'vue';
-  import { useRouter } from 'vue-router';
-  import { useReportStore } from '@/store/reportStore';
-  import { useReportInsightsStore } from '@/store/reportInsightsStore';
-  import { REPORT_STATUS } from '@/utils/constants';
+  import { computed } from 'vue'
+  import { useRouter } from 'vue-router'
+  import { useReportStore } from '@/store/reportStore'
+  import { useReportInsightsStore } from '@/store/reportInsightsStore'
+  import { REPORT_STATUS } from '@/utils/constants'
 
-  const store = useReportStore();
-  const insights = useReportInsightsStore();
-  const router = useRouter();
-  const kpis = computed(() => insights.dashboard?.kpis ?? null);
+  const store = useReportStore()
+  const insights = useReportInsightsStore()
+  const router = useRouter()
+  const kpis = computed(() => insights.dashboard?.kpis ?? null)
 
   function toList(tab) {
-    store.listTab = tab;
-    router.push({ name: 'report-list' });
+    store.listTab = tab
+    router.push({ name: 'report-list' })
   }
 
   const cards = computed(() => {
-    const k = kpis.value;
+    const k = kpis.value
     return [
       {
         label: 'Open drafts', value: k?.openDrafts ?? 0, sub: 'Reports not yet completed',
@@ -60,6 +60,6 @@
         icon: 'mdi-calendar-alert', iconColor: 'error', color: k?.missingDateWelded ? 'error' : undefined,
         go: () => toList(REPORT_STATUS.draft),
       },
-    ];
-  });
+    ]
+  })
 </script>

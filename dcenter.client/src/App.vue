@@ -100,64 +100,64 @@
 </template>
 
 <script setup>
-  import { onMounted, onBeforeUnmount, computed, ref } from 'vue';
-  import { useRoute, useRouter } from 'vue-router';
-  import { useReportStore } from '@/store/reportStore';
-  import { useLookupStore } from '@/store/lookupStore';
-  import { useConsumableStore } from '@/store/consumableStore';
-  import { useSupervisorStore } from '@/store/supervisorStore';
+  import { onMounted, onBeforeUnmount, computed, ref } from 'vue'
+  import { useRoute, useRouter } from 'vue-router'
+  import { useReportStore } from '@/store/reportStore'
+  import { useLookupStore } from '@/store/lookupStore'
+  import { useConsumableStore } from '@/store/consumableStore'
+  import { useSupervisorStore } from '@/store/supervisorStore'
   import logo from '@/assets/DCenter.png'
-  import logonobg from '@/assets/DCenter_No_bg.png';
-  import { useLeaveGuard } from '@/composables/useLeaveGuard';
-  import SupervisorNavButton from '@/components/common/SupervisorNavButton.vue';
-  import SupervisorSession from '@/components/common/SupervisorSession.vue';
+  import logonobg from '@/assets/DCenter_No_bg.png'
+  import { useLeaveGuard } from '@/composables/useLeaveGuard'
+  import SupervisorNavButton from '@/components/common/SupervisorNavButton.vue'
+  import SupervisorSession from '@/components/common/SupervisorSession.vue'
 
-  const route = useRoute();
-  const router = useRouter();
-  const consumableStore = useConsumableStore();
-  const supervisorStore = useSupervisorStore();
+  const route = useRoute()
+  const router = useRouter()
+  const consumableStore = useConsumableStore()
+  const supervisorStore = useSupervisorStore()
   const allNavItems = [
     { to: '/report', label: 'Report', icon: 'mdi-file-document-edit-outline' },
     { to: '/consumables', label: 'Consumables', icon: 'mdi-package-variant-closed' },
     { to: '/settings', label: 'Settings', icon: 'mdi-cog-outline', supervisor: true },
-  ];
-  const navItems = computed(() => allNavItems.filter((item) => !item.supervisor || supervisorStore.isSupervisor));
+  ]
+  const navItems = computed(() => allNavItems.filter((item) => !item.supervisor || supervisorStore.isSupervisor))
 
-  const year = computed(() => new Date().getFullYear());
+  const year = computed(() => new Date().getFullYear())
 
-  const booting = ref(true);
-  const bootError = ref(false);
-  const attempt = ref(0);
+  const booting = ref(true)
+  const bootError = ref(false)
+  const attempt = ref(0)
 
-  const reportStore = useReportStore();
-  const lookupStore = useLookupStore();
-  const { leaveDialog, hold, stay, discardAndProceed, saveAndProceed } = useLeaveGuard();
+  const reportStore = useReportStore()
+  const lookupStore = useLookupStore()
+  const { leaveDialog, hold, stay, discardAndProceed, saveAndProceed } = useLeaveGuard()
 
-  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+  const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 
   async function boot() {
-    booting.value = true;
-    bootError.value = false;
-    const maxAttempts = 8;
-    const delays = [500, 1000, 2000, 3000, 4000, 5000, 5000];
+    booting.value = true
+    bootError.value = false
+    const maxAttempts = 8
+    const delays = [500, 1000, 2000, 3000, 4000, 5000, 5000]
 
     for (let i = 0; i < maxAttempts; i++) {
-      attempt.value = i + 1;
+      attempt.value = i + 1
       try {
         await Promise.all([
           reportStore.loadSavedReports(),
           lookupStore.load(true),
-        ]);
-        booting.value = false;
-        return;
+        ])
+        booting.value = false
+        return
       } catch {
         if (i < maxAttempts - 1) {
-          await sleep(delays[i] ?? 5000);
+          await sleep(delays[i] ?? 5000)
         }
       }
     }
-    booting.value = false;
-    bootError.value = true;
+    booting.value = false
+    bootError.value = true
   }
 
   function onGoHome() {
@@ -206,15 +206,15 @@
     }
   }
 
-  consumableStore.init();
+  consumableStore.init()
 
   onMounted(() => window.addEventListener('beforeunload', onBeforeUnload))
   onBeforeUnmount(() => {
     window.removeEventListener('beforeunload', onBeforeUnload)
     removeGuard()
-  });
+  })
 
-  boot();
+  boot()
 </script>
 
 <style scoped>

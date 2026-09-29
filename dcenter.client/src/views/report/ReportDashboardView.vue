@@ -16,14 +16,14 @@
 </template>
 
 <script setup>
-  import { storeToRefs } from 'pinia';
-  import { useReportInsightsStore } from '@/store/reportInsightsStore';
-  import StickyBar from '@/components/common/StickyBar.vue';
-  import ReportDashboardToolbar from '@/components/report/dashboard/ReportDashboardToolbar.vue';
-  import ReportKpiCards from '@/components/report/dashboard/ReportKpiCards.vue';
-  import ReportNeedsActionTable from '@/components/report/dashboard/ReportNeedsActionTable.vue';
-  import ReportMonthlyChart from '@/components/report/dashboard/ReportMonthlyChart.vue';
-  import ReportTopTable from '@/components/report/dashboard/ReportTopTable.vue';
+  import { storeToRefs } from 'pinia'
+  import { useReportInsightsStore } from '@/store/reportInsightsStore'
+  import StickyBar from '@/components/common/StickyBar.vue'
+  import ReportDashboardToolbar from '@/components/report/dashboard/ReportDashboardToolbar.vue'
+  import ReportKpiCards from '@/components/report/dashboard/ReportKpiCards.vue'
+  import ReportNeedsActionTable from '@/components/report/dashboard/ReportNeedsActionTable.vue'
+  import ReportMonthlyChart from '@/components/report/dashboard/ReportMonthlyChart.vue'
+  import ReportTopTable from '@/components/report/dashboard/ReportTopTable.vue'
 
-  const { dashboard } = storeToRefs(useReportInsightsStore());
+  const { dashboard } = storeToRefs(useReportInsightsStore())
 </script>
