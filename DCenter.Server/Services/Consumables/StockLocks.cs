@@ -5,6 +5,11 @@ using Microsoft.EntityFrameworkCore;
 
 namespace DCenter.Server.Services;
 
+/// <summary>
+/// Application locks (sp_getapplock, owned by the current transaction) that serialize stock writes.
+/// Always acquire in this order to avoid deadlocks: <see cref="Master"/>, then <see cref="Item"/> in ascending id order,
+/// then <see cref="Compartment"/> in ascending id order.
+/// </summary>
 internal static class StockLocks
 {
     public const string Master = "DCenter.Consumables.Master";

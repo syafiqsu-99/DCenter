@@ -53,10 +53,13 @@ C# namespaces stay flat (`DCenter.Server.Services`, `.Entities`, `.Models`, `.Co
 
 ## Architecture notes
 
-- **Controllers stay thin.** Consumables controllers inherit `ConsumableControllerBase`, call one service method and map its `ServiceResult<T>` with `ToAction`. New work should follow this pattern; the Settings and Weld Report controllers predate it (see [docs/code-quality-review.md](docs/code-quality-review.md)).
+- **Controllers stay thin.** Each controller binds input, calls one service method and maps its `ServiceResult<T>`: Consumables through `ConsumableControllerBase.ToAction`, Settings through `SettingsControllerBase`. Business rules live in `Services/`. WPS, MRN and BPVC IX share `ReferenceTableService<T>`; each table is described once in `Services/Settings/ReferenceTables.cs` (CSV columns, key, max lengths).
+- **Time is injected.** Services take `TimeProvider` and use `Clock.LocalNow()` / `Clock.Today()` (local wall-clock time, same as `DateTime.Now`), so date rules are unit-testable.
 - **Stock writes are serialized with `sp_getapplock`** (`Services/Consumables/StockLocks.cs`) inside the write transaction. Always acquire in this order to avoid deadlocks: `StockLocks.Master` → `StockLocks.Item(id)` (ascending id) → `StockLocks.Compartment(id)` (ascending id).
+- **Supervisor sessions** are Data Protection tokens (keys DPAPI-protected on Windows). Refreshing keeps the original login time, so a session ends `SupervisorMaxSessionHours` after login. Logouts are stored in `DCenter_SupervisorRevokedTokens` and survive an app-pool recycle.
 - **Kiosk endpoints are open by design.** Welders use the app without logging in, so reads (reports, welders, exports) and welder actions (counter issue/return/finish, baking, holding, saving a draft report) need no supervisor token. `X-Entered-By` is informational, not authentication.
-- **Client:** server calls live in stores and composables (`useCrudApi`, `usePagedList`), never in templates. Shared helpers are in `src/utils` (`errors.js`, `files.js`, `timing.js`, `date.js`, `constants.js`).
+- **Client:** server calls live in stores and composables (`useCrudApi`, `usePagedList`), never in templates. Stores: `reportStore` (editor, search, BOM tree, saved list), `reportInsightsStore` (dashboard, trace), `supervisorStore` (login session), `consumableStore` (stock screens). Shared helpers are in `src/utils` (`errors.js`, `files.js`, `timing.js`, `date.js`, `constants.js`, `fileName.js`). Code style: no semicolons, single quotes, enforced by lint.
+- **Static files** are served from `dcenter.client/dist` when it sits next to the server, otherwise from `wwwroot` (published output), after the error handler and security headers.
 
 ## Configuration
 
@@ -69,6 +72,8 @@ Secrets and connection strings belong in environment variables, not in `appsetti
 | `Consumables__WelderBackdateDays` | Optional: how many days back welders may date entries (default 7; supervisors are not limited) |
 | `DataProtection__KeysPath` | Optional: folder for session-signing keys (default `DCenter.Server/App_Data/keys`; the IIS app pool needs write access) |
 | `DCenter__AutoMigrate` | Optional: apply pending EF Core migrations at startup (default `true`; set `false` when a DBA applies scripts) |
+| `Consumables__SupervisorSessionHours` | Optional: lifetime of one supervisor token before it must be refreshed (default 12, 1–24) |
+| `Consumables__SupervisorMaxSessionHours` | Optional: a supervisor must log in again this many hours after the original login, however often the session was refreshed (default 24) |
 
 `appsettings.json` ships with an empty connection string. The server refuses to start, with a message naming the variable, until `ConnectionStrings__DefaultConnection` is set. Keep the keys folder outside anything a publish with "delete existing files" wipes, or supervisors are logged out on every deploy.
 

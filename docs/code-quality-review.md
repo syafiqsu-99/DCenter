@@ -8,6 +8,47 @@ The rule for every change in this review is simple: it must preserve behavior. N
 
 ---
 
+## Second pass: status of the deferred (⏳) and sign-off (⚠️) items
+
+This pass was built and tested with the .NET 10 SDK: 126 xUnit tests, `dotnet ef` model check, a published-build run, and browser tests in Chromium with a mocked API. The Swagger document was compared with the pre-refactor baseline after every backend step. The only contract difference is that `POST /api/Lookups/import` now declares its `ImportCounts` response (it returned an untyped object, and now also reports `unchanged`).
+
+| Item | Outcome |
+|---|---|
+| SpaProxy floating version | ✅ Pinned to 10.0.12, the version the range resolved to |
+| Controller DTOs in controllers | ✅ Moved to `Models/` (contract unchanged) |
+| `TimeProvider` / clock seams | ✅ Injected in all services and controllers; `ConsumableGuards` uses `ISupervisorContext` instead of `HttpContext`; tests added. Entity `CreatedAt = DateTime.Now` defaults are left as-is. |
+| Supervisor token decrypted 3–4× per request | ✅ Cached per request |
+| Settings controllers → services | ✅ `ReferenceTableService<T>`, `LookupService`, `WelderService`, `ProcessTypeLinkService`; thin controllers |
+| ⚠️ Over-length input → 500 | ✅ 400 with a plain message (Settings tables, process–type links, report work order); import rows that are too long are skipped |
+| ⚠️ `DbUpdateException` → 500 | ✅ 409 "try again" in Settings and consumable delete; truncation in consumable writes → 400 |
+| ⚠️ Welder update skipped the duplicate-number check | ✅ Now checked, like create |
+| ⚠️ CSV formula injection | ✅ Dropdown-list export uses the guarded writer; the client `csvCell` has the same guard (numbers untouched); the trace export reuses it |
+| ⚠️ `.csv` extension on reference imports | ✅ Checked |
+| `ConsumableMovementService` (812 lines) | ✅ Split into partial files by command group; every member verified byte-identical |
+| `ReportService` mixed concerns | ✅ Dashboard and trace moved to `ReportInsightsService` |
+| `StockImportService.PlanRow` (177 lines) | ✅ Date, brand, lot, quantity and option parsers extracted as pure functions with tests |
+| Duplicate CSV header mappers and item keys | ✅ `CsvText.MapHeader<TCol>`, `ConsumableText.ItemKey`; legacy `ToCsv`/`ReadRowsAsync`/`Field` removed |
+| Performance | ✅ `AsNoTracking` on report reads; single-query `OutstandingAsync`; item cache in the stock-count check; migration DCenter17 adds indexes on `Reports.UpdatedAt` and `ConsumableMovements.ReferenceNo` and drops the redundant `WpsItems.WpsNo` index |
+| ⚠️ Data Protection keys unencrypted | ✅ DPAPI (machine scope) on Windows |
+| ⚠️ Static files before error handler/headers | ✅ Reordered. **This also fixed a pre-existing bug:** a published build (SPA in `wwwroot`) returned 404 for every `/assets/*` file, because `UseStaticFiles()` was only called for the sibling `dcenter.client/dist` layout. |
+| ⚠️ Supervisor sessions never ended / logouts lost on recycle | ✅ Refresh stops `SupervisorMaxSessionHours` (default 24) after login; logouts persisted in `DCenter_SupervisorRevokedTokens`; older tokens still validate |
+| Aborted work-order requests logged as errors | ✅ Return 499 without an error log |
+| Client silent failures | ✅ Settings tables show load/delete/reorder/export errors; `fetchHeader` no longer reports connection errors as "not found" |
+| Client stale responses | ✅ Guards on report load/duplicate/autofill/dashboard and paged `loadMore` |
+| Client god stores | ✅ `supervisorStore` (session) and `reportInsightsStore` (dashboard, trace) extracted; `consumableStore` forwards `supervisor`/`isSupervisor` so existing callers are unchanged |
+| Client code style | ✅ No semicolons, single quotes, enforced by `@stylistic` (diff verified to change only `;` and quotes) |
+| Lock-order documentation | ✅ XML summary on `StockLocks` and a README architecture section |
+
+**Deliberately not done:**
+- **Revoking the old token on refresh.** An in-flight request still carrying the old token would get a 401, which locks the supervisor out mid-task. The absolute session cap covers the risk instead.
+- **CSP / HSTS headers.** Vuetify injects inline styles, and the site may be reached over plain HTTP internally. Both need testing on the real IIS host before they are switched on.
+- **`SpecificationNamesAsync` with `Distinct()` in SQL.** The query already projects one column. SQL `DISTINCT` could also change which spelling wins among case variants.
+- **Batching `VoidAsync` per-group lookups.** Void is rare, and a query-shape change in ledger code wants a database to test against.
+- **Dashboard composite index.** The dashboard filter uses `OR` across columns, which a composite index would not serve.
+- **A client test runner (Vitest).** Out of scope. The pure helpers are now isolated modules, ready for it.
+
+---
+
 ## 1. Executive summary
 
 DCenter is in good shape for a small internal IIS app. Its strengths:
