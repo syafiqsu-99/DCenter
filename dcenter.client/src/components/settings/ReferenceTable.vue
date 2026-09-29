@@ -194,7 +194,7 @@
       const data = await crud.importCsv(file);
       importResult.value = {
         type: 'success',
-        text: `Import complete — ${data.added} added, ${data.updated} updated, ${data.unchanged} unchanged, ${data.skipped} skipped (missing required values).`,
+        text: `Import complete — ${data.added} added, ${data.updated} updated, ${data.unchanged} unchanged, ${data.skipped} skipped (missing or too-long values).`,
       };
       await load();
     } catch (err) {

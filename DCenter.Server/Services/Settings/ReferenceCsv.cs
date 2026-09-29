@@ -5,6 +5,10 @@ public static class ReferenceCsv
     public sealed record Column(string Header, bool Required, bool Key, params string[] Aliases)
     {
         public IEnumerable<string> Names => Aliases.Length > 0 ? Aliases : [Header];
+
+        public int MaxLength { get; init; } = int.MaxValue;
+
+        public string Label { get; init; } = Header;
     }
 
     public sealed record Sheet(List<string?[]> Rows, List<string> Errors);
@@ -25,6 +29,15 @@ public static class ReferenceCsv
 
     public static string KeyOf(IReadOnlyList<Column> columns, string?[] values)
         => Key([.. columns.Select((c, i) => (c, i)).Where(x => x.c.Key).Select(x => values[x.i])]);
+
+    // The first value that is longer than its column allows, as a message for the user; null when all fit.
+    public static string? LengthError(IReadOnlyList<Column> columns, string?[] values)
+    {
+        for (var i = 0; i < columns.Count; i++)
+            if ((values[i]?.Trim().Length ?? 0) > columns[i].MaxLength)
+                return $"{columns[i].Label} is limited to {columns[i].MaxLength} characters.";
+        return null;
+    }
 
     public static string KeyLabel(IReadOnlyList<Column> columns)
         => string.Join(" / ", columns.Where(c => c.Key).Select(c => c.Header));
@@ -71,6 +84,7 @@ public static class ReferenceCsv
     {
         if (file is null || file.Length == 0) return new Sheet([], ["No file uploaded. Choose a CSV file and try again."]);
         if (file.Length > CsvText.MaxUploadBytes) return new Sheet([], ["The file is larger than 2 MB. Split it into smaller files and import each one."]);
+        if (!file.FileName.EndsWith(".csv", StringComparison.OrdinalIgnoreCase)) return new Sheet([], ["Only .csv files can be imported."]);
 
         using var buffer = new MemoryStream();
         await file.CopyToAsync(buffer, ct);
@@ -101,7 +115,8 @@ public static class ReferenceCsv
 
         foreach (var values in rows)
         {
-            if (columns.Select((c, i) => (c, i)).Any(x => x.c.Required && string.IsNullOrEmpty(values[x.i])))
+            if (columns.Select((c, i) => (c, i)).Any(x => x.c.Required && string.IsNullOrEmpty(values[x.i]))
+                || LengthError(columns, values) is not null)
             {
                 skipped++;
                 continue;

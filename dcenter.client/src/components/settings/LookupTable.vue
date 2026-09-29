@@ -228,7 +228,7 @@
     importMsg.value = '';
     try {
       const data = await lookups.importCsv(file);
-      importMsg.value = `Imported: ${data.added} added, ${data.updated} updated, ${data.skipped} skipped.`;
+      importMsg.value = `Imported: ${data.added} added, ${data.updated} updated, ${data.unchanged} unchanged, ${data.skipped} skipped.`;
       await load();
     } catch (err) {
       importMsg.value = err.response?.data ?? 'Import failed.';

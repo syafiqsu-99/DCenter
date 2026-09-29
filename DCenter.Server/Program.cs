@@ -67,6 +67,13 @@ builder.Services.AddScoped<ISupervisorContext, HttpSupervisorContext>();
 builder.Services.AddScoped<ConsumableImportService>();
 builder.Services.AddScoped<StockImportService>();
 builder.Services.AddScoped<SupervisorPasswordService>();
+builder.Services.AddScoped(typeof(ReferenceTableService<>));
+builder.Services.AddScoped<LookupService>();
+builder.Services.AddScoped<WelderService>();
+builder.Services.AddScoped<ProcessTypeLinkService>();
+builder.Services.AddSingleton<IReferenceTable<BpvcMaterial>, BpvcTable>();
+builder.Services.AddSingleton<IReferenceTable<MrnSpec>, MrnTable>();
+builder.Services.AddSingleton<IReferenceTable<WpsItem>, WpsTable>();
 
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();

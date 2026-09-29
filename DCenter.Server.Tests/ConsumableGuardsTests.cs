@@ -113,7 +113,7 @@ public class ConsumableGuardsTests
     [InlineData("", "Ali", false)]
     public void DuplicateWelderNumber_IsRefusedOnlyWhenAlreadyRegistered(string number, string? registeredTo, bool refused)
     {
-        var error = DCenter.Server.Controllers.WeldersController.DuplicateNumberError(number, registeredTo);
+        var error = WelderService.DuplicateNumberError(number, registeredTo);
 
         Assert.Equal(refused, error is not null);
     }
