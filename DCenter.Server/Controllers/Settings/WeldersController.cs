@@ -35,6 +35,11 @@ public class WeldersController(WeldReportContext db) : ControllerBase
         var (name, number, scope, error) = Validate(dto);
         if (error is not null) return BadRequest(error);
 
+        var holder = number!.Length == 0
+            ? null
+            : await db.Welders.AsNoTracking().Where(x => x.WelderNo == number).Select(x => x.WelderName).FirstOrDefaultAsync(ct);
+        if (DuplicateNumberError(number, holder) is string duplicate) return Conflict(duplicate);
+
         var w = new Welder { WelderName = name!, WelderNo = number!, IsActive = dto.IsActive, UsageScope = scope! };
         db.Welders.Add(w);
         await db.SaveChangesAsync(ct);
@@ -85,6 +90,11 @@ public class WeldersController(WeldReportContext db) : ControllerBase
         await db.SaveChangesAsync(ct);
         return NoContent();
     }
+
+    internal static string? DuplicateNumberError(string number, string? registeredTo)
+        => number.Length == 0 || registeredTo is null
+            ? null
+            : $"Welder No. {number} is already registered to {registeredTo}. Pick that name from the list instead.";
 
     private static (string? Name, string? Number, string? Scope, string? Error) Validate(WelderDto dto)
     {

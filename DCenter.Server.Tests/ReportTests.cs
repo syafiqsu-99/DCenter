@@ -160,7 +160,7 @@ public class ReportDocumentTests
     [InlineData(null, null, "-")]
     public void PartLabel_CombinesDescriptionAndNumber(string? desc, string? no, string expected)
     {
-        Assert.Equal(expected, ExcelReportService.PartLabel(desc, no));
+        Assert.Equal(expected, WeldCardLayout.PartLabel(desc, no));
     }
 
     [Fact]
@@ -187,6 +187,53 @@ public class ReportDocumentTests
         var dateCells = wb.Worksheet(1).CellsUsed().Count(c => c.GetString() == "20/9/2026");
 
         Assert.Equal(2, dateCells);
+    }
+
+    [Fact]
+    public void Layout_FillsEveryGridSlotExactlyOnce()
+    {
+        var report = Sample();
+        foreach (var section in new[] { WeldCardLayout.Header(report), WeldCardLayout.Joint(report.Joints[0], "20/9/2026") })
+        {
+            var hits = new int[section.RowHeights.Count + 1, WeldCardLayout.Columns + 1];
+            foreach (var c in section.Cells)
+                for (var r = c.Row; r < c.Row + c.RowSpan; r++)
+                    for (var k = c.Col; k < c.Col + c.ColSpan; k++)
+                        hits[r, k]++;
+
+            for (var r = 1; r <= section.RowHeights.Count; r++)
+                for (var k = 1; k <= WeldCardLayout.Columns; k++)
+                    Assert.Equal(1, hits[r, k]);
+        }
+    }
+
+    [Fact]
+    public void Layout_KeepsJointsWholeAndStartsNewPagesOnlyWhenFull()
+    {
+        var report = Sample();
+        var first = WeldCardLayout.BannerHeight + WeldCardLayout.Header(report).Height;
+        var joint = WeldCardLayout.Joint(report.Joints[0], "").Height;
+
+        var perFirstPage = (int)((WeldCardLayout.PrintableHeight - first) / joint);
+        var perPage = (int)(WeldCardLayout.PrintableHeight / joint);
+
+        Assert.Empty(WeldCardLayout.PageStarts(first, Enumerable.Repeat(joint, perFirstPage)));
+        Assert.Equal(
+            [perFirstPage, perFirstPage + perPage],
+            WeldCardLayout.PageStarts(first, Enumerable.Repeat(joint, perFirstPage + perPage + 1)));
+    }
+
+    [Fact]
+    public void Excel_PrintsOnA4PortraitWithPageBreaksBetweenJoints()
+    {
+        var bytes = new ExcelReportService().Generate(Sample(20));
+
+        using var wb = new XLWorkbook(new MemoryStream(bytes));
+        var setup = wb.Worksheet(1).PageSetup;
+
+        Assert.Equal(XLPaperSize.A4Paper, setup.PaperSize);
+        Assert.Equal(XLPageOrientation.Portrait, setup.PageOrientation);
+        Assert.NotEmpty(setup.RowBreaks);
     }
 
     [Fact]

@@ -15,7 +15,7 @@
           <span :class="{ 'text-decoration-line-through': t.isVoided }">{{ kg(t.quantityKg) }} kg · {{ t.diaSpec }}</span>
         </v-list-item-title>
         <v-list-item-subtitle>
-          {{ t.txnNo }} · {{ t.brand }} · Lot {{ t.lotNumber }} · {{ t.source }} · {{ fmtTime(t.createdAt) }} · {{ t.createdBy }}
+          {{ t.txnNo }} · {{ t.brand }} · Lot {{ t.lotNumber }} · {{ t.source }} · {{ fmtTime(t.createdAt) }} · {{ receivedBy(t) }}
         </v-list-item-subtitle>
         <template #append>
           <v-btn v-if="!t.isVoided" size="small" variant="text" color="error" @click="askVoid(t)">Void</v-btn>
@@ -45,6 +45,11 @@
     } catch (e) {
       error.value = errorText(e, 'Could not load today’s receipts.')
     }
+  }
+
+  function receivedBy(t) {
+    const receiver = t.requestor || t.createdBy
+    return t.createdBy && t.createdBy !== receiver ? `${receiver} (keyed by ${t.createdBy})` : receiver
   }
 
   function askVoid(t) {

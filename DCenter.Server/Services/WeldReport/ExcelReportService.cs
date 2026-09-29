@@ -10,224 +10,132 @@ public class ExcelReportService
     private static readonly string FisherLogo =
         Path.Combine(AppContext.BaseDirectory, "Assets", "Fisher.png");
 
-    // 10 columns (A..J) mirror the form grid.
+    // 3.29 characters renders as 28px (21pt) per column, so 25 columns fit A4 portrait at 100% in Excel.
+    // Fit-to-width only ever scales down, so the joint page breaks stay valid wherever the sheet prints.
+    private const double ColumnWidth = 3.29;
+
     public byte[] Generate(Report r)
     {
         using var wb = new XLWorkbook();
         var ws = wb.Worksheets.Add("Weld Order Card");
         ws.Style.Font.FontName = "Arial";
         ws.Style.Font.FontSize = 8;
-        for (int c = 1; c <= 25; c++) ws.Column(c).Width = 5;
+        ws.Columns(1, WeldCardLayout.Columns).Width = ColumnWidth;
 
-        var dateStr = r.DateWelded?.ToString("d/M/yyyy") ?? "";
-        int row = 1;
+        var row = Banner(ws);
 
-        // ---- Logos + company header ----
-        if (File.Exists(EmersonLogo))
-            ws.AddPicture(EmersonLogo).MoveTo(ws.Cell(row, 1)).WithSize(150, 42);
-        if (File.Exists(FisherLogo))
-            ws.AddPicture(FisherLogo).MoveTo(ws.Cell(row, 25)).WithSize(80, 34);
-        row += 1;
+        var header = WeldCardLayout.Header(r);
+        row = Draw(ws, row, header);
 
-        ws.Cell(row + 1, 18).Value = "Emerson Process Management Manufacturing (M) Sdn Bhd";
-        ws.Cell(row + 2, 18).Value = "Lot 13111, Mukim Labu Kawasan Perindustrian Labu";
-        ws.Cell(row + 3, 18).Value = "71807 Nilai, Negeri Sembilan";
-        ws.Cell(row + 4, 18).Value = "Tel: +60-6-795 2828";
-        for (int i = 1; i <= 4; i++) ws.Cell(row + i, 18).Style.Font.FontSize = 8;
-        row += 5;
+        var weldDate = WeldCardLayout.FormatDate(r.DateWelded);
+        var joints = r.Joints.OrderBy(x => x.JointNumber)
+            .Select(j => WeldCardLayout.Joint(j, weldDate))
+            .ToList();
+        var pageStarts = WeldCardLayout.PageStarts(
+            WeldCardLayout.BannerHeight + header.Height, joints.Select(s => s.Height)).ToHashSet();
 
-        var title = ws.Range(row, 1, row, 25).Merge();
-        title.Value = "Weld Order Card";
-        title.Style.Font.Bold = true;
-        title.Style.Font.FontSize = 12;
-        title.Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
-        row ++;
-
-        int gridTop = row;
-
-        // ---- Header block: Part No / Desc / Job No / Piece S/N / Date ----
-        LabelValueStacked(ws, row, 1, 4, "Part No.", r.PartNo);
-        LabelValueStacked(ws, row, 5, 8, "Part Description", r.Description);
-        LabelValueStacked(ws, row, 13, 4, "Work Order No.", r.WorkOrderNumber);
-        LabelValueStacked(ws, row, 17, 5, "Piece S/N", "-");
-        LabelValueStacked(ws, row, 22, 4, "Date", dateStr);
-        row += 2;
-
-        // ---- MRP/CSP + Material Welded (spec/grade/P# rows 1..3) + instruction ----
-        var mrpLabel = ws.Range(row, 1, row, 4).Merge();
-        mrpLabel.Value = "MRP/CSP No.";
-        mrpLabel.Style.Font.Bold = true;
-        mrpLabel.Style.Alignment.WrapText = true;
-        ws.Range(row + 1, 1, row + 2, 4).Merge();
-        // Material Welded label spans the three spec rows (col 2)
-        var matLabel = ws.Range(row, 5, row + 2, 6).Merge();
-        matLabel.Value = "Material Welded";
-        matLabel.Style.Font.Bold = true;
-        matLabel.Style.Alignment.WrapText = true;
-        matLabel.Style.Alignment.SetVertical(XLAlignmentVerticalValues.Center);
-        matLabel.Style.Alignment.SetHorizontal(XLAlignmentHorizontalValues.Center);
-
-        // three spec/grade/P# rows
-        string[] specs = { r.MaterialSpec1 ?? "", r.MaterialSpec2 ?? "", r.MaterialSpec3 ?? "" };
-        string[] grades = { r.Grade1 ?? "", r.Grade2 ?? "", r.Grade3 ?? "" };
-        string[] pnums = { r.PNumber1 ?? "", r.PNumber2 ?? "", r.PNumber3 ?? "" };
-        for (int i = 0; i < 3; i++)
+        for (var i = 0; i < joints.Count; i++)
         {
-            int rr = row + i;
-            ws.Cell(rr, 7).Value = "Spec"; ws.Cell(rr, 7).Style.Font.Bold = true;
-            ws.Range(rr, 8, rr, 9).Merge().Value = specs[i];
-            ws.Cell(rr, 10).Value = "Grade"; ws.Cell(rr, 10).Style.Font.Bold = true;
-            ws.Range(rr, 11, rr, 12).Merge().Value = grades[i];
-            ws.Cell(rr, 13).Value = "P#"; ws.Cell(rr, 13).Style.Font.Bold = true;
-            ws.Range(rr, 14, rr, 15).Merge().Value = pnums[i];
+            if (pageStarts.Contains(i)) ws.PageSetup.AddHorizontalPageBreak(row - 1);
+            row = Draw(ws, row, joints[i]);
         }
 
-        var instr = ws.Range(row, 17, row + 2, 25).Merge();
-        instr.Value = "RECORD HEAT NO. PIECE SERIAL NO. AND WELD MATERIAL FOR "
-                    + "EACH WELD JOINT/REPAIR. RECORD WELD JOINT NUMBER(S) IF "
-                    + "HEAT NO. OR PIECE SERIAL NO. IS NOT REQUIRED";
-        instr.Style.Font.Bold = true;
-        instr.Style.Alignment.WrapText = true;
-        instr.Style.Alignment.Vertical = XLAlignmentVerticalValues.Center;
-        row += 3;
-
-        // ---- Joint blocks ----
-        foreach (var j in r.Joints.OrderBy(x => x.JointNumber))
-            row = JointBlock(ws, row, j, dateStr);
-
-        // ---- Footer ----
-        row++;
-        ws.Cell(row, 1).Value = "F-WD-005 (Rev : 00)";
-        ws.Cell(row, 1).Style.Font.Bold = true;
-
-        // Borders across the whole grid.
-        var used = ws.Range(gridTop, 1, row - 2, 25);
-        used.Style.Border.OutsideBorder = XLBorderStyleValues.Thin;
-        used.Style.Border.InsideBorder = XLBorderStyleValues.Thin;
-        used.Style.Alignment.SetWrapText();
+        PageSetup(ws, row - 1);
 
         using var ms = new MemoryStream();
         wb.SaveAs(ms);
         return ms.ToArray();
     }
 
-    // One joint = 6 rows matching the form: header row, then 4 weld-material rows, then joint desc.
-    private static int JointBlock(IXLWorksheet ws, int row, Joint j, string dateStr)
+    private static int Banner(IXLWorksheet ws)
     {
-        var m = j.Materials.OrderBy(x => x.ColumnNumber).ToList();
-        string V(int col, Func<JointMaterial, string?> pick)
-            => m.FirstOrDefault(x => x.ColumnNumber == col) is { } hit
-                ? (string.IsNullOrWhiteSpace(pick(hit)) ? "-" : pick(hit)!) : "-";
-
-        string welder = string.IsNullOrWhiteSpace(j.WelderName)
-            ? "" : $"{j.WelderName} (ID {j.WelderNo})";
-
-        // Row 1: block header
-        ws.Range(row, 1, row + 1, 4).Merge().Value = "Fab No./Repair NCR-DVR No";
-        ws.Range(row, 5, row + 1, 7).Merge().Value = "FMP/FWPS No.";
-        ws.Range(row, 8, row + 1, 9).Merge().Value = "Rev";
-        ws.Range(row, 10, row + 1, 10).Merge().Value = "Amend. No";
-        ws.Range(row, 11, row + 1, 12).Merge().Value = "Rev";
-        ws.Range(row, 13, row + 1, 20).Merge().Value = "Weld Material Data";
-        ws.Range(row, 21, row, 23).Merge().Value = "Engineer/Supervisor";
-        ws.Range(row, 24, row, 25).Merge().Value = "Date";
-        ws.Range(row + 1, 21, row + 1, 23).Merge();
-        ws.Range(row + 1, 24, row + 1, 25).Merge();
-        ws.Range(row, 1, row + 1, 20).Style.Alignment.SetHorizontal(XLAlignmentHorizontalValues.Center);
-        BoldRow(ws, row, wrap: true);
-        row += 2;
-
-        // Row 2: FMP/FWPS values + Process + QA header
-        ws.Range(row, 1, row, 4).Merge().Value = "NA";
-        ws.Range(row, 5, row, 7).Merge().Value = j.WpsNo;
-        ws.Range(row, 8, row, 9).Merge().Value = j.Rev;
-        ws.Range(row, 10, row, 10).Merge().Value = "Nil";
-        ws.Range(row, 11, row, 12).Merge().Value = "Nil";
-        ws.Range(row, 13, row, 14).Merge().Value = "Process"; ws.Cell(row, 13).Style.Font.Bold = true;
-        ws.Range(row, 15, row, 16).Merge().Value = V(1, x => x.Process);
-        ws.Range(row, 17, row, 18).Merge().Value = V(2, x => x.Process);
-        ws.Range(row, 19, row, 20).Merge().Value = V(3, x => x.Process);
-        ws.Range(row, 21, row, 23).Merge().Value = "QA Inspector"; ws.Cell(row, 21).Style.Font.Bold = true;
-        ws.Range(row, 24, row, 25).Merge().Value = "Date"; ws.Cell(row, 24).Style.Font.Bold = true;
+        var row = 1;
+        ws.Row(row).Height = WeldCardLayout.LogoRowHeight;
+        if (File.Exists(EmersonLogo))
+            ws.AddPicture(EmersonLogo).MoveTo(ws.Cell(row, 1), 2, 2).WithSize(150, 42);
+        if (File.Exists(FisherLogo))
+            ws.AddPicture(FisherLogo).MoveTo(ws.Cell(row, 22), 30, 5).WithSize(80, 34);
         row++;
 
-        // Row 3: Heat No left + Size + QA Inspector header/value
-        ws.Range(row, 1, row + 1, 2).Merge().Value = "Heat No. of Part"; ws.Cell(row, 1).Style.Font.Bold = true;
-        ws.Range(row, 3, row + 1, 6).Merge().Value = j.HeatNumberLeft;
-        ws.Range(row, 7, row + 1, 9).Merge().Value = "Piece S/N"; ws.Cell(row, 7).Style.Font.Bold = true; ws.Cell(row, 7).Style.Alignment.SetHorizontal(XLAlignmentHorizontalValues.Center); ws.Cell(row, 7).Style.Alignment.SetVertical(XLAlignmentVerticalValues.Center);
-        ws.Range(row, 10, row + 1, 12).Merge().Value = "NA";
-        ws.Range(row, 13, row, 14).Merge().Value = "Size(mm)"; ws.Cell(row, 13).Style.Font.Bold = true;
-        ws.Range(row, 15, row, 16).Merge().Value = V(1, x => x.Size);
-        ws.Range(row, 17, row, 18).Merge().Value = V(2, x => x.Size);
-        ws.Range(row, 19, row, 20).Merge().Value = V(3, x => x.Size);
-        ws.Range(row + 1, 13, row + 1, 14).Merge().Value = "Type"; ws.Cell(row + 1, 13).Style.Font.Bold = true;
-        ws.Range(row + 1, 15, row + 1, 16).Merge().Value = V(1, x => x.Type);
-        ws.Range(row + 1, 17, row + 1, 18).Merge().Value = V(2, x => x.Type);
-        ws.Range(row + 1, 19, row + 1, 20).Merge().Value = V(3, x => x.Type);
-        ws.Range(row, 21, row, 23).Merge();
-        ws.Range(row, 24, row, 25).Merge();
-        ws.Range(row + 1, 21, row + 1, 23).Merge().Value = "Welder"; ws.Cell(row + 1, 21).Style.Font.Bold = true;
-        ws.Range(row + 1, 24, row + 1, 25).Merge().Value = "Date"; ws.Cell(row + 1, 24).Style.Font.Bold = true;
-        row += 2;
+        foreach (var line in WeldCardLayout.CompanyLines)
+        {
+            ws.Row(row).Height = WeldCardLayout.AddressRowHeight;
+            var address = ws.Range(row, 10, row, WeldCardLayout.Columns).Merge();
+            address.Value = line;
+            address.Style.Font.FontSize = 7;
+            address.Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Right;
+            row++;
+        }
 
-        // Row 5: Heat No right + Manuf + Welder value
-        ws.Range(row, 1, row + 1, 2).Merge().Value = "Heat No.of Part"; ws.Cell(row, 1).Style.Font.Bold = true;
-        ws.Range(row, 3, row + 1, 6).Merge().Value = j.HeatNumberRight;
-        ws.Range(row, 7, row + 1, 9).Merge().Value = "Piece S/N"; ws.Cell(row, 7).Style.Font.Bold = true; ws.Cell(row, 7).Style.Alignment.SetHorizontal(XLAlignmentHorizontalValues.Center); ws.Cell(row, 7).Style.Alignment.SetVertical(XLAlignmentVerticalValues.Center);
-        ws.Range(row, 10, row + 1, 12).Merge().Value = "NA";
-        ws.Range(row, 13, row, 14).Merge().Value = "Manuf"; ws.Cell(row, 13).Style.Font.Bold = true;
-        ws.Range(row, 15, row, 16).Merge().Value = V(1, x => x.Manuf);
-        ws.Range(row, 17, row, 18).Merge().Value = V(2, x => x.Manuf);
-        ws.Range(row, 19, row, 20).Merge().Value = V(3, x => x.Manuf);
-        ws.Range(row + 1, 13, row + 1, 14).Merge().Value = "Heat/Lot"; ws.Cell(row + 1, 13).Style.Font.Bold = true;
-        ws.Range(row + 1, 15, row + 1, 16).Merge().Value = V(1, x => x.HeatLot);
-        ws.Range(row + 1, 17, row + 1, 18).Merge().Value = V(2, x => x.HeatLot);
-        ws.Range(row + 1, 19, row + 1, 20).Merge().Value = V(3, x => x.HeatLot);
-        ws.Range(row, 21, row, 23).Merge().Value = welder;
-        ws.Range(row, 24, row, 25).Merge().Value = dateStr;
-        row += 2;
-
-        // Joint description row
-        ws.Range(row, 1, row, 4).Merge().Value = "Joint Description"; ws.Cell(row, 1).Style.Font.Bold = true;
-        ws.Range(row, 5, row, 25).Merge().Value =
-            $"Joining of {PartLabel(j.PartDescLeft, j.PartNoLeft)} with {PartLabel(j.PartDescRight, j.PartNoRight)}";
-        row++;
-
-        return row;
+        ws.Row(row).Height = WeldCardLayout.TitleRowHeight;
+        var title = ws.Range(row, 1, row, WeldCardLayout.Columns).Merge();
+        title.Value = WeldCardLayout.Title;
+        title.Style.Font.Bold = true;
+        title.Style.Font.FontSize = 12;
+        title.Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+        title.Style.Alignment.Vertical = XLAlignmentVerticalValues.Center;
+        return row + 1;
     }
 
-    public static string PartLabel(string? description, string? partNo)
+    private static int Draw(IXLWorksheet ws, int top, GridSection section)
     {
-        var desc = description?.Trim() ?? "";
-        var no = partNo?.Trim() ?? "";
-        if (no.Length == 0) return desc.Length == 0 ? "-" : desc;
-        return desc.Length == 0 ? no : $"{desc} ({no})";
+        for (var i = 0; i < section.RowHeights.Count; i++)
+            ws.Row(top + i).Height = section.RowHeights[i];
+
+        var block = ws.Range(top, 1, top + section.RowHeights.Count - 1, WeldCardLayout.Columns);
+        block.Style.Border.OutsideBorder = XLBorderStyleValues.Thin;
+        block.Style.Border.InsideBorder = XLBorderStyleValues.Thin;
+        block.Style.Alignment.Vertical = XLAlignmentVerticalValues.Center;
+
+        foreach (var c in section.Cells)
+        {
+            var range = ws.Range(top + c.Row - 1, c.Col, top + c.Row + c.RowSpan - 2, c.Col + c.ColSpan - 1);
+            if (c.RowSpan > 1 || c.ColSpan > 1) range.Merge();
+            range.FirstCell().Value = c.Text;
+
+            var style = range.Style;
+            style.Alignment.Horizontal = c.Center ? XLAlignmentHorizontalValues.Center : XLAlignmentHorizontalValues.Left;
+            switch (c.Style)
+            {
+                case GridStyle.Label:
+                    style.Font.Bold = true;
+                    style.Alignment.WrapText = true;
+                    break;
+                case GridStyle.Value:
+                    style.Alignment.ShrinkToFit = true;
+                    break;
+                case GridStyle.Text:
+                    style.Alignment.WrapText = true;
+                    break;
+                case GridStyle.Note:
+                    style.Font.Bold = true;
+                    style.Font.FontSize = 7;
+                    style.Alignment.WrapText = true;
+                    break;
+            }
+        }
+
+        return top + section.RowHeights.Count;
     }
 
-    private static void BoldRow(IXLWorksheet ws, int row, bool wrap = false)
+    private static void PageSetup(IXLWorksheet ws, int lastRow)
     {
-        for (int c = 1; c <= 25; c++)
-        {
-            ws.Cell(row, c).Style.Font.Bold = true;
-            if (wrap) ws.Cell(row, c).Style.Alignment.WrapText = true;
-        }
-    }
-
-    // Label on the top row, value on the next row (matches the boxed header cells).
-    private static void LabelValueStacked(IXLWorksheet ws, int row, int col, int span, string label, string? value)
-    {
-        if (span > 1)
-        {
-            var l = ws.Range(row, col, row, col + span - 1).Merge();
-            l.Value = label;
-            l.Style.Font.Bold = true;
-            ws.Range(row + 1, col, row + 1, col + span - 1).Merge().Value = value ?? "";
-        }
-        else
-        {
-            ws.Cell(row, col).Value = label;
-            ws.Cell(row, col).Style.Font.Bold = true;
-            ws.Cell(row + 1, col).Value = value ?? "";
-        }
+        var p = ws.PageSetup;
+        p.PaperSize = XLPaperSize.A4Paper;
+        p.PageOrientation = XLPageOrientation.Portrait;
+        p.FitToPages(1, 0);
+        p.Margins.Top = 0.4;
+        p.Margins.Bottom = 0.6;
+        p.Margins.Left = 0.4;
+        p.Margins.Right = 0.4;
+        p.Margins.Header = 0.2;
+        p.Margins.Footer = 0.3;
+        p.CenterHorizontally = true;
+        p.PrintAreas.Add(1, 1, lastRow, WeldCardLayout.Columns);
+        p.Footer.Left.AddText(WeldCardLayout.FormNumber);
+        p.Footer.Right.AddText("Page ");
+        p.Footer.Right.AddText(XLHFPredefinedText.PageNumber);
+        p.Footer.Right.AddText(" of ");
+        p.Footer.Right.AddText(XLHFPredefinedText.NumberOfPages);
     }
 }

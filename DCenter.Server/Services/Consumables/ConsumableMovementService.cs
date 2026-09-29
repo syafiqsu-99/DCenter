@@ -24,6 +24,9 @@ public class ConsumableMovementService(
         var source = T.Source(r.Source);
         if (source is null) return Fail("Source must be Weld Shop or Tool Crib.");
 
+        var (receiver, receiverError) = G.ReceiverName(r.ReceivedByWelderId, await guards.ReceiverAsync(r.ReceivedByWelderId, ct));
+        if (receiver is null) return Fail(receiverError!);
+
         var qty = T.RoundKg(r.QuantityKg);
         if (qty <= 0) return Fail("Receive Qty (KG) must be greater than 0.");
         if (qty > T.MaxKg) return Fail(T.MaxKgError);
@@ -82,7 +85,7 @@ public class ConsumableMovementService(
             QuantityKg = qty,
             ToStage = Cat.Normal,
             Source = source,
-            Requestor = T.FreeText(r.ReceivedBy, 200) ?? user,
+            Requestor = receiver,
             Remarks = T.FreeText(r.Remarks, 500),
             CreatedBy = user,
         });
