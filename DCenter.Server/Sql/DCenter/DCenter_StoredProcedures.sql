@@ -199,6 +199,13 @@ IF TYPE_ID(N'dbo.TT_DCenter_BakingTimes') IS NULL
     );
 GO
 
+IF TYPE_ID(N'dbo.TT_DCenter_CodeList') IS NULL
+    CREATE TYPE dbo.TT_DCenter_CodeList AS TABLE
+    (
+        [Value] VARCHAR(400) NOT NULL
+    );
+GO
+
 /* ===== Settings: welders ===== */
 
 CREATE OR ALTER PROCEDURE dbo.SP_DCenter_Welder_List
@@ -1974,5 +1981,110 @@ BEGIN
     ORDER BY c.[Id] DESC
     OFFSET @Skip ROWS FETCH NEXT @Take ROWS ONLY
     OPTION (RECOMPILE);
+END
+GO
+
+/* ===== Supervisor ===== */
+
+CREATE OR ALTER PROCEDURE dbo.SP_DCenter_Supervisor_Credential
+    @Id INT
+AS
+BEGIN
+    SET NOCOUNT ON;
+    SELECT [Id], [PasswordHash], [UpdatedBy], [UpdatedAt]
+    FROM dbo.DCenter_SupervisorCredentials
+    WHERE [Id] = @Id;
+END
+GO
+
+CREATE OR ALTER PROCEDURE dbo.SP_DCenter_Supervisor_SaveCredential
+    @Id INT,
+    @PasswordHash NVARCHAR(400),
+    @UpdatedBy NVARCHAR(200),
+    @UpdatedAt DATETIME2
+AS
+BEGIN
+    SET NOCOUNT ON;
+    SET XACT_ABORT ON;
+    BEGIN TRANSACTION;
+
+    UPDATE dbo.DCenter_SupervisorCredentials WITH (UPDLOCK, HOLDLOCK)
+    SET [PasswordHash] = @PasswordHash, [UpdatedBy] = @UpdatedBy, [UpdatedAt] = @UpdatedAt
+    WHERE [Id] = @Id;
+
+    IF @@ROWCOUNT = 0
+        INSERT INTO dbo.DCenter_SupervisorCredentials ([Id], [PasswordHash], [UpdatedBy], [UpdatedAt])
+        VALUES (@Id, @PasswordHash, @UpdatedBy, @UpdatedAt);
+
+    COMMIT TRANSACTION;
+END
+GO
+
+-- Records a logged-out session token and drops the ones that have expired.
+CREATE OR ALTER PROCEDURE dbo.SP_DCenter_Supervisor_RevokeToken
+    @Fingerprint VARCHAR(64),
+    @ExpiresAt DATETIMEOFFSET,
+    @Now DATETIMEOFFSET
+AS
+BEGIN
+    SET NOCOUNT ON;
+    SET XACT_ABORT ON;
+    BEGIN TRANSACTION;
+
+    DELETE FROM dbo.DCenter_SupervisorRevokedTokens WHERE [ExpiresAt] <= @Now;
+
+    IF NOT EXISTS (SELECT 1 FROM dbo.DCenter_SupervisorRevokedTokens WITH (UPDLOCK, HOLDLOCK) WHERE [Fingerprint] = @Fingerprint)
+        INSERT INTO dbo.DCenter_SupervisorRevokedTokens ([Fingerprint], [ExpiresAt]) VALUES (@Fingerprint, @ExpiresAt);
+
+    COMMIT TRANSACTION;
+END
+GO
+
+CREATE OR ALTER PROCEDURE dbo.SP_DCenter_Supervisor_ActiveRevocations
+    @Now DATETIMEOFFSET
+AS
+BEGIN
+    SET NOCOUNT ON;
+    SELECT [Fingerprint], [ExpiresAt]
+    FROM dbo.DCenter_SupervisorRevokedTokens
+    WHERE [ExpiresAt] > @Now;
+END
+GO
+
+/* ===== Work orders (read through the views over OracleBetsyDB) ===== */
+
+-- One row per work order, ordered by number. @Prefix NULL lists all; @Exact 1 matches the whole number.
+CREATE OR ALTER PROCEDURE dbo.SP_DCenter_WorkOrder_Search
+    @Prefix VARCHAR(200),
+    @Exact BIT,
+    @Skip INT,
+    @Take INT
+AS
+BEGIN
+    SET NOCOUNT ON;
+    SELECT w.[WO_NUMBER] AS [WorkOrderNumber],
+           MAX(w.[ASSEMBLY_ITEM]) AS [AssemblyItem],
+           MAX(w.[ITEM_DESC]) AS [AssemblyDesc],
+           MAX(w.[START_QUANTITY]) AS [Qty]
+    FROM dbo.V_DCenter_WorkOrder w
+    WHERE @Prefix IS NULL
+       OR (@Exact = 1 AND w.[WO_NUMBER] = @Prefix)
+       OR (@Exact = 0 AND w.[WO_NUMBER] LIKE REPLACE(REPLACE(REPLACE(REPLACE(@Prefix, '\', '\\'), '%', '\%'), '_', '\_'), '[', '\[') + '%' ESCAPE '\')
+    GROUP BY w.[WO_NUMBER]
+    ORDER BY w.[WO_NUMBER]
+    OFFSET @Skip ROWS FETCH NEXT @Take ROWS ONLY
+    OPTION (RECOMPILE);
+END
+GO
+
+-- Direct children in the BOM of the given parent items.
+CREATE OR ALTER PROCEDURE dbo.SP_DCenter_Bom_Children
+    @Items dbo.TT_DCenter_CodeList READONLY
+AS
+BEGIN
+    SET NOCOUNT ON;
+    SELECT b.[ITEM] AS [Item], b.[COMPONENT] AS [Component], b.[COMPONENT_DESC] AS [ComponentDesc]
+    FROM dbo.V_DCenter_Bom b
+    WHERE b.[ITEM] IN (SELECT [Value] FROM @Items);
 END
 GO

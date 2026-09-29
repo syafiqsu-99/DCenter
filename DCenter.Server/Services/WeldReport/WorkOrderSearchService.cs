@@ -1,10 +1,10 @@
-using DCenter.Server.Data;
+using System.Data;
 using DCenter.Server.Models;
-using Microsoft.EntityFrameworkCore;
 
 namespace DCenter.Server.Services;
 
-public class WorkOrderSearchService(ErpViewContext db)
+// Work orders and BOM levels from OracleBetsyDB, read through the V_DCenter_WorkOrder / V_DCenter_Bom views.
+public class WorkOrderSearchService(StoredProcedures sp)
 {
     public const int MaxPageSize = 100;
     public const int DefaultPageSize = 25;
@@ -16,55 +16,32 @@ public class WorkOrderSearchService(ErpViewContext db)
         take = Math.Clamp(take, 1, MaxPageSize);
         skip = Math.Max(0, skip);
 
-        var source = term.Length >= 2
-            ? db.WorkOrderDetails.Where(w => w.WoNumber.StartsWith(term))
-            : db.WorkOrderDetails;
-
-        var items = await Summaries(source, skip, take + 1).ToListAsync(ct);
+        var items = await SummariesAsync(term.Length >= 2 ? term : null, false, skip, take + 1, ct);
 
         var hasMore = items.Count > take;
         if (hasMore) items.RemoveAt(items.Count - 1);
         return (items, hasMore);
     }
 
-    public Task<WorkOrderSummary?> SummaryAsync(string workOrderNumber, CancellationToken ct)
-        => Summaries(db.WorkOrderDetails.Where(w => w.WoNumber == workOrderNumber), 0, 1)
-            .FirstOrDefaultAsync(ct);
+    public async Task<WorkOrderSummary?> SummaryAsync(string workOrderNumber, CancellationToken ct)
+        => (await SummariesAsync(workOrderNumber, true, 0, 1, ct)).FirstOrDefault();
 
     public const int MaxChildLookup = 1000;
-    private const int ChildLookupChunk = 500;
 
-    public async Task<List<BomLinkDto>> ChildrenAsync(IEnumerable<string> parentItems, CancellationToken ct)
+    public Task<List<BomLinkDto>> ChildrenAsync(IEnumerable<string> parentItems, CancellationToken ct)
     {
-        var items = parentItems
-            .Select(i => i.Trim())
-            .Where(i => i.Length > 0)
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .Take(MaxChildLookup)
-            .ToList();
-
-        var links = new List<BomLinkDto>();
-        foreach (var chunk in items.Chunk(ChildLookupChunk))
-        {
-            links.AddRange(await db.Bom
-                .AsNoTracking()
-                .Where(b => chunk.Contains(b.Item))
-                .Select(b => new BomLinkDto(b.Item, b.Component, b.ComponentDesc))
-                .ToListAsync(ct));
-        }
-        return links;
+        var rows = new DataTable();
+        rows.Columns.Add("Value", typeof(string));
+        foreach (var item in parentItems
+                     .Select(i => i.Trim())
+                     .Where(i => i.Length > 0)
+                     .Distinct(StringComparer.OrdinalIgnoreCase)
+                     .Take(MaxChildLookup))
+            rows.Rows.Add(item);
+        return sp.QueryAsync<BomLinkDto>("SP_DCenter_Bom_Children", ct, Sql.Table("@Items", "dbo.TT_DCenter_CodeList", rows));
     }
 
-    private static IQueryable<WorkOrderSummary> Summaries(IQueryable<WorkOrderDetail> source, int skip, int take)
-        => source
-            .AsNoTracking()
-            .GroupBy(w => w.WoNumber)
-            .OrderBy(g => g.Key)
-            .Skip(skip)
-            .Take(take)
-            .Select(g => new WorkOrderSummary(
-                g.Key,
-                g.Max(w => w.AssemblyItem),
-                g.Max(w => w.ItemDesc),
-                g.Max(w => w.StartQuantity)));
+    private Task<List<WorkOrderSummary>> SummariesAsync(string? prefix, bool exact, int skip, int take, CancellationToken ct)
+        => sp.QueryAsync<WorkOrderSummary>("SP_DCenter_WorkOrder_Search", ct,
+            Sql.VarChar("@Prefix", prefix, 200), Sql.Bit("@Exact", exact), Sql.Int("@Skip", skip), Sql.Int("@Take", take));
 }

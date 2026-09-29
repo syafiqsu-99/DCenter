@@ -25,7 +25,6 @@ if (string.IsNullOrWhiteSpace(connectionString))
 
 builder.Services.AddDbContext<WeldReportContext>(opt => opt.UseSqlServer(connectionString));
 
-builder.Services.AddDbContext<ErpViewContext>(opt => opt.UseSqlServer(connectionString));
 
 builder.Services.AddProblemDetails();
 builder.Services.AddHttpContextAccessor();
@@ -118,10 +117,7 @@ if (app.Configuration.GetValue("DCenter:AutoMigrate", true))
 try
 {
     using var scope = app.Services.CreateScope();
-    var changedAt = await scope.ServiceProvider.GetRequiredService<WeldReportContext>().SupervisorCredentials.AsNoTracking()
-        .Where(c => c.Id == SupervisorCredential.SingletonId)
-        .Select(c => (DateTime?)c.UpdatedAt)
-        .FirstOrDefaultAsync();
+    var changedAt = (await scope.ServiceProvider.GetRequiredService<SupervisorPasswordService>().StatusAsync(CancellationToken.None)).UpdatedAt;
     var supervisorAuth = app.Services.GetRequiredService<SupervisorAuth>();
     if (changedAt is DateTime changed)
         supervisorAuth.RevokeIssuedBefore(new DateTimeOffset(DateTime.SpecifyKind(changed, DateTimeKind.Local)));
