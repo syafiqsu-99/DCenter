@@ -23,10 +23,10 @@
   import { computed } from 'vue';
   import { storeToRefs } from 'pinia';
   import { useRouter } from 'vue-router';
-  import { useReportStore } from '@/store/reportStore';
+  import { useReportInsightsStore } from '@/store/reportInsightsStore';
 
   const router = useRouter();
-  const { dashboard, loadingDashboard } = storeToRefs(useReportStore());
+  const { dashboard, loadingDashboard } = storeToRefs(useReportInsightsStore());
   const rows = computed(() => dashboard.value?.needsAction ?? []);
 
   const headers = [

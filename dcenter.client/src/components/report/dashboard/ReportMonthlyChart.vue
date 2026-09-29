@@ -12,10 +12,10 @@
 <script setup>
   import { computed } from 'vue';
   import { Bar } from 'vue-chartjs';
-  import { useReportStore } from '@/store/reportStore';
+  import { useReportInsightsStore } from '@/store/reportInsightsStore';
   import { JOINTS_COLOR, REPORTS_COLOR } from '@/components/common/chartSetup';
 
-  const store = useReportStore();
+  const store = useReportInsightsStore();
 
   const data = computed(() => {
     const monthly = store.dashboard?.monthly;

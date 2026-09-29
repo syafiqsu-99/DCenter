@@ -23,7 +23,7 @@
 <script setup>
   import { computed } from 'vue';
   import { useRouter } from 'vue-router';
-  import { useReportStore } from '@/store/reportStore';
+  import { useReportInsightsStore } from '@/store/reportInsightsStore';
 
   const props = defineProps({
     title: { type: String, required: true },
@@ -31,7 +31,7 @@
     traceField: { type: String, required: true },
   });
 
-  const store = useReportStore();
+  const store = useReportInsightsStore();
   const router = useRouter();
   const max = computed(() => Math.max(1, ...(props.items ?? []).map((r) => r.count)));
 

@@ -22,11 +22,13 @@
   import { computed } from 'vue';
   import { useRouter } from 'vue-router';
   import { useReportStore } from '@/store/reportStore';
+  import { useReportInsightsStore } from '@/store/reportInsightsStore';
   import { REPORT_STATUS } from '@/utils/constants';
 
   const store = useReportStore();
+  const insights = useReportInsightsStore();
   const router = useRouter();
-  const kpis = computed(() => store.dashboard?.kpis ?? null);
+  const kpis = computed(() => insights.dashboard?.kpis ?? null);
 
   function toList(tab) {
     store.listTab = tab;

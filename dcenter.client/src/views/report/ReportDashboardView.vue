@@ -17,7 +17,7 @@
 
 <script setup>
   import { storeToRefs } from 'pinia';
-  import { useReportStore } from '@/store/reportStore';
+  import { useReportInsightsStore } from '@/store/reportInsightsStore';
   import StickyBar from '@/components/common/StickyBar.vue';
   import ReportDashboardToolbar from '@/components/report/dashboard/ReportDashboardToolbar.vue';
   import ReportKpiCards from '@/components/report/dashboard/ReportKpiCards.vue';
@@ -25,5 +25,5 @@
   import ReportMonthlyChart from '@/components/report/dashboard/ReportMonthlyChart.vue';
   import ReportTopTable from '@/components/report/dashboard/ReportTopTable.vue';
 
-  const { dashboard } = storeToRefs(useReportStore());
+  const { dashboard } = storeToRefs(useReportInsightsStore());
 </script>

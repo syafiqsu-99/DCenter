@@ -40,12 +40,12 @@
   import { computed } from 'vue';
   import { storeToRefs } from 'pinia';
   import { useRouter } from 'vue-router';
-  import { useReportStore } from '@/store/reportStore';
+  import { useReportInsightsStore } from '@/store/reportInsightsStore';
   import ReportStatusChip from '@/components/report/ReportStatusChip.vue';
   import { downloadCsv as saveCsv } from '@/utils/files';
 
   const router = useRouter();
-  const { traceResults, traceTruncated, traceSearched, loadingTrace, traceField, traceQuery } = storeToRefs(useReportStore());
+  const { traceResults, traceTruncated, traceSearched, loadingTrace, traceField, traceQuery } = storeToRefs(useReportInsightsStore());
 
   const headers = [
     { title: 'Work Order Number', key: 'workOrderNumber', width: '150px' },

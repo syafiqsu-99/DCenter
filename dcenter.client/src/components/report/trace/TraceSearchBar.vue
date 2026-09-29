@@ -29,9 +29,9 @@
 <script setup>
   import { computed, onBeforeUnmount } from 'vue';
   import { storeToRefs } from 'pinia';
-  import { useReportStore } from '@/store/reportStore';
+  import { useReportInsightsStore } from '@/store/reportInsightsStore';
 
-  const store = useReportStore();
+  const store = useReportInsightsStore();
   const { traceField, traceQuery, loadingTrace, traceError } = storeToRefs(store);
 
   const fields = [

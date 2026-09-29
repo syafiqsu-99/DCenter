@@ -21,9 +21,9 @@
 <script setup>
   import { onMounted } from 'vue';
   import { storeToRefs } from 'pinia';
-  import { useReportStore } from '@/store/reportStore';
+  import { useReportInsightsStore } from '@/store/reportInsightsStore';
 
-  const store = useReportStore();
+  const store = useReportInsightsStore();
   const { dashboard, dashboardMonths, loadingDashboard, dashboardError } = storeToRefs(store);
 
   onMounted(() => store.loadDashboard());
