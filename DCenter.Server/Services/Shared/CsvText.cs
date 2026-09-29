@@ -86,7 +86,7 @@ public static class CsvText
     public static async Task<List<string[]>> ReadRowsAsync(IFormFile file, CancellationToken ct)
     {
         using var reader = new StreamReader(file.OpenReadStream());
-        return Parse(await reader.ReadToEndAsync(ct)).Skip(1).Select(r => r.Fields.ToArray()).ToList();
+        return Parse(await reader.ReadToEndAsync(ct), out _).Skip(1).Select(r => r.Fields.ToArray()).ToList();
     }
 
     public static string Field(this string[] row, int i) => (row.ElementAtOrDefault(i) ?? "").Trim();
