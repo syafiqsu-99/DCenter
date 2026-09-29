@@ -28,9 +28,11 @@ The Weld Report reads only BPVC `SpecNo`, `Designation`/`UnsNo` and `PNo`, to fi
 DCenter/
 ├─ .config/dotnet-tools.json      dotnet-ef, pinned to the EF Core package version
 ├─ DCenter.Server.Tests/          xUnit tests for ledger, guards, CSV, auth, idempotency and report rules
+├─ DCenter.Server.IntegrationTests/  API snapshot tests against a real SQL Server (skipped unless DCENTER_TEST_SQL is set)
 ├─ DCenter.Server/                ASP.NET Core Web API (.NET 10, EF Core, SQL Server)
 │  ├─ Program.cs                  DI, data protection, SPA hosting
 │  ├─ Data/                       WeldReportContext (app DB), ErpViewContext (read-only work order views), EF configuration
+│  │  └─ Sql/                     Views/, Types/, Procedures/ as embedded .sql files, applied only by migrations
 │  ├─ Migrations/                 EF Core migrations: the only way schema changes
 │  ├─ Sql/DCenter/                Work order views over OracleBetsyDB, run once by hand
 │  ├─ Assets/                     Logos embedded in the PDF / Excel report
@@ -59,6 +61,7 @@ C# namespaces stay flat (`DCenter.Server.Services`, `.Entities`, `.Models`, `.Co
 - **Supervisor sessions** are Data Protection tokens (keys DPAPI-protected on Windows). Refreshing keeps the original login time, so a session ends `SupervisorMaxSessionHours` after login. Logouts are stored in `DCenter_SupervisorRevokedTokens` and survive an app-pool recycle.
 - **Kiosk endpoints are open by design.** Welders use the app without logging in, so reads (reports, welders, exports) and welder actions (counter issue/return/finish, baking, holding, saving a draft report) need no supervisor token. `X-Entered-By` is informational, not authentication.
 - **Client:** server calls live in stores and composables (`useCrudApi`, `usePagedList`), never in templates. Stores: `reportStore` (editor, search, BOM tree, saved list), `reportInsightsStore` (dashboard, trace), `supervisorStore` (login session), `consumableStore` (stock screens). Shared helpers are in `src/utils` (`errors.js`, `files.js`, `timing.js`, `date.js`, `constants.js`, `fileName.js`). Code style: no semicolons, single quotes, enforced by lint.
+- **SQL objects.** Views are named `dbo.V_DCenter_<Table>` (one per app table, explicit column list) and stored procedures `dbo.SP_DCenter_<Module>_<Action>`. Procedures read through the views and write to the base tables. The `.sql` files live in `DCenter.Server/Data/Sql/{Views,Types,Procedures}` as `<Name>.v<N>.sql` and reach the database only through a migration calling `SqlScripts.Run`. Never edit a file an applied migration uses: copy it to `.v<N+1>.sql`, change the copy, and add a migration whose `Up` runs the new file and whose `Down` runs the old one. C# calls procedures through `StoredProcedures` (`Services/Shared`), always with typed `SqlParameter`s; transactions and `sp_getapplock` stay in C#.
 - **Static files** are served from `dcenter.client/dist` when it sits next to the server, otherwise from `wwwroot` (published output), after the error handler and security headers.
 
 ## Configuration
@@ -85,6 +88,14 @@ dotnet tool restore                                   # installs dotnet-ef
 dotnet ef database update --project DCenter.Server    # apply migrations
 dotnet run --project DCenter.Server                   # API + Vite dev server via SPA proxy
 dotnet test DCenter.Server.Tests                      # unit tests (no database needed)
+```
+
+Integration tests create a throwaway database per scenario (`DCenter_IT_*`), apply every migration and the work order views over a fake OracleBetsyDB, then replay about 280 API calls and compare them with `DCenter.Server.IntegrationTests/Snapshots/*.txt`. They need a SQL Server login that can create databases:
+
+```bash
+export DCENTER_TEST_SQL="Server=localhost,1433;User Id=sa;Password=<pw>;TrustServerCertificate=True"
+dotnet test DCenter.Server.IntegrationTests           # a mismatch writes <name>.actual.txt next to the snapshot
+UPDATE_SNAPSHOTS=1 dotnet test DCenter.Server.IntegrationTests   # accept an intended behavior change
 ```
 
 For local development, keep the initial supervisor password in user-secrets rather than in `launchSettings.json`:

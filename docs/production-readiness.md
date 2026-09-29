@@ -5,12 +5,14 @@ Work through this list for every release. Tick each box in the release ticket, n
 ## 1. Build and test
 
 - [ ] `dotnet test DCenter.Server.Tests` passes.
+- [ ] With `DCENTER_TEST_SQL` pointing at a non-production SQL Server, `dotnet test DCenter.Server.IntegrationTests` passes with no snapshot changes (or the changes are intended and reviewed).
 - [ ] `cd dcenter.client && npm ci && npm run lint-check` passes (no `--fix`, no file changes).
 - [ ] `dotnet publish DCenter.Server -c Release` succeeds.
 
 ## 2. Database
 
-- [ ] Review pending migrations: `dotnet ef migrations script --idempotent --project DCenter.Server -o release.sql`.
+- [ ] Review pending migrations: `dotnet ef migrations script --idempotent --project DCenter.Server --context WeldReportContext -o release.sql`. When running it with `sqlcmd`, pass `-I` (QUOTED_IDENTIFIER on, required by filtered indexes and views).
+- [ ] One time only: turn on read committed snapshot so readers stop blocking writers. It needs exclusive access, so run it in a maintenance window with the app pool stopped: `ALTER DATABASE [DCenter] SET READ_COMMITTED_SNAPSHOT ON WITH ROLLBACK IMMEDIATE;` Check with `SELECT is_read_committed_snapshot_on FROM sys.databases WHERE name = 'DCenter';`
 - [ ] Back up the DCenter database.
 - [ ] Apply migrations (startup auto-migrate with `DCenter__AutoMigrate` unset/true, or run `release.sql` as the DBA).
 - [ ] If `Sql/DCenter/DCenter_SourceViews.sql` changed, re-run it (safe to re-run).
