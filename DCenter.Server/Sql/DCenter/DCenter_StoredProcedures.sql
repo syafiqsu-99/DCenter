@@ -95,6 +95,39 @@ IF TYPE_ID(N'dbo.TT_DCenter_BpvcRows') IS NULL
     );
 GO
 
+IF TYPE_ID(N'dbo.TT_DCenter_ReportJoints') IS NULL
+    CREATE TYPE dbo.TT_DCenter_ReportJoints AS TABLE
+    (
+        [Seq] INT NOT NULL PRIMARY KEY,
+        [JointNumber] INT NOT NULL,
+        [PartDescLeft] NVARCHAR(MAX) NULL,
+        [PartNoLeft] NVARCHAR(MAX) NULL,
+        [HeatNumberLeft] NVARCHAR(MAX) NULL,
+        [PartDescRight] NVARCHAR(MAX) NULL,
+        [PartNoRight] NVARCHAR(MAX) NULL,
+        [HeatNumberRight] NVARCHAR(MAX) NULL,
+        [WpsNo] NVARCHAR(MAX) NULL,
+        [Rev] NVARCHAR(MAX) NULL,
+        [WelderName] NVARCHAR(MAX) NULL,
+        [WelderNo] NVARCHAR(MAX) NULL
+    );
+GO
+
+IF TYPE_ID(N'dbo.TT_DCenter_ReportJointMaterials') IS NULL
+    CREATE TYPE dbo.TT_DCenter_ReportJointMaterials AS TABLE
+    (
+        [JointSeq] INT NOT NULL,
+        [Seq] INT NOT NULL,
+        [ColumnNumber] INT NOT NULL,
+        [Process] NVARCHAR(MAX) NULL,
+        [Size] NVARCHAR(MAX) NULL,
+        [Type] NVARCHAR(MAX) NULL,
+        [Manuf] NVARCHAR(MAX) NULL,
+        [HeatLot] NVARCHAR(MAX) NULL,
+        PRIMARY KEY ([JointSeq], [Seq])
+    );
+GO
+
 /* ===== Settings: welders ===== */
 
 CREATE OR ALTER PROCEDURE dbo.SP_DCenter_Welder_List
@@ -615,5 +648,278 @@ BEGIN
 
     IF @@ROWCOUNT = 0
         THROW 50001, N'The BPVC row was changed or deleted by someone else.', 1;
+END
+GO
+
+/* ===== Weld reports ===== */
+
+CREATE OR ALTER PROCEDURE dbo.SP_DCenter_Report_List
+AS
+BEGIN
+    SET NOCOUNT ON;
+    SELECT r.[Id], r.[WorkOrderNumber], r.[PartNo], r.[Description],
+           (SELECT COUNT(*) FROM dbo.DCenter_Joints j WHERE j.[ReportId] = r.[Id]) AS [JointCount],
+           CASE WHEN r.[CompletedAt] IS NULL THEN N'Draft' ELSE N'Completed' END AS [Status],
+           r.[UpdatedAt]
+    FROM dbo.DCenter_Reports r
+    ORDER BY r.[UpdatedAt] DESC;
+END
+GO
+
+CREATE OR ALTER PROCEDURE dbo.SP_DCenter_Report_Get
+    @WorkOrderNumber NVARCHAR(100)
+AS
+BEGIN
+    SET NOCOUNT ON;
+    SELECT [Id], [WorkOrderNumber], [ReportRequired], [DateWelded], [PartNo], [Description], [MaterialSpec1], [MaterialSpec2], [MaterialSpec3], [Grade1], [Grade2], [Grade3], [PNumber1], [PNumber2], [PNumber3], [EngineerSupervisor], [QaInspector], [CreatedAt], [UpdatedAt], [CompletedAt], [RowVersion]
+    FROM dbo.DCenter_Reports
+    WHERE [WorkOrderNumber] = @WorkOrderNumber;
+END
+GO
+
+CREATE OR ALTER PROCEDURE dbo.SP_DCenter_Report_Joints
+    @ReportId INT
+AS
+BEGIN
+    SET NOCOUNT ON;
+    SELECT [Id], [ReportId], [JointNumber], [PartDescLeft], [PartNoLeft], [HeatNumberLeft], [PartDescRight], [PartNoRight], [HeatNumberRight], [WpsNo], [Rev], [WelderName], [WelderNo]
+    FROM dbo.DCenter_Joints
+    WHERE [ReportId] = @ReportId
+    ORDER BY [Id];
+END
+GO
+
+CREATE OR ALTER PROCEDURE dbo.SP_DCenter_Report_JointMaterials
+    @ReportId INT
+AS
+BEGIN
+    SET NOCOUNT ON;
+    SELECT m.[Id], m.[JointId], m.[ColumnNumber], m.[Process], m.[Size], m.[Type], m.[Manuf], m.[HeatLot]
+    FROM dbo.DCenter_JointMaterials m
+    JOIN dbo.DCenter_Joints j ON j.[Id] = m.[JointId]
+    WHERE j.[ReportId] = @ReportId
+    ORDER BY m.[Id];
+END
+GO
+
+-- @Id NULL inserts a new report; otherwise the report is updated only while its RowVersion still
+-- matches (THROW 50001 when it does not) and its joints are replaced. Returns the report Id.
+CREATE OR ALTER PROCEDURE dbo.SP_DCenter_Report_Save
+    @Id INT,
+    @RowVersion BINARY(8),
+    @WorkOrderNumber NVARCHAR(100),
+    @ReportRequired BIT,
+    @DateWelded DATE,
+    @PartNo NVARCHAR(MAX),
+    @Description NVARCHAR(MAX),
+    @MaterialSpec1 NVARCHAR(MAX),
+    @MaterialSpec2 NVARCHAR(MAX),
+    @MaterialSpec3 NVARCHAR(MAX),
+    @Grade1 NVARCHAR(MAX),
+    @Grade2 NVARCHAR(MAX),
+    @Grade3 NVARCHAR(MAX),
+    @PNumber1 NVARCHAR(MAX),
+    @PNumber2 NVARCHAR(MAX),
+    @PNumber3 NVARCHAR(MAX),
+    @EngineerSupervisor NVARCHAR(MAX),
+    @QaInspector NVARCHAR(MAX),
+    @CreatedAt DATETIME2,
+    @UpdatedAt DATETIME2,
+    @Action NVARCHAR(50),
+    @Details NVARCHAR(1000),
+    @OccurredAt DATETIME2,
+    @Joints dbo.TT_DCenter_ReportJoints READONLY,
+    @Materials dbo.TT_DCenter_ReportJointMaterials READONLY
+AS
+BEGIN
+    SET NOCOUNT ON;
+    SET XACT_ABORT ON;
+    DECLARE @JointIds TABLE ([Id] INT NOT NULL PRIMARY KEY);
+
+    BEGIN TRANSACTION;
+
+    IF @Id IS NULL
+    BEGIN
+        INSERT INTO dbo.DCenter_Reports ([WorkOrderNumber], [ReportRequired], [DateWelded], [PartNo], [Description], [MaterialSpec1], [MaterialSpec2], [MaterialSpec3], [Grade1], [Grade2], [Grade3], [PNumber1], [PNumber2], [PNumber3], [EngineerSupervisor], [QaInspector], [CreatedAt], [UpdatedAt])
+        VALUES (@WorkOrderNumber, @ReportRequired, @DateWelded, @PartNo, @Description, @MaterialSpec1, @MaterialSpec2, @MaterialSpec3, @Grade1, @Grade2, @Grade3, @PNumber1, @PNumber2, @PNumber3, @EngineerSupervisor, @QaInspector, @CreatedAt, @UpdatedAt);
+        SET @Id = CAST(SCOPE_IDENTITY() AS INT);
+    END
+    ELSE
+    BEGIN
+        UPDATE dbo.DCenter_Reports
+        SET [ReportRequired] = @ReportRequired,
+        [DateWelded] = @DateWelded,
+        [PartNo] = @PartNo,
+        [Description] = @Description,
+        [MaterialSpec1] = @MaterialSpec1,
+        [MaterialSpec2] = @MaterialSpec2,
+        [MaterialSpec3] = @MaterialSpec3,
+        [Grade1] = @Grade1,
+        [Grade2] = @Grade2,
+        [Grade3] = @Grade3,
+        [PNumber1] = @PNumber1,
+        [PNumber2] = @PNumber2,
+        [PNumber3] = @PNumber3,
+        [EngineerSupervisor] = @EngineerSupervisor,
+        [QaInspector] = @QaInspector,
+        [UpdatedAt] = @UpdatedAt
+        WHERE [Id] = @Id AND [RowVersion] = @RowVersion;
+
+        IF @@ROWCOUNT = 0
+            THROW 50001, N'The report was changed by someone else.', 1;
+
+        DELETE m
+        FROM dbo.DCenter_JointMaterials m
+        JOIN dbo.DCenter_Joints j ON j.[Id] = m.[JointId]
+        WHERE j.[ReportId] = @Id;
+
+        DELETE FROM dbo.DCenter_Joints WHERE [ReportId] = @Id;
+    END
+
+    INSERT INTO dbo.DCenter_Joints ([ReportId], [JointNumber], [PartDescLeft], [PartNoLeft], [HeatNumberLeft], [PartDescRight], [PartNoRight], [HeatNumberRight], [WpsNo], [Rev], [WelderName], [WelderNo])
+    OUTPUT inserted.[Id] INTO @JointIds
+    SELECT @Id, [JointNumber], [PartDescLeft], [PartNoLeft], [HeatNumberLeft], [PartDescRight], [PartNoRight], [HeatNumberRight], [WpsNo], [Rev], [WelderName], [WelderNo]
+    FROM @Joints
+    ORDER BY [Seq];
+
+    -- Identity values follow the ORDER BY above, so the n-th new Id belongs to the n-th joint.
+    WITH NewIds AS (SELECT [Id], ROW_NUMBER() OVER (ORDER BY [Id]) AS [N] FROM @JointIds),
+         Seqs AS (SELECT [Seq], ROW_NUMBER() OVER (ORDER BY [Seq]) AS [N] FROM @Joints)
+    INSERT INTO dbo.DCenter_JointMaterials ([JointId], [ColumnNumber], [Process], [Size], [Type], [Manuf], [HeatLot])
+    SELECT n.[Id], m.[ColumnNumber], m.[Process], m.[Size], m.[Type], m.[Manuf], m.[HeatLot]
+    FROM @Materials m
+    JOIN Seqs s ON s.[Seq] = m.[JointSeq]
+    JOIN NewIds n ON n.[N] = s.[N]
+    ORDER BY m.[JointSeq], m.[Seq];
+
+    INSERT INTO dbo.DCenter_ReportStatusEvents ([ReportId], [Action], [OccurredAt], [Details])
+    VALUES (@Id, @Action, @OccurredAt, @Details);
+
+    COMMIT TRANSACTION;
+
+    SELECT @Id AS [Value];
+END
+GO
+
+-- Completes or reopens a report while its RowVersion still matches (THROW 50001 when it does not).
+CREATE OR ALTER PROCEDURE dbo.SP_DCenter_Report_SetStatus
+    @Id INT,
+    @RowVersion BINARY(8),
+    @CompletedAt DATETIME2,
+    @UpdatedAt DATETIME2,
+    @Action NVARCHAR(50),
+    @Details NVARCHAR(1000),
+    @OccurredAt DATETIME2
+AS
+BEGIN
+    SET NOCOUNT ON;
+    SET XACT_ABORT ON;
+    BEGIN TRANSACTION;
+
+    UPDATE dbo.DCenter_Reports
+    SET [CompletedAt] = @CompletedAt, [UpdatedAt] = @UpdatedAt
+    WHERE [Id] = @Id AND [RowVersion] = @RowVersion;
+
+    IF @@ROWCOUNT = 0
+        THROW 50001, N'The report was changed by someone else.', 1;
+
+    INSERT INTO dbo.DCenter_ReportStatusEvents ([ReportId], [Action], [OccurredAt], [Details])
+    VALUES (@Id, @Action, @OccurredAt, @Details);
+
+    COMMIT TRANSACTION;
+END
+GO
+
+CREATE OR ALTER PROCEDURE dbo.SP_DCenter_Report_History
+    @ReportId INT
+AS
+BEGIN
+    SET NOCOUNT ON;
+    SELECT [Action], [OccurredAt], [Details]
+    FROM dbo.DCenter_ReportStatusEvents
+    WHERE [ReportId] = @ReportId
+    ORDER BY [OccurredAt] DESC;
+END
+GO
+
+-- Joints, materials and status events go with the report (ON DELETE CASCADE).
+CREATE OR ALTER PROCEDURE dbo.SP_DCenter_Report_Delete
+    @Id INT
+AS
+BEGIN
+    SET NOCOUNT ON;
+    DELETE FROM dbo.DCenter_Reports WHERE [Id] = @Id;
+
+    IF @@ROWCOUNT = 0
+        THROW 50001, N'The report was changed or deleted by someone else.', 1;
+END
+GO
+
+CREATE OR ALTER PROCEDURE dbo.SP_DCenter_Report_DashboardReports
+    @WindowStart DATE,
+    @WindowStartAt DATETIME2
+AS
+BEGIN
+    SET NOCOUNT ON;
+    SELECT r.[WorkOrderNumber], r.[PartNo], r.[Description], r.[CompletedAt], r.[UpdatedAt], r.[DateWelded],
+           (SELECT COUNT(*) FROM dbo.DCenter_Joints j WHERE j.[ReportId] = r.[Id]) AS [JointCount]
+    FROM dbo.DCenter_Reports r
+    WHERE r.[ReportRequired] = 1
+      AND (r.[CompletedAt] IS NULL OR r.[CompletedAt] >= @WindowStartAt OR r.[DateWelded] >= @WindowStart);
+END
+GO
+
+CREATE OR ALTER PROCEDURE dbo.SP_DCenter_Report_DashboardWelders
+    @WindowStart DATE
+AS
+BEGIN
+    SET NOCOUNT ON;
+    SELECT j.[WelderNo], j.[WelderName], COUNT(*) AS [Count]
+    FROM dbo.DCenter_Joints j
+    JOIN dbo.DCenter_Reports r ON r.[Id] = j.[ReportId]
+    WHERE r.[ReportRequired] = 1 AND r.[DateWelded] >= @WindowStart
+      AND j.[WelderNo] IS NOT NULL AND j.[WelderNo] <> N''
+    GROUP BY j.[WelderNo], j.[WelderName];
+END
+GO
+
+CREATE OR ALTER PROCEDURE dbo.SP_DCenter_Report_DashboardWps
+    @WindowStart DATE,
+    @Take INT
+AS
+BEGIN
+    SET NOCOUNT ON;
+    SELECT TOP (@Take) j.[WpsNo], COUNT(*) AS [Count]
+    FROM dbo.DCenter_Joints j
+    JOIN dbo.DCenter_Reports r ON r.[Id] = j.[ReportId]
+    WHERE r.[ReportRequired] = 1 AND r.[DateWelded] >= @WindowStart
+      AND j.[WpsNo] IS NOT NULL AND j.[WpsNo] <> N''
+    GROUP BY j.[WpsNo]
+    ORDER BY COUNT(*) DESC;
+END
+GO
+
+-- @Field is welder, wps, heat or heatLot. HeatLots lists the joint's electrode heat/lots in column
+-- order, separated by CHAR(31).
+CREATE OR ALTER PROCEDURE dbo.SP_DCenter_Report_Trace
+    @Field NVARCHAR(20),
+    @Q NVARCHAR(4000),
+    @Take INT
+AS
+BEGIN
+    SET NOCOUNT ON;
+    SELECT TOP (@Take)
+           r.[WorkOrderNumber], r.[PartNo], r.[CompletedAt], r.[DateWelded],
+           j.[JointNumber], j.[WpsNo], j.[WelderName], j.[WelderNo], j.[HeatNumberLeft], j.[HeatNumberRight],
+           (SELECT STRING_AGG(m.[HeatLot], NCHAR(31)) WITHIN GROUP (ORDER BY m.[ColumnNumber])
+            FROM dbo.DCenter_JointMaterials m WHERE m.[JointId] = j.[Id]) AS [HeatLots]
+    FROM dbo.DCenter_Joints j
+    JOIN dbo.DCenter_Reports r ON r.[Id] = j.[ReportId]
+    WHERE (@Field = N'welder' AND (CHARINDEX(@Q, j.[WelderNo]) > 0 OR CHARINDEX(@Q, j.[WelderName]) > 0))
+       OR (@Field = N'wps' AND CHARINDEX(@Q, j.[WpsNo]) > 0)
+       OR (@Field = N'heat' AND (CHARINDEX(@Q, j.[HeatNumberLeft]) > 0 OR CHARINDEX(@Q, j.[HeatNumberRight]) > 0))
+       OR (@Field = N'heatLot' AND EXISTS (
+            SELECT 1 FROM dbo.DCenter_JointMaterials m WHERE m.[JointId] = j.[Id] AND CHARINDEX(@Q, m.[HeatLot]) > 0))
+    ORDER BY r.[DateWelded] DESC, r.[WorkOrderNumber], j.[JointNumber];
 END
 GO

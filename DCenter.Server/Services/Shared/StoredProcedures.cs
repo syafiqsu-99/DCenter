@@ -76,6 +76,7 @@ public static class Sql
     public static SqlParameter Bit(string name, bool? value) => Make(name, SqlDbType.Bit, value);
     public static SqlParameter NVarChar(string name, string? value, int size) => Make(name, SqlDbType.NVarChar, value, size);
     public static SqlParameter NVarCharMax(string name, string? value) => Make(name, SqlDbType.NVarChar, value, -1);
+    public static SqlParameter Binary(string name, byte[]? value, int size) => Make(name, SqlDbType.Binary, value, size);
     public static SqlParameter VarBinary(string name, byte[]? value, int size) => Make(name, SqlDbType.VarBinary, value, size);
     public static SqlParameter Date(string name, DateOnly? value) => Make(name, SqlDbType.Date, value?.ToDateTime(TimeOnly.MinValue));
     public static SqlParameter DateTime2(string name, DateTime? value) => Make(name, SqlDbType.DateTime2, value);

@@ -1,17 +1,30 @@
+using System.Data;
 using DCenter.Server.Data;
 using DCenter.Server.Entities;
 using DCenter.Server.Models;
+using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 
 namespace DCenter.Server.Services;
 
-public class ReportService(WeldReportContext db, TimeProvider time)
+public class ReportService(WeldReportContext db, StoredProcedures sp, TimeProvider time)
 {
     public async Task<Report?> GetEntityAsync(string workOrderNumber, CancellationToken ct)
-        => await db.Reports
-            .AsNoTracking()
-            .Include(r => r.Joints).ThenInclude(j => j.Materials)
-            .FirstOrDefaultAsync(r => r.WorkOrderNumber == workOrderNumber, ct);
+    {
+        // Repeatable read keeps the header, joints and materials from one consistent version of the report.
+        await using var tx = db.Database.CurrentTransaction is null
+            ? await db.Database.BeginTransactionAsync(IsolationLevel.RepeatableRead, ct)
+            : null;
+        var r = await GetHeaderAsync(workOrderNumber, ct);
+        if (r is null) return null;
+
+        r.Joints = await sp.EntitiesAsync<Joint>("SP_DCenter_Report_Joints", ct, Sql.Int("@ReportId", r.Id));
+        var materials = (await sp.EntitiesAsync<JointMaterial>("SP_DCenter_Report_JointMaterials", ct, Sql.Int("@ReportId", r.Id)))
+            .ToLookup(m => m.JointId);
+        foreach (var j in r.Joints) j.Materials = [.. materials[j.Id]];
+        if (tx is not null) await tx.CommitAsync(ct);
+        return r;
+    }
 
     public async Task<ReportDto?> LoadAsync(string workOrderNumber, CancellationToken ct)
     {
@@ -19,18 +32,8 @@ public class ReportService(WeldReportContext db, TimeProvider time)
         return r is null ? null : ToDto(r);
     }
 
-    public async Task<List<ReportSummary>> ListAsync(CancellationToken ct)
-        => await db.Reports
-            .OrderByDescending(r => r.UpdatedAt)
-            .Select(r => new ReportSummary(
-                r.Id,
-                r.WorkOrderNumber,
-                r.PartNo,
-                r.Description,
-                r.Joints.Count,
-                r.CompletedAt == null ? ReportStatus.Draft : ReportStatus.Completed,
-                r.UpdatedAt))
-            .ToListAsync(ct);
+    public Task<List<ReportSummary>> ListAsync(CancellationToken ct)
+        => sp.QueryAsync<ReportSummary>("SP_DCenter_Report_List", ct);
 
     public enum CompleteResult { Ok, NotFound, DateWeldedRequired, Incomplete }
 
@@ -38,123 +41,69 @@ public class ReportService(WeldReportContext db, TimeProvider time)
 
     public async Task<CompleteOutcome> MarkCompleteAsync(string workOrderNumber, bool complete, string? by, CancellationToken ct)
     {
-        var query = db.Reports.Where(x => x.WorkOrderNumber == workOrderNumber);
-        var r = complete
-            ? await query.Include(x => x.Joints).ThenInclude(j => j.Materials).FirstOrDefaultAsync(ct)
-            : await query.FirstOrDefaultAsync(ct);
+        var r = complete ? await GetEntityAsync(workOrderNumber, ct) : await GetHeaderAsync(workOrderNumber, ct);
         if (r is null) return new(CompleteResult.NotFound, []);
         if (complete && r.DateWelded is null) return new(CompleteResult.DateWeldedRequired, []);
         if (complete && ReportSaveRules.CompletionProblems(r) is { Count: > 0 } problems)
             return new(CompleteResult.Incomplete, problems);
 
         var now = time.LocalNow();
-        r.CompletedAt = complete ? now : null;
-        r.UpdatedAt = now;
-        db.ReportStatusEvents.Add(new ReportStatusEvent
-        {
-            ReportId = r.Id,
-            Action = complete ? ReportAction.Completed : ReportAction.Reopened,
-            Details = by is null ? null : $"By {by}",
-        });
-        await db.SaveChangesAsync(ct);
+        await StoredProcedures.Write(sp.ExecuteAsync("SP_DCenter_Report_SetStatus", ct,
+            Sql.Int("@Id", r.Id),
+            RowVersion(r.RowVersion),
+            Sql.DateTime2("@CompletedAt", complete ? now : null),
+            Sql.DateTime2("@UpdatedAt", now),
+            Sql.NVarChar("@Action", complete ? ReportAction.Completed : ReportAction.Reopened, 50),
+            Sql.NVarChar("@Details", by is null ? null : $"By {by}", 1000),
+            Sql.DateTime2("@OccurredAt", now)));
         return new(CompleteResult.Ok, []);
     }
 
     public async Task<List<ReportStatusEventDto>?> GetHistoryAsync(string WorkOrderNumber, CancellationToken ct)
     {
-        var reportId = await db.Reports
-            .Where(x => x.WorkOrderNumber == WorkOrderNumber)
-            .Select(x => (int?)x.Id)
-            .FirstOrDefaultAsync(ct);
-        if (reportId is null) return null;
-
-        return await db.ReportStatusEvents
-            .Where(e => e.ReportId == reportId)
-            .OrderByDescending(e => e.OccurredAt)
-            .Select(e => new ReportStatusEventDto(e.Action, e.OccurredAt, e.Details))
-            .ToListAsync(ct);
+        var r = await GetHeaderAsync(WorkOrderNumber, ct);
+        if (r is null) return null;
+        return await sp.QueryAsync<ReportStatusEventDto>("SP_DCenter_Report_History", ct, Sql.Int("@ReportId", r.Id));
     }
 
     public enum DeleteResult { Ok, NotFound, Completed }
 
     public async Task<DeleteResult> DeleteAsync(string WorkOrderNumber, CancellationToken ct)
     {
-        var r = await db.Reports.FirstOrDefaultAsync(x => x.WorkOrderNumber == WorkOrderNumber, ct);
+        var r = await GetHeaderAsync(WorkOrderNumber, ct);
         if (r is null) return DeleteResult.NotFound;
         if (r.CompletedAt is not null) return DeleteResult.Completed;
-        db.Reports.Remove(r);
-        await db.SaveChangesAsync(ct);
+        await StoredProcedures.Write(sp.ExecuteAsync("SP_DCenter_Report_Delete", ct, Sql.Int("@Id", r.Id)));
         return DeleteResult.Ok;
     }
 
     public async Task<ReportDto> SaveAsync(ReportDto dto, CancellationToken ct)
     {
-        var r = await db.Reports
-            .Include(x => x.Joints).ThenInclude(j => j.Materials)
-            .FirstOrDefaultAsync(x => x.WorkOrderNumber == dto.WorkOrderNumber, ct);
+        var r = await GetEntityAsync(dto.WorkOrderNumber, ct);
 
         var isInsert = r is null;
         if (ReportSaveRules.Conflict(r, dto) is string refusal) throw new ReportConflictException(refusal);
 
-        string summary;
-        if (r is null)
-        {
-            r = new Report { WorkOrderNumber = dto.WorkOrderNumber, CreatedAt = time.LocalNow() };
-            db.Reports.Add(r);
-            summary = "Report created";
-        }
-        else
-        {
-            summary = BuildSaveSummary(r, dto);
-            db.Entry(r).Property(x => x.RowVersion).OriginalValue = Convert.FromBase64String(dto.RowVersion!);
-            db.JointMaterials.RemoveRange(r.Joints.SelectMany(j => j.Materials));
-            db.Joints.RemoveRange(r.Joints);
-            r.Joints.Clear();
-        }
-
-        ApplyHeader(r, dto);
-        r.UpdatedAt = time.LocalNow();
-
-        foreach (var jd in ReportSaveRules.Renumber(dto.Joints).Take(ReportSaveRules.MaxJoints))
-        {
-            var joint = new Joint
-            {
-                JointNumber = jd.JointNumber,
-                PartDescLeft = jd.PartDescLeft,
-                PartNoLeft = jd.PartNoLeft,
-                HeatNumberLeft = jd.HeatNumberLeft,
-                PartDescRight = jd.PartDescRight,
-                PartNoRight = jd.PartNoRight,
-                HeatNumberRight = jd.HeatNumberRight,
-                WpsNo = jd.WpsNo,
-                Rev = jd.Rev,
-                WelderName = jd.WelderName,
-                WelderNo = jd.WelderNo,
-                Materials = jd.Materials
-                    .Where(m => m.ColumnNumber is >= 1 and <= 3)
-                    .Select(m => new JointMaterial
-                    {
-                        ColumnNumber = m.ColumnNumber,
-                        Process = m.Process,
-                        Size = m.Size,
-                        Type = m.Type,
-                        Manuf = m.Manuf,
-                        HeatLot = m.HeatLot
-                    }).ToList()
-            };
-            r.Joints.Add(joint);
-        }
-
-        db.ReportStatusEvents.Add(new ReportStatusEvent
-        {
-            Report = r,
-            Action = isInsert ? ReportAction.Created : ReportAction.Saved,
-            Details = summary,
-        });
+        var now = time.LocalNow();
+        var summary = r is null ? "Report created" : BuildSaveSummary(r, dto);
+        var joints = ReportSaveRules.Renumber(dto.Joints).Take(ReportSaveRules.MaxJoints).ToList();
 
         try
         {
-            await db.SaveChangesAsync(ct);
+            await StoredProcedures.Write(sp.ScalarAsync<int>("SP_DCenter_Report_Save", ct,
+            [
+                Sql.Int("@Id", r?.Id),
+                RowVersion(r is null ? null : Convert.FromBase64String(dto.RowVersion!)),
+                Sql.NVarChar("@WorkOrderNumber", dto.WorkOrderNumber, ReportSaveRules.MaxWorkOrderLength),
+                .. HeaderParameters(dto),
+                Sql.DateTime2("@CreatedAt", now),
+                Sql.DateTime2("@UpdatedAt", now),
+                Sql.NVarChar("@Action", isInsert ? ReportAction.Created : ReportAction.Saved, 50),
+                Sql.NVarChar("@Details", summary, 1000),
+                Sql.DateTime2("@OccurredAt", now),
+                Sql.Table("@Joints", "dbo.TT_DCenter_ReportJoints", JointRows(joints)),
+                Sql.Table("@Materials", "dbo.TT_DCenter_ReportJointMaterials", MaterialRows(joints)),
+            ]));
         }
         catch (DbUpdateConcurrencyException)
         {
@@ -167,21 +116,75 @@ public class ReportService(WeldReportContext db, TimeProvider time)
                 $"A report for work order {dto.WorkOrderNumber} was just created by someone else. Open it from Saved reports.");
         }
 
-        return ToDto(r);
+        return ToDto((await GetEntityAsync(dto.WorkOrderNumber, ct))!);
     }
 
-    private static void ApplyHeader(Report r, ReportDto d)
+    private Task<Report?> GetHeaderAsync(string workOrderNumber, CancellationToken ct)
+        => FirstAsync(sp.EntitiesAsync<Report>("SP_DCenter_Report_Get", ct,
+            Sql.NVarChar("@WorkOrderNumber", workOrderNumber, ReportSaveRules.MaxWorkOrderLength)));
+
+    private static async Task<T?> FirstAsync<T>(Task<List<T>> rows) => (await rows).FirstOrDefault();
+
+    private static SqlParameter RowVersion(byte[]? value) => Sql.Binary("@RowVersion", value, 8);
+
+    private static SqlParameter[] HeaderParameters(ReportDto d) =>
+    [
+        Sql.Bit("@ReportRequired", d.ReportRequired),
+        Sql.Date("@DateWelded", d.DateWelded),
+        Sql.NVarCharMax("@PartNo", d.PartNo),
+        Sql.NVarCharMax("@Description", d.Description),
+        Sql.NVarCharMax("@MaterialSpec1", d.MaterialSpec1),
+        Sql.NVarCharMax("@MaterialSpec2", d.MaterialSpec2),
+        Sql.NVarCharMax("@MaterialSpec3", d.MaterialSpec3),
+        Sql.NVarCharMax("@Grade1", d.Grade1),
+        Sql.NVarCharMax("@Grade2", d.Grade2),
+        Sql.NVarCharMax("@Grade3", d.Grade3),
+        Sql.NVarCharMax("@PNumber1", d.PNumber1),
+        Sql.NVarCharMax("@PNumber2", d.PNumber2),
+        Sql.NVarCharMax("@PNumber3", d.PNumber3),
+        Sql.NVarCharMax("@EngineerSupervisor", d.EngineerSupervisor),
+        Sql.NVarCharMax("@QaInspector", d.QaInspector),
+    ];
+
+    private static DataTable JointRows(List<JointDto> joints)
     {
-        r.ReportRequired = d.ReportRequired;
-        r.DateWelded = d.DateWelded;
-        r.PartNo = d.PartNo;
-        r.Description = d.Description;
-        r.MaterialSpec1 = d.MaterialSpec1; r.MaterialSpec2 = d.MaterialSpec2; r.MaterialSpec3 = d.MaterialSpec3;
-        r.Grade1 = d.Grade1; r.Grade2 = d.Grade2; r.Grade3 = d.Grade3;
-        r.PNumber1 = d.PNumber1; r.PNumber2 = d.PNumber2; r.PNumber3 = d.PNumber3;
-        r.EngineerSupervisor = d.EngineerSupervisor;
-        r.QaInspector = d.QaInspector;
+        var rows = new DataTable();
+        rows.Columns.Add("Seq", typeof(int));
+        rows.Columns.Add("JointNumber", typeof(int));
+        foreach (var name in (string[])["PartDescLeft", "PartNoLeft", "HeatNumberLeft", "PartDescRight", "PartNoRight",
+                     "HeatNumberRight", "WpsNo", "Rev", "WelderName", "WelderNo"])
+            rows.Columns.Add(name, typeof(string));
+        for (var i = 0; i < joints.Count; i++)
+        {
+            var j = joints[i];
+            rows.Rows.Add(i, j.JointNumber, Cell(j.PartDescLeft), Cell(j.PartNoLeft), Cell(j.HeatNumberLeft),
+                Cell(j.PartDescRight), Cell(j.PartNoRight), Cell(j.HeatNumberRight), Cell(j.WpsNo), Cell(j.Rev),
+                Cell(j.WelderName), Cell(j.WelderNo));
+        }
+        return rows;
     }
+
+    private static DataTable MaterialRows(List<JointDto> joints)
+    {
+        var rows = new DataTable();
+        rows.Columns.Add("JointSeq", typeof(int));
+        rows.Columns.Add("Seq", typeof(int));
+        rows.Columns.Add("ColumnNumber", typeof(int));
+        foreach (var name in (string[])["Process", "Size", "Type", "Manuf", "HeatLot"])
+            rows.Columns.Add(name, typeof(string));
+        for (var i = 0; i < joints.Count; i++)
+        {
+            var materials = joints[i].Materials.Where(m => m.ColumnNumber is >= 1 and <= 3).ToList();
+            for (var k = 0; k < materials.Count; k++)
+            {
+                var m = materials[k];
+                rows.Rows.Add(i, k, m.ColumnNumber, Cell(m.Process), Cell(m.Size), Cell(m.Type), Cell(m.Manuf), Cell(m.HeatLot));
+            }
+        }
+        return rows;
+    }
+
+    private static object Cell(string? value) => (object?)value ?? DBNull.Value;
 
     public static ReportDto ToDto(Report r) => new()
     {
