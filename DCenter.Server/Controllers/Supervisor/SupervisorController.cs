@@ -1,14 +1,9 @@
+using DCenter.Server.Models;
 using DCenter.Server.Services;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
 
 namespace DCenter.Server.Controllers;
-
-public record SupervisorLoginRequest(string? Name, string? Password);
-
-public record SupervisorSessionDto(string Name, DateTimeOffset ExpiresAt, string? Token);
-
-public record SupervisorPasswordChange(string? CurrentPassword, string? NewPassword);
 
 [ApiController]
 [Route("api/supervisor")]
