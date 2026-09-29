@@ -194,6 +194,3 @@ else
 }
 
 app.Run();
-
-// Lets DCenter.Server.IntegrationTests host the API with WebApplicationFactory<Program>.
-public partial class Program;

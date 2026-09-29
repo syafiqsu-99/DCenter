@@ -13,7 +13,7 @@ public class ErpViewContext(DbContextOptions<ErpViewContext> options) : DbContex
         b.Entity<WorkOrderDetail>(e =>
         {
             e.HasNoKey();
-            e.ToView("vw_DCenter_WorkOrder");
+            e.ToView("V_DCenter_WorkOrder");
             e.Property(x => x.WoNumber).HasColumnName("WO_NUMBER").IsUnicode(false);
             e.Property(x => x.AssemblyItem).HasColumnName("ASSEMBLY_ITEM");
             e.Property(x => x.ItemDesc).HasColumnName("ITEM_DESC");
@@ -23,7 +23,7 @@ public class ErpViewContext(DbContextOptions<ErpViewContext> options) : DbContex
         b.Entity<BomLink>(e =>
         {
             e.HasNoKey();
-            e.ToView("vw_DCenter_Bom");
+            e.ToView("V_DCenter_Bom");
             e.Property(x => x.Item).HasColumnName("ITEM").IsUnicode(false);
             e.Property(x => x.Component).HasColumnName("COMPONENT");
             e.Property(x => x.ComponentDesc).HasColumnName("COMPONENT_DESC");

@@ -12,12 +12,14 @@ public sealed class StoredProcedures(WeldReportContext db)
     // THROW number a procedure raises when a row it must update or delete is gone, like EF's concurrency check.
     public const int RowChanged = 50001;
 
+    private const int MissingProcedure = 2812;
+
     public Task<List<T>> QueryAsync<T>(string procedure, CancellationToken ct, params SqlParameter[] parameters)
-        => db.Database.SqlQueryRaw<T>(Exec(procedure, parameters), Args(parameters)).ToListAsync(ct);
+        => Run(procedure, db.Database.SqlQueryRaw<T>(Exec(procedure, parameters), Args(parameters)).ToListAsync(ct));
 
     public Task<List<TEntity>> EntitiesAsync<TEntity>(string procedure, CancellationToken ct, params SqlParameter[] parameters)
         where TEntity : class
-        => db.Set<TEntity>().FromSqlRaw(Exec(procedure, parameters), Args(parameters)).AsNoTracking().ToListAsync(ct);
+        => Run(procedure, db.Set<TEntity>().FromSqlRaw(Exec(procedure, parameters), Args(parameters)).AsNoTracking().ToListAsync(ct));
 
     public async Task<T?> FirstOrDefaultAsync<T>(string procedure, CancellationToken ct, params SqlParameter[] parameters)
         => (await QueryAsync<T>(procedure, ct, parameters)).FirstOrDefault();
@@ -27,7 +29,7 @@ public sealed class StoredProcedures(WeldReportContext db)
         => (await QueryAsync<T>(procedure, ct, parameters)).First();
 
     public Task<int> ExecuteAsync(string procedure, CancellationToken ct, params SqlParameter[] parameters)
-        => db.Database.ExecuteSqlRawAsync(Exec(procedure, parameters), Args(parameters), ct);
+        => Run(procedure, db.Database.ExecuteSqlRawAsync(Exec(procedure, parameters), Args(parameters), ct));
 
     // Wraps a procedure call that writes, so its SQL errors surface as the DbUpdateException that
     // SaveChanges raised before (duplicate-key and truncation checks read the inner SqlException).
@@ -40,6 +42,21 @@ public sealed class StoredProcedures(WeldReportContext db)
         catch (SqlException ex)
         {
             throw ex.Number == RowChanged ? new DbUpdateConcurrencyException(ex.Message, ex) : new DbUpdateException(ex.Message, ex);
+        }
+    }
+
+    internal static string MissingMessage(string procedure)
+        => $"Stored procedure dbo.{procedure} does not exist. Run DCenter.Server/Sql/DCenter/DCenter_StoredProcedures.sql on the DCenter database, then retry.";
+
+    private static async Task<T> Run<T>(string procedure, Task<T> call)
+    {
+        try
+        {
+            return await call;
+        }
+        catch (SqlException ex) when (ex.Number == MissingProcedure)
+        {
+            throw new InvalidOperationException(MissingMessage(procedure), ex);
         }
     }
 

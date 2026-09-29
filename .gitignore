@@ -367,6 +367,3 @@ FodyWeavers.xsd
 
 # ASP.NET Data Protection key ring (per machine, never commit)
 DCenter.Server/App_Data/
-
-# Integration snapshot diffs (written when a scenario differs from its golden file)
-*.actual.txt
