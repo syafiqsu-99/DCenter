@@ -8,7 +8,7 @@ using T = DCenter.Server.Services.ConsumableText;
 namespace DCenter.Server.Services;
 
 public class ConsumableQueryService(
-    StoredProcedures sp, ConsumableStore store, ConsumableLedger ledger, IOptions<ConsumableOptions> options, TimeProvider time)
+    ConsumableStore store, ConsumableLedger ledger, IOptions<ConsumableOptions> options, TimeProvider time)
 {
     private readonly ConsumableOptions settings = options.Value;
 
@@ -32,16 +32,17 @@ public class ConsumableQueryService(
     public async Task<List<decimal>> GetRecentQuantitiesAsync(int itemId, string? type, CancellationToken ct)
     {
         var txnType = type is null ? Cat.TxnReceive : T.TxnType(type) ?? Cat.TxnReceive;
-        var recent = await sp.QueryAsync<decimal>("SP_DCenter_Ledger_RecentQuantities", ct,
-            Sql.Int("@ItemId", itemId), Sql.NVarChar("@TxnType", txnType, 20), Sql.Int("@Take", 30));
-        return recent.Distinct().Take(4).ToList();
+        var (recent, _) = await store.TransactionsAsync(new MovementQuery(
+            TxnType: txnType, ItemId: itemId, LiveOnly: true, Sort: MovementSort.IdDescending, Take: 30), ct);
+        return recent.Select(m => m.QuantityKg).Distinct().Take(4).ToList();
     }
 
     public async Task<List<LotBalanceDto>> GetLotBalancesAsync(int itemId, bool includeZero, CancellationToken ct)
     {
         var lots = await store.LotsAsync(null, [itemId], null, ct);
-        var stages = (await ledger.LotStagesForItemAsync(itemId, ct)).ToDictionary(l => l.LotId, l => l.Totals);
-        var receipts = await FirstReceiptsAsync(itemId, null, ct);
+        var ledgerLots = await ledger.LotsAsync(LedgerFilter.ForItem(itemId), ct);
+        var stages = ledgerLots.ToDictionary(l => l.LotId, l => l.Totals);
+        var receipts = FirstReceipts(ledgerLots);
         var isElectrode = (await store.ItemAsync(itemId, ct))?.Category == Cat.ElectrodeFiller;
         List<BinRow> bins = isElectrode
             ? (await ledger.ActivatedBinsAsync(LedgerFilter.ForItem(itemId), ct)).Where(b => b.Kg > 0).ToList()
@@ -81,11 +82,9 @@ public class ConsumableQueryService(
 
         var lots = await store.LotsAsync(null, null, cat, ct);
 
-        var receipts = await FirstReceiptsAsync(null, cat, ct);
-
-        var flows = (await sp.QueryAsync<LotFlow>("SP_DCenter_Ledger_LotFlows", ct, Sql.NVarChar("@Category", cat, 30)))
-            .ToDictionary(f => f.LotId);
-        var stages = flows.ToDictionary(f => f.Key, f => new StageTotals(f.Value.NormalKg, f.Value.BakingKg, f.Value.ActivatedKg));
+        var flows = (await ledger.LotsAsync(LedgerFilter.ForCategory(cat), ct)).ToDictionary(f => f.LotId);
+        var receipts = FirstReceipts(flows.Values);
+        var stages = flows.ToDictionary(f => f.Key, f => f.Value.Totals);
 
         var itemTotals = stages
             .Join(lots, s => s.Key, l => l.Id, (s, l) => new { l.ItemId, s.Value.TotalKg })
@@ -101,7 +100,7 @@ public class ConsumableQueryService(
                 var itemTotal = itemTotals.GetValueOrDefault(l.ItemId);
                 return new LotStockRow(l.Id, l.ItemId, l.Category, l.Brand, l.Diameter, l.Specification, l.LotNumber,
                     Cat.DiaSpec(l.Diameter, l.Specification), r?.Date, r?.Source, r?.ReceivedBy,
-                    f?.Received ?? 0m, f?.Taken ?? 0m, t.NormalKg, t.BakingKg, t.ActivatedKg, t.TotalKg,
+                    f?.ReceivedKg ?? 0m, f?.TakenKg ?? 0m, t.NormalKg, t.BakingKg, t.ActivatedKg, t.TotalKg,
                     l.IsActive && l.MinStockKg > 0 && itemTotal <= l.MinStockKg);
             })
             .Where(r => includeZero || r.BalanceKg != 0)
@@ -122,8 +121,7 @@ public class ConsumableQueryService(
         if (welderId is int wid)
         {
             var since = time.Today().AddDays(-(Math.Max(settings.ReturnWindowDays, 1) - 1));
-            var sums = await sp.QueryAsync<WelderWindow>("SP_DCenter_Ledger_WelderWindow", ct,
-                Sql.Int("@WelderId", wid), Sql.Date("@Since", since), Sql.NVarChar("@Category", cat, 30));
+            var sums = await ledger.WelderAsync(wid, since, null, null, cat, ct);
 
             var issueIds = sums.Where(s => s.LastIssueId is not null).Select(s => s.LastIssueId!.Value).ToList();
             var lastIssues = (await store.MovementsAsync(null, false, issueIds, ct)).ToDictionary(m => m.Id);
@@ -210,8 +208,7 @@ public class ConsumableQueryService(
         var today = time.Today();
         var monthStart = new DateOnly(today.Year, today.Month, 1);
         var first = monthStart.AddMonths(-11);
-        var flows = await sp.QueryAsync<MonthFlow>("SP_DCenter_Ledger_MonthlyFlows", ct,
-            Sql.Date("@From", first), Sql.NVarChar("@Category", cat, 30));
+        var flows = await ledger.MonthlyAsync(first, null, cat, ct);
 
         decimal Sum(int year, int month, string txnType, string? forCategory = null)
             => flows.Where(f => f.Year == year && f.Month == month && f.TxnType == txnType
@@ -259,8 +256,16 @@ public class ConsumableQueryService(
 
         var start = new DateOnly(month.Year, month.Month, 1);
         var end = start.AddMonths(1);
-        var rows = await sp.QueryAsync<ItemConsumption>("SP_DCenter_Ledger_ItemConsumption", ct,
-            Sql.Date("@Start", start), Sql.Date("@End", end), Sql.NVarChar("@Category", cat, 30));
+        var rows = (await ledger.MonthlyAsync(start, end, cat, ct))
+            .Where(f => f.TxnType is Cat.TxnIssue or Cat.TxnReturn or Cat.TxnFinish)
+            .GroupBy(f => (f.ItemId, f.Category, f.Diameter, f.Specification))
+            .Select(g => new
+            {
+                g.Key.ItemId, g.Key.Category, g.Key.Diameter, g.Key.Specification,
+                Picked = g.Sum(f => f.TxnType == Cat.TxnIssue ? f.Kg : 0.00m),
+                Returned = g.Sum(f => f.TxnType == Cat.TxnReturn ? f.Kg : 0.00m),
+                Finished = g.Sum(f => f.TxnType == Cat.TxnFinish ? f.Kg : 0.00m),
+            });
 
         return ServiceResult<List<ItemMonthUsageDto>>.Ok(rows
             .Select(r => new ItemMonthUsageDto(r.ItemId, r.Category, Cat.DiaSpec(r.Diameter, r.Specification),
@@ -274,8 +279,11 @@ public class ConsumableQueryService(
     {
         const int averageMonths = 3;
         var from = monthStart.AddMonths(-averageMonths);
-        var rows = await sp.QueryAsync<ItemMonthUse>("SP_DCenter_Ledger_ItemMonthlyUse", ct,
-            Sql.Date("@From", from), Sql.NVarChar("@Category", cat, 30));
+        var rows = (await ledger.MonthlyAsync(from, null, cat, ct))
+            .Where(f => f.TxnType is Cat.TxnIssue or Cat.TxnReturn or Cat.TxnFinish)
+            .GroupBy(f => (f.ItemId, f.Year, f.Month))
+            .Select(g => new { g.Key.ItemId, g.Key.Year, g.Key.Month, Kg = g.Sum(f => f.TxnType == Cat.TxnReturn ? -f.Kg : f.Kg) })
+            .ToList();
 
         var lastMonth = monthStart.AddMonths(-1);
         var fullMonths = Enumerable.Range(1, averageMonths).Select(i => monthStart.AddMonths(-i)).ToList();
@@ -318,12 +326,15 @@ public class ConsumableQueryService(
     {
         var items = await store.ItemsAsync(null, category, ct);
 
-        var byItem = (await ledger.LotStagesAsync(LedgerFilter.ForCategory(category), ct))
+        var ledgerLots = await ledger.LotsAsync(LedgerFilter.ForCategory(category), ct);
+        var byItem = ledgerLots
             .GroupBy(l => l.ItemId)
             .ToDictionary(g => g.Key, g => (Totals: StageTotals.Sum(g.Select(x => x.Totals)), Lots: g.Count(x => x.Totals.TotalKg > 0)));
 
-        var lastIssued = (await sp.QueryAsync<LastIssue>("SP_DCenter_Ledger_LastIssued", ct, Sql.NVarChar("@Category", category, 30)))
-            .ToDictionary(x => x.ItemId, x => x.Last);
+        var lastIssued = ledgerLots
+            .Where(l => l.LastIssuedOn is not null)
+            .GroupBy(l => l.ItemId)
+            .ToDictionary(g => g.Key, g => g.Max(l => l.LastIssuedOn!.Value));
 
         return items
             .Select(i =>
@@ -342,25 +353,9 @@ public class ConsumableQueryService(
             .ToList();
     }
 
-    private async Task<Dictionary<int, Receipt>> FirstReceiptsAsync(int? itemId, string? category, CancellationToken ct)
-        => (await sp.QueryAsync<FirstReceipt>("SP_DCenter_Lot_FirstReceipts", ct,
-                Sql.Int("@ItemId", itemId), Sql.NVarChar("@Category", category, 30)))
-            .ToDictionary(r => r.LotId, r => new Receipt(r.LotId, r.TxnDate, r.Source, r.Requestor));
+    private static Dictionary<int, Receipt> FirstReceipts(IEnumerable<LotLedgerRow> lots)
+        => lots.Where(l => l.FirstReceivedOn is not null)
+            .ToDictionary(l => l.LotId, l => new Receipt(l.LotId, l.FirstReceivedOn!.Value, l.FirstSource, l.FirstReceivedBy));
 
     private static string MonthLabel(DateOnly month) => month.ToString("MMM yy", CultureInfo.InvariantCulture);
-
-    private sealed record FirstReceipt(int LotId, DateOnly TxnDate, string? Source, string? Requestor);
-
-    private sealed record LotFlow(int LotId, decimal Received, decimal Taken, decimal NormalKg, decimal BakingKg, decimal ActivatedKg);
-
-    private sealed record WelderWindow(int ItemId, decimal Picked, decimal Returned, int? LastIssueId);
-
-    private sealed record MonthFlow(int Year, int Month, string TxnType, string Category, decimal Kg);
-
-    private sealed record ItemConsumption(
-        int ItemId, string Category, string Diameter, string Specification, decimal Picked, decimal Returned, decimal Finished);
-
-    private sealed record ItemMonthUse(int ItemId, int Year, int Month, decimal Kg);
-
-    private sealed record LastIssue(int ItemId, DateOnly Last);
 }

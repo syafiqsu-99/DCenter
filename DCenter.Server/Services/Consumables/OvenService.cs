@@ -3,11 +3,11 @@ using Cat = DCenter.Server.Entities.StockCatalog;
 
 namespace DCenter.Server.Services;
 
-public class OvenService(StoredProcedures sp, ConsumableStore store, ConsumableLedger ledger)
+public class OvenService(ConsumableStore store, ConsumableLedger ledger)
 {
     public async Task<OvenBoardDto> GetBoardAsync(CancellationToken ct)
     {
-        var ovens = (await sp.QueryAsync<BoardRow>("SP_DCenter_Oven_Board", ct))
+        var ovens = (await store.OvenCompartmentsAsync(null, ct))
             .GroupBy(r => r.OvenId)
             .Select(g => new
             {
@@ -23,8 +23,8 @@ public class OvenService(StoredProcedures sp, ConsumableStore store, ConsumableL
         var lotIds = positive.Select(b => b.LotId).Distinct().ToList();
         var lots = (await store.LotsAsync(lotIds, null, null, ct)).ToDictionary(l => l.Id);
 
-        var since = (await sp.QueryAsync<BinSince>("SP_DCenter_Ledger_BinSince", ct, Sql.IdList("@LotIds", lotIds)))
-            .ToDictionary(x => ((int?)x.CompartmentId, x.LotId), x => x.Last);
+        var since = positive.Where(b => b.CompartmentId is not null && b.LastInAt is not null)
+            .ToDictionary(b => (b.CompartmentId, b.LotId), b => b.LastInAt!.Value);
 
         BinLotDto ToLot(BinRow b)
         {
@@ -50,8 +50,4 @@ public class OvenService(StoredProcedures sp, ConsumableStore store, ConsumableL
         var unassigned = positive.Where(b => b.CompartmentId is null).OrderBy(b => b.LotId).Select(ToLot).ToList();
         return new OvenBoardDto(ovenDtos, unassigned);
     }
-
-    private sealed record BoardRow(int OvenId, string Name, string Code, string OvenType, int? CompartmentId, int? Number, string? Label);
-
-    private sealed record BinSince(int CompartmentId, int LotId, DateTime Last);
 }

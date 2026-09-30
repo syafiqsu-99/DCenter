@@ -1,3 +1,4 @@
+using System.Text.Json;
 using DCenter.Server.Entities;
 using DCenter.Server.Models;
 
@@ -19,8 +20,10 @@ public class ReportInsightsService(StoredProcedures sp, TimeProvider time)
         var windowStartAt = windowStart.ToDateTime(TimeOnly.MinValue);
         var staleBefore = time.LocalNow().AddDays(-StaleDraftDays);
 
-        var reports = await sp.QueryAsync<DashboardReport>("SP_DCenter_Report_DashboardReports", ct,
-            Sql.Date("@WindowStart", windowStart), Sql.DateTime2("@WindowStartAt", windowStartAt));
+        var json = await sp.ScalarAsync<string>("SP_DCenter_Report_Dashboard", ct,
+            Sql.Date("@WindowStart", windowStart), Sql.DateTime2("@WindowStartAt", windowStartAt), Sql.Int("@Take", 10));
+        var data = JsonSerializer.Deserialize<DashboardData>(json, Sql.JsonOptions)!;
+        var reports = data.Reports ?? [];
 
         var drafts = reports.Where(r => r.CompletedAt is null).ToList();
         var openDrafts = drafts.Count;
@@ -38,8 +41,7 @@ public class ReportInsightsService(StoredProcedures sp, TimeProvider time)
 
         var jointsThisMonth = reports.Where(r => r.DateWelded >= monthStart).Sum(r => r.JointCount);
 
-        var welderPairs = await sp.QueryAsync<WelderCount>("SP_DCenter_Report_DashboardWelders", ct,
-            Sql.Date("@WindowStart", windowStart));
+        var welderPairs = data.Welders ?? [];
 
         var topWelders = welderPairs
             .GroupBy(x => x.WelderNo!)
@@ -53,8 +55,7 @@ public class ReportInsightsService(StoredProcedures sp, TimeProvider time)
             .Take(10)
             .ToList();
 
-        var topWps = await sp.QueryAsync<WpsCount>("SP_DCenter_Report_DashboardWps", ct,
-            Sql.Date("@WindowStart", windowStart), Sql.Int("@Take", 10));
+        var topWps = data.Wps ?? [];
 
         var needsAction = drafts
             .Where(r => r.UpdatedAt < staleBefore || r.DateWelded is null)
@@ -95,6 +96,9 @@ public class ReportInsightsService(StoredProcedures sp, TimeProvider time)
     private sealed record DashboardReport(
         string WorkOrderNumber, string? PartNo, string? Description, DateTime? CompletedAt, DateTime UpdatedAt,
         DateOnly? DateWelded, int JointCount);
+
+    // The three result sets of SP_DCenter_Report_Dashboard; an empty set comes back as null.
+    private sealed record DashboardData(List<DashboardReport>? Reports, List<WelderCount>? Welders, List<WpsCount>? Wps);
 
     private sealed record WelderCount(string? WelderNo, string? WelderName, int Count);
 

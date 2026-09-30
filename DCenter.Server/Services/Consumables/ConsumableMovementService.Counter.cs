@@ -275,8 +275,9 @@ public partial class ConsumableMovementService
 
     private async Task<int?> DefaultReturnLotAsync(int welderId, int itemId, CancellationToken ct)
     {
-        var lastIssued = await sp.FirstOrDefaultAsync<int?>("SP_DCenter_Ledger_LastIssuedLot", ct,
-            Sql.Int("@WelderId", welderId), Sql.Int("@ItemId", itemId));
+        var lastIssued = (await store.TransactionsAsync(new MovementQuery(TxnType: Cat.TxnIssue, WelderId: welderId, ItemId: itemId,
+                LiveOnly: true, Sort: MovementSort.IdDescending, Take: 1), ct))
+            .Rows.Select(m => (int?)m.LotId).FirstOrDefault();
         if (lastIssued is not null) return lastIssued;
 
         var activated = (await ledger.LotStagesForItemAsync(itemId, ct))

@@ -23,7 +23,8 @@ if (string.IsNullOrWhiteSpace(connectionString))
     throw new InvalidOperationException(
         "The database connection string is not set. Set the machine environment variable ConnectionStrings__DefaultConnection and restart the site.");
 
-builder.Services.AddDbContext<WeldReportContext>(opt => opt.UseSqlServer(connectionString));
+builder.Services.AddDbContext<WeldReportContext>(opt => opt.UseSqlServer(connectionString,
+    sql => sql.MigrationsHistoryTable("__EFMigrationsHistory", WeldReportContext.Schema)));
 
 
 builder.Services.AddProblemDetails();
@@ -91,6 +92,29 @@ builder.Services.AddCors(o => o.AddPolicy(DevCors, p => p
     .AllowAnyMethod()));
 
 var app = builder.Build();
+
+using (var schemaScope = app.Services.CreateScope())
+{
+    var schemaDb = schemaScope.ServiceProvider.GetRequiredService<WeldReportContext>();
+    var notUpgraded = 0;
+    try
+    {
+        notUpgraded = await schemaDb.Database.SqlQueryRaw<int>(
+                "SELECT CASE WHEN OBJECT_ID(N'dcenter.__EFMigrationsHistory', N'U') IS NULL AND OBJECT_ID(N'dbo.DCenter_Welders', N'U') IS NOT NULL THEN 1 ELSE 0 END AS [Value]")
+            .SingleAsync();
+    }
+    catch (Exception ex)
+    {
+        app.Logger.LogWarning(ex, "Could not check whether the DCenter tables were moved to the dcenter schema.");
+    }
+    if (notUpgraded == 1)
+    {
+        const string message = "The DCenter tables are still in the dbo schema. Stop the site, run Sql/DCenter/DCenter_SchemaUpgrade.sql " +
+                               "on the DCenter database, then start the site again.";
+        app.Logger.LogCritical(message);
+        throw new InvalidOperationException(message);
+    }
+}
 
 if (app.Configuration.GetValue("DCenter:AutoMigrate", true))
 {

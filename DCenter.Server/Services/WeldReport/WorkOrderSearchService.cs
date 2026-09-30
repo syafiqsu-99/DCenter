@@ -1,4 +1,3 @@
-using System.Data;
 using DCenter.Server.Models;
 
 namespace DCenter.Server.Services;
@@ -30,15 +29,12 @@ public class WorkOrderSearchService(StoredProcedures sp)
 
     public Task<List<BomLinkDto>> ChildrenAsync(IEnumerable<string> parentItems, CancellationToken ct)
     {
-        var rows = new DataTable();
-        rows.Columns.Add("Value", typeof(string));
-        foreach (var item in parentItems
-                     .Select(i => i.Trim())
-                     .Where(i => i.Length > 0)
-                     .Distinct(StringComparer.OrdinalIgnoreCase)
-                     .Take(MaxChildLookup))
-            rows.Rows.Add(item);
-        return sp.QueryAsync<BomLinkDto>("SP_DCenter_Bom_Children", ct, Sql.Table("@Items", "dbo.TT_DCenter_CodeList", rows));
+        var items = parentItems
+            .Select(i => i.Trim())
+            .Where(i => i.Length > 0)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Take(MaxChildLookup);
+        return sp.QueryAsync<BomLinkDto>("SP_DCenter_Bom_Children", ct, Sql.TextList("@Items", items));
     }
 
     private Task<List<WorkOrderSummary>> SummariesAsync(string? prefix, bool exact, int skip, int take, CancellationToken ct)

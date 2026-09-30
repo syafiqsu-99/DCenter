@@ -13,10 +13,11 @@ Work through this list for every release. Tick each box in the release ticket, n
 - [ ] Review pending migrations: `dotnet ef migrations script --idempotent --project DCenter.Server --context WeldReportContext -o release.sql`. When running it with `sqlcmd`, pass `-I` (QUOTED_IDENTIFIER on, required by filtered indexes).
 - [ ] One time only: turn on read committed snapshot so readers stop blocking writers. It needs exclusive access, so run it in a maintenance window with the app pool stopped: `ALTER DATABASE [DCenter] SET READ_COMMITTED_SNAPSHOT ON WITH ROLLBACK IMMEDIATE;` Check with `SELECT is_read_committed_snapshot_on FROM sys.databases WHERE name = 'DCenter';`
 - [ ] Back up the DCenter database.
-- [ ] Apply migrations (startup auto-migrate with `DCenter__AutoMigrate` unset/true, or run `release.sql` as the DBA).
-- [ ] Run `Sql/DCenter/DCenter_SourceViews.sql`, then `Sql/DCenter/DCenter_StoredProcedures.sql` on the DCenter database (both safe to re-run; with sqlcmd pass `-I -b`). Required whenever either file changed, and on a new database.
-- [ ] Confirm the procedures exist: `SELECT COUNT(*) FROM sys.procedures WHERE name LIKE 'SP_DCenter[_]%';` matches the number of `CREATE OR ALTER PROCEDURE` lines in `DCenter_StoredProcedures.sql`.
-- [ ] First release with the `V_DCenter_*` work order views only: after the new server is running, drop the old `vw_DCenter_WorkOrder` / `vw_DCenter_Bom` with the commented lines at the end of `DCenter_SourceViews.sql`.
+- [ ] First release with schema `dcenter` only, with the site stopped: run `Sql/DCenter/DCenter_SchemaUpgrade.sql` once (moves DCenter's migration history to `dcenter`, drops the old DCenter procedures, table types and views from `dbo`; other teams' objects are not touched). The server refuses to start until this has run.
+- [ ] Run `Sql/DCenter/DCenter_SourceViews.sql`, then `Sql/DCenter/DCenter_StoredProcedures.sql` on the DCenter database (both safe to re-run; with sqlcmd pass `-I -b`). Required whenever either file changed, and on a new database. The database compatibility level must be 130 or higher.
+- [ ] Apply migrations (startup auto-migrate with `DCenter__AutoMigrate` unset/true, or run `release.sql` as the DBA). The first `dcenter` release moves the tables and sequences with the `DCenterSchema` migration.
+- [ ] Confirm the procedures exist: `SELECT COUNT(*) FROM sys.procedures WHERE schema_id = SCHEMA_ID('dcenter');` matches the number of `CREATE OR ALTER PROCEDURE` lines in `DCenter_StoredProcedures.sql`.
+- [ ] Confirm nothing of DCenter's is left in dbo: `SELECT name FROM sys.objects WHERE schema_id = SCHEMA_ID('dbo') AND name LIKE '%DCenter%';` returns no rows.
 - [ ] `dotnet ef migrations has-pending-model-changes --project DCenter.Server --context WeldReportContext` reports no changes.
 
 ## 3. Server configuration (IIS host)

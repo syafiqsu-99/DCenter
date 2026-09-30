@@ -5,6 +5,9 @@ namespace DCenter.Server.Data;
 
 public class WeldReportContext(DbContextOptions<WeldReportContext> options) : DbContext(options)
 {
+    // Every DCenter object lives in this schema, so the shared database's dbo schema stays untouched.
+    public const string Schema = "dcenter";
+
     public DbSet<Welder> Welders => Set<Welder>();
     public DbSet<LookupItem> Lookups => Set<LookupItem>();
     public DbSet<WpsItem> WpsItems => Set<WpsItem>();
@@ -28,6 +31,8 @@ public class WeldReportContext(DbContextOptions<WeldReportContext> options) : Db
 
     protected override void OnModelCreating(ModelBuilder b)
     {
+        b.HasDefaultSchema(Schema);
+
         b.Entity<Welder>(e =>
         {
             e.ToTable("DCenter_Welders");

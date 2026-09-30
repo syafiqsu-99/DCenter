@@ -9,7 +9,7 @@ using T = DCenter.Server.Services.ConsumableText;
 namespace DCenter.Server.Services;
 
 public partial class ConsumableMovementService(
-    WeldReportContext db, StoredProcedures sp, ConsumableStore store, ConsumableLedger ledger, ConsumableItemService items,
+    WeldReportContext db, ConsumableStore store, ConsumableLedger ledger, ConsumableItemService items,
     ConsumableGuards guards, IOptions<ConsumableOptions> options)
 {
     private readonly ConsumableOptions settings = options.Value;

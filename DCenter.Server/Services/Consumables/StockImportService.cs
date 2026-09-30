@@ -9,8 +9,7 @@ using T = DCenter.Server.Services.ConsumableText;
 namespace DCenter.Server.Services;
 
 public class StockImportService(
-    WeldReportContext db, StoredProcedures sp, ConsumableStore store, ConsumableItemService items, ConsumableLedger ledger,
-    TimeProvider time)
+    WeldReportContext db, ConsumableStore store, ConsumableItemService items, ConsumableLedger ledger, TimeProvider time)
 {
     public const long MaxFileBytes = CsvText.MaxUploadBytes;
     private const int MaxRows = 5000;
@@ -104,8 +103,8 @@ public class StockImportService(
             .ToDictionary(g => g.Key, g => g.Select(b => keyById.GetValueOrDefault(b.ItemId, $"#{b.ItemId}")).ToHashSet());
         var newItems = new Dictionary<string, ItemInput>();
         var specifications = await items.SpecificationNamesAsync(ct);
-        var imported = (await sp.QueryAsync<OpeningReceipt>("SP_DCenter_Ledger_OpeningReceipts", ct,
-                Sql.NVarChar("@ReferenceNo", OpeningReference, 60)))
+        var imported = (await store.TransactionsAsync(new MovementQuery(
+                TxnType: Cat.TxnReceive, ReferenceNo: OpeningReference, LiveOnly: true), ct)).Rows
             .GroupBy(m => OpeningKey(Key(m.Specification, m.Diameter), m.Brand, m.LotNumber, m.QuantityKg, m.ToStage ?? "",
                 m.ToCompartmentId, m.TxnDate))
             .ToDictionary(g => g.Key, g => g.First().TxnNo);
@@ -408,8 +407,4 @@ public class StockImportService(
 
     private static ServiceResult<StockImportResultDto> Fail(string error, int status = StatusCodes.Status400BadRequest)
         => ServiceResult<StockImportResultDto>.Fail(error, status);
-
-    private sealed record OpeningReceipt(
-        string TxnNo, DateOnly TxnDate, decimal QuantityKg, string? ToStage, int? ToCompartmentId,
-        string Specification, string Diameter, string Brand, string LotNumber);
 }

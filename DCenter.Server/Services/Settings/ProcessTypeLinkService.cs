@@ -21,7 +21,7 @@ public class ProcessTypeLinkService(StoredProcedures sp)
         if (process.Length > MaxLength || type.Length > MaxLength)
             return ServiceResult<ProcessTypeLinkDto>.Fail($"Process and Type are limited to {MaxLength} characters.");
 
-        if (await sp.ScalarAsync<bool>("SP_DCenter_ProcessTypeLink_Exists", ct, Key(process, type)))
+        if ((await sp.QueryAsync<ProcessTypeLinkDto>("SP_DCenter_ProcessTypeLink_List", ct, Key(process, type))).Count > 0)
             return ServiceResult<ProcessTypeLinkDto>.Fail(Exists, StatusCodes.Status409Conflict);
 
         try

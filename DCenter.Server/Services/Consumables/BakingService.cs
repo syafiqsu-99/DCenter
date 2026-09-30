@@ -68,7 +68,7 @@ public class BakingService(
                 CreatedBy = user,
             });
         }
-        await store.AddBakingRecordsAsync(records, ct);
+        await store.SaveBakingAsync(records, ct);
         for (var i = 0; i < records.Count; i++) movements[i].BakingRecordId = records[i].Id;
         await store.AddMovementsAsync(movements, ct);
         await tx.CommitAsync(ct);
@@ -116,7 +116,7 @@ public class BakingService(
         record.RebakeStop = u.RebakeStop;
         record.Remarks = T.FreeText(u.Remarks, 500);
         await items.EnsureLookupsAsync([(Cat.PersonInChargeLookup, pic)], ct);
-        await store.UpdateBakingAsync(record, ct);
+        await store.SaveBakingAsync([record], ct);
         await ledger.RefreshBakingStatusAsync([id], ct);
         await tx.CommitAsync(ct);
 
@@ -211,8 +211,8 @@ public class BakingService(
 
     public async Task<List<BakingRecordDto>> GetBoardAsync(CancellationToken ct)
     {
-        var (ids, _) = await store.SearchBakingAsync(null, null, null, Cat.OpenBakingStatuses, [], 0, int.MaxValue, ct);
-        return await RecordsAsync(ids, ct);
+        var (rows, _) = await store.SearchBakingAsync(null, null, null, Cat.OpenBakingStatuses, [], 0, int.MaxValue, ct);
+        return await ToDtosAsync(rows, ct);
     }
 
     public async Task<ServiceResult<BakingPage>> GetRecordsAsync(BakingQuery p, CancellationToken ct)
@@ -224,9 +224,9 @@ public class BakingService(
             if (status is null) return Fail<BakingPage>("Unknown baking status.");
         }
 
-        var (ids, total) = await store.SearchBakingAsync(p.From, p.To, status, p.OpenOnly ? Cat.OpenBakingStatuses : null,
+        var (found, total) = await store.SearchBakingAsync(p.From, p.To, status, p.OpenOnly ? Cat.OpenBakingStatuses : null,
             T.Terms(p.Q), Math.Max(p.Skip, 0), Math.Clamp(p.Take, 1, T.MaxPageSize), ct);
-        var rows = await RecordsAsync(ids, ct);
+        var rows = await ToDtosAsync(found, ct);
         return ServiceResult<BakingPage>.Ok(new BakingPage(rows.OrderByDescending(r => r.Id).ToList(), total));
     }
 
@@ -284,7 +284,7 @@ public class BakingService(
             }
         }
 
-        await store.SetBakingTimesAsync(records, ct);
+        await store.SaveBakingAsync(records, ct);
         await ledger.RefreshBakingStatusAsync(ids, ct);
         await tx.CommitAsync(ct);
 
@@ -308,10 +308,12 @@ public class BakingService(
     };
 
     private async Task<List<BakingRecordDto>> RecordsAsync(List<int> ids, CancellationToken ct)
+        => ids.Count == 0 ? [] : await ToDtosAsync(await store.BakingDetailsAsync(ids, ct), ct);
+
+    private async Task<List<BakingRecordDto>> ToDtosAsync(List<BakingDetailRow> rows, CancellationToken ct)
     {
-        if (ids.Count == 0) return [];
-        var rows = await store.BakingDetailsAsync(ids, ct);
-        var balances = await ledger.BakingBalancesAsync(ids, ct);
+        if (rows.Count == 0) return [];
+        var balances = await ledger.BakingBalancesAsync(rows.Select(b => b.Id).ToList(), ct);
         return rows
             .OrderBy(b => b.Id)
             .Select(b => new BakingRecordDto(b.Id, b.BakingNo, b.ItemId, b.Category, Cat.DiaSpec(b.Diameter, b.Specification),

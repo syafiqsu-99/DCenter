@@ -62,7 +62,7 @@ public class ConsumableGuards(
         => welderId is int id && await WelderAsync(id, ct) is { } w ? new ReceiverRef(w.WelderName, w.IsActive) : null;
 
     private Task<WelderDto?> WelderAsync(int id, CancellationToken ct)
-        => sp.FirstOrDefaultAsync<WelderDto>("SP_DCenter_Welder_Get", ct, Sql.Int("@Id", id));
+        => sp.FirstOrDefaultAsync<WelderDto>("SP_DCenter_Welder_List", ct, Sql.Int("@Id", id));
 
     public static (int? Bin, string? Error) ResolveBin(ItemRef item, int? compartmentId)
         => item.IsElectrode || compartmentId is null
@@ -147,6 +147,5 @@ public class ConsumableGuards(
     }
 
     public async Task<decimal> OutstandingAsync(int welderId, int itemId, DateOnly since, DateOnly until, CancellationToken ct)
-        => await sp.ScalarAsync<decimal?>("SP_DCenter_Ledger_Outstanding", ct,
-            Sql.Int("@WelderId", welderId), Sql.Int("@ItemId", itemId), Sql.Date("@Since", since), Sql.Date("@Until", until)) ?? 0m;
+        => (await ledger.WelderAsync(welderId, since, until, itemId, null, ct)).Sum(w => w.Picked - w.Returned);
 }

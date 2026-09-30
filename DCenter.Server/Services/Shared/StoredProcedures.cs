@@ -1,11 +1,14 @@
 using System.Data;
+using System.Globalization;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 using DCenter.Server.Data;
 using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 
 namespace DCenter.Server.Services;
 
-// Runs dbo.SP_DCenter_* procedures on the request's WeldReportContext connection, inside its current
+// Runs dcenter.SP_DCenter_* procedures on the request's WeldReportContext connection, inside its current
 // transaction when one is open (so sp_getapplock ordering and transaction scope stay in C#).
 public sealed class StoredProcedures(WeldReportContext db)
 {
@@ -50,7 +53,7 @@ public sealed class StoredProcedures(WeldReportContext db)
     }
 
     internal static string MissingMessage(string procedure)
-        => $"Stored procedure dbo.{procedure} does not exist. Run DCenter.Server/Sql/DCenter/DCenter_StoredProcedures.sql on the DCenter database, then retry.";
+        => $"Stored procedure {WeldReportContext.Schema}.{procedure} does not exist. Run DCenter.Server/Sql/DCenter/DCenter_StoredProcedures.sql on the DCenter database, then retry.";
 
     private static async Task<T> Run<T>(string procedure, Task<T> call)
     {
@@ -66,8 +69,8 @@ public sealed class StoredProcedures(WeldReportContext db)
 
     internal static string Exec(string procedure, SqlParameter[] parameters)
         => parameters.Length == 0
-            ? $"EXEC dbo.{procedure}"
-            : $"EXEC dbo.{procedure} " + string.Join(", ", parameters.Select(p =>
+            ? $"EXEC {WeldReportContext.Schema}.{procedure}"
+            : $"EXEC {WeldReportContext.Schema}.{procedure} " + string.Join(", ", parameters.Select(p =>
                 $"{p.ParameterName} = {p.ParameterName}{(p.Direction is ParameterDirection.Output or ParameterDirection.InputOutput ? " OUTPUT" : "")}"));
 
     private static object[] Args(SqlParameter[] parameters) => [.. parameters];
@@ -96,24 +99,29 @@ public static class Sql
 
     public static SqlParameter OutputInt(string name) => new(name, SqlDbType.Int) { Direction = ParameterDirection.Output };
 
-    public static SqlParameter Table(string name, string typeName, DataTable rows)
-        => new(name, SqlDbType.Structured) { TypeName = typeName, Value = rows };
+    // Several rows or values in one NVARCHAR(MAX) parameter, read by the procedure with OPENJSON. Null stays NULL.
+    public static SqlParameter Json(string name, object? value)
+        => Make(name, SqlDbType.NVarChar, value is null ? null : JsonSerializer.Serialize(value, JsonOptions), -1);
 
-    public static SqlParameter IdList(string name, IEnumerable<int> ids)
-    {
-        var rows = new DataTable();
-        rows.Columns.Add("Id", typeof(int));
-        foreach (var id in ids.Distinct()) rows.Rows.Add(id);
-        return Table(name, "dbo.TT_DCenter_IdList", rows);
-    }
+    // A JSON array of distinct ids; null (no filter) stays NULL.
+    public static SqlParameter IdList(string name, IEnumerable<int>? ids) => Json(name, ids?.Distinct().ToArray());
 
-    public static SqlParameter TextList(string name, IEnumerable<string> values)
+    public static SqlParameter TextList(string name, IEnumerable<string>? values) => Json(name, values?.ToArray());
+
+    // Property names as in C# (the OPENJSON WITH clauses use them); DateTime without an offset, as DATETIME2 expects.
+    public static readonly JsonSerializerOptions JsonOptions = new()
     {
-        var rows = new DataTable();
-        rows.Columns.Add("Seq", typeof(int));
-        rows.Columns.Add("Value", typeof(string));
-        foreach (var value in values) rows.Rows.Add(rows.Rows.Count, value);
-        return Table(name, "dbo.TT_DCenter_TextList", rows);
+        PropertyNameCaseInsensitive = true,
+        Converters = { new UnspecifiedDateTimeConverter() },
+    };
+
+    private sealed class UnspecifiedDateTimeConverter : JsonConverter<DateTime>
+    {
+        public override DateTime Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+            => DateTime.Parse(reader.GetString()!, CultureInfo.InvariantCulture, DateTimeStyles.None);
+
+        public override void Write(Utf8JsonWriter writer, DateTime value, JsonSerializerOptions options)
+            => writer.WriteStringValue(value.ToString("yyyy-MM-dd'T'HH:mm:ss.fffffff", CultureInfo.InvariantCulture));
     }
 
     public static SqlParameter BigInt(string name, long? value) => Make(name, SqlDbType.BigInt, value);

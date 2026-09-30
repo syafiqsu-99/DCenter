@@ -184,7 +184,6 @@ public partial class ConsumableMovementService
         }
 
         var voidNo = await ledger.NextTxnNoAsync(ct);
-        await store.SetVoidedAsync(originals.Select(o => o.Id), ct);
         await store.AddMovementsAsync(originals.Select(original => new ConsumableMovement
         {
             TxnNo = voidNo,
@@ -205,7 +204,7 @@ public partial class ConsumableMovementService
             Remarks = remarks,
             VoidsMovementId = original.Id,
             CreatedBy = user,
-        }), ct);
+        }), ct, voidIds: originals.Select(o => o.Id));
 
         await store.VoidHoldingsAsync(txnNo, ct);
 
@@ -222,7 +221,7 @@ public partial class ConsumableMovementService
                 record.RebakeStart = null;
                 record.RebakeStop = null;
             }
-            await store.SetBakingTimesAsync(records, ct);
+            await store.SaveBakingAsync(records, ct);
         }
 
         foreach (var moved in originals

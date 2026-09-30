@@ -1,4 +1,3 @@
-using System.Data;
 using DCenter.Server.Models;
 using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
@@ -7,8 +6,7 @@ using static DCenter.Server.Services.ReferenceCsv;
 namespace DCenter.Server.Services;
 
 // One reference table (WPS, MRN, BPVC IX): its CSV columns, key and how values map onto the entity.
-// Name picks the procedures SP_DCenter_{Name}_List/Get/FindByKey/Save/Delete and the row type TT_DCenter_{Name}Rows,
-// whose columns follow Values() order.
+// Name picks the procedures SP_DCenter_{Name}_List/Save/Delete; Save reads the rows as JSON keyed by the CSV headers.
 public interface IReferenceTable<TEntity> where TEntity : class, new()
 {
     Column[] Columns { get; }
@@ -89,7 +87,7 @@ public class ReferenceTableService<TEntity>(
     }
 
     private async Task<TEntity?> GetAsync(int id, CancellationToken ct)
-        => (await sp.EntitiesAsync<TEntity>(Procedure("Get"), ct, Sql.Int("@Id", id))).FirstOrDefault();
+        => (await sp.EntitiesAsync<TEntity>(Procedure("List"), ct, Sql.Int("@Id", id))).FirstOrDefault();
 
     private async Task<ServiceResult<bool>?> ValidateAsync(string?[] values, int excludeId, CancellationToken ct)
     {
@@ -99,7 +97,7 @@ public class ReferenceTableService<TEntity>(
         if (LengthError(columns, values) is { } tooLong) return ServiceResult<bool>.Fail(tooLong);
 
         var key = KeyOf(columns, values);
-        var candidates = await sp.EntitiesAsync<TEntity>(Procedure("FindByKey"), ct, table.RequiredKey(values));
+        var candidates = await sp.EntitiesAsync<TEntity>(Procedure("List"), ct, table.RequiredKey(values));
         return candidates.Any(e => table.IdOf(e) != excludeId && KeyOf(columns, table.Values(e)) == key)
             ? ServiceResult<bool>.Fail($"A row with this {KeyLabel(columns)} already exists. Edit that row instead.", StatusCodes.Status409Conflict)
             : null;
@@ -108,17 +106,14 @@ public class ReferenceTableService<TEntity>(
     // Updates the rows that have an Id, inserts the others in order, and returns the inserted rows.
     private Task<List<TEntity>> SaveAsync(IEnumerable<TEntity> updated, IEnumerable<TEntity> added, CancellationToken ct)
     {
-        var rows = new DataTable();
-        rows.Columns.Add("Seq", typeof(int));
-        rows.Columns.Add("Id", typeof(int));
-        foreach (var c in table.Columns) rows.Columns.Add(c.Header, typeof(string));
-        foreach (var e in updated) rows.Rows.Add([rows.Rows.Count, table.IdOf(e), .. Cells(e)]);
-        foreach (var e in added) rows.Rows.Add([rows.Rows.Count, DBNull.Value, .. Cells(e)]);
-        return StoredProcedures.Write(sp.EntitiesAsync<TEntity>(Procedure("Save"), ct,
-            Sql.Table("@Rows", $"dbo.TT_DCenter_{table.Name}Rows", rows)));
+        var rows = updated.Select(e => (Id: (int?)table.IdOf(e), Entity: e))
+            .Concat(added.Select(e => (Id: (int?)null, Entity: e)))
+            .Select((r, seq) => Row(seq, r.Id, table.Values(r.Entity)));
+        return StoredProcedures.Write(sp.EntitiesAsync<TEntity>(Procedure("Save"), ct, Sql.Json("@Rows", rows)));
     }
 
-    private IEnumerable<object> Cells(TEntity e) => table.Values(e).Select(v => (object?)v ?? DBNull.Value);
+    // One JSON array per row: Seq, Id, then the values in Columns order (the procedure reads them by position).
+    private static object?[] Row(int seq, int? id, string?[] values) => [seq, id, .. values];
 
     private async Task<ServiceResult<T>> TrySaveAsync<T>(Func<Task<T>> save)
     {
