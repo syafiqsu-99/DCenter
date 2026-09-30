@@ -12,8 +12,8 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace DCenter.Server.Migrations
 {
     [DbContext(typeof(WeldReportContext))]
-    [Migration("20260930013359_Baseline")]
-    partial class Baseline
+    [Migration("20260930020728_InitialCreate")]
+    partial class InitialCreate
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)

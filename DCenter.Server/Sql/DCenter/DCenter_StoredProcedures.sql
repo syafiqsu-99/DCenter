@@ -25,7 +25,7 @@ IF (SELECT [compatibility_level] FROM sys.databases WHERE [name] = DB_NAME()) < 
     THROW 50003, N'DCenter needs database compatibility level 130 or higher (OPENJSON). Ask the DBA to raise it, then run this script again.', 1;
 GO
 
-IF SCHEMA_ID(N'dcenter') IS NULL EXEC (N'CREATE SCHEMA [dcenter] AUTHORIZATION [dbo]');
+IF SCHEMA_ID(N'dcenter') IS NULL EXEC (N'CREATE SCHEMA [dcenter]');
 GO
 
 /* ===== Settings: welders ===== */

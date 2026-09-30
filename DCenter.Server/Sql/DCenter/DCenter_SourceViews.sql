@@ -18,15 +18,15 @@
     DCenter views: they expose OracleBetsyDB data. The API walks a work order's BOM one level at a
     time through dcenter.V_Bom (the children of a set of parent items per call).
 
-    The views live in schema [dcenter] with every other DCenter object. Earlier releases created
-    dbo.vw_DCenter_WorkOrder and dbo.vw_DCenter_Bom; DCenter_SchemaUpgrade.sql removes them.
+    The views live in schema [dcenter] with every other DCenter object. If the schema does not exist
+    yet, this script creates it, owned by the login that runs it.
 */
 SET ANSI_NULLS ON
 GO
 SET QUOTED_IDENTIFIER ON
 GO
 
-IF SCHEMA_ID(N'dcenter') IS NULL EXEC (N'CREATE SCHEMA [dcenter] AUTHORIZATION [dbo]');
+IF SCHEMA_ID(N'dcenter') IS NULL EXEC (N'CREATE SCHEMA [dcenter]');
 GO
 
 CREATE OR ALTER VIEW dcenter.V_WorkOrder
