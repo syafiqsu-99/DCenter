@@ -11,6 +11,8 @@ public class WorkOrdersController(WorkOrderSearchService workOrders) : Controlle
 {
     private const string MissingViews =
         "The DCenter work order views are missing. Run Sql/DCenter/DCenter_SourceViews.sql on the DCenter database.";
+    private const string MissingProcedures =
+        "The DCenter work order procedures are missing. Run Sql/DCenter/DCenter_StoredProcedures.sql on the DCenter database.";
     private const string NoSourceAccess =
         "The DCenter database login cannot read OracleBetsyDB. Grant it SELECT on the tables listed in Sql/DCenter/DCenter_SourceViews.sql.";
 
@@ -60,6 +62,10 @@ public class WorkOrdersController(WorkOrderSearchService workOrders) : Controlle
         catch (SqlException ex) when (ex.Number == 208)
         {
             return StatusCode(503, MissingViews);
+        }
+        catch (InvalidOperationException ex) when (ex.InnerException is SqlException { Number: 2812 })
+        {
+            return StatusCode(503, MissingProcedures);
         }
         catch (SqlException ex) when (ex.Number is 229 or 916 or 4060)
         {

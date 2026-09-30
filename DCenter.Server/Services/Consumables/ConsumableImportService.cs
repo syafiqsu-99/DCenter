@@ -2,13 +2,13 @@ using System.Globalization;
 using DCenter.Server.Data;
 using DCenter.Server.Entities;
 using DCenter.Server.Models;
-using Microsoft.EntityFrameworkCore;
 using Cat = DCenter.Server.Entities.StockCatalog;
 using T = DCenter.Server.Services.ConsumableText;
 
 namespace DCenter.Server.Services;
 
-public class ConsumableImportService(WeldReportContext db, ConsumableItemService items, ConsumableLedger ledger)
+public class ConsumableImportService(
+    WeldReportContext db, ConsumableStore store, ConsumableItemService items, ConsumableLedger ledger)
 {
     public const long MaxFileBytes = CsvText.MaxUploadBytes;
     private const int MaxRows = 5000;
@@ -46,9 +46,7 @@ public class ConsumableImportService(WeldReportContext db, ConsumableItemService
     {
         if (templateOnly) return CsvText.Write([Header]);
 
-        var rows = await db.ConsumableItems.AsNoTracking()
-            .Select(i => new { i.Category, i.Specification, i.Diameter, i.MinStockKg, i.ActivatedMinKg, i.FinishThresholdKg, i.HoldingOvenType, i.IsActive })
-            .ToListAsync(ct);
+        var rows = await store.ItemsAsync(null, null, ct);
 
         var lines = new List<IEnumerable<string?>> { Header };
         lines.AddRange(rows
@@ -79,17 +77,12 @@ public class ConsumableImportService(WeldReportContext db, ConsumableItemService
         await using var tx = commit ? await db.Database.BeginTransactionAsync(ct) : null;
         if (commit) await StockLocks.AcquireAsync(db, StockLocks.Master, ct);
 
-        var stockedIds = await db.ConsumableItemLots.AsNoTracking()
-            .Where(l => l.Movements.Any())
-            .Select(l => l.ItemId)
-            .Distinct()
-            .ToListAsync(ct);
-        var stocked = stockedIds.ToHashSet();
-        var inOven = (await ledger.ActivatedBinsAsync(null, ct))
+        var stocked = (await store.StockedItemIdsAsync(ct)).ToHashSet();
+        var inOven = (await ledger.ActivatedBinsAsync(LedgerFilter.All, ct))
             .Where(b => b.CompartmentId is not null && b.Kg > 0)
             .Select(b => b.ItemId)
             .ToHashSet();
-        var existing = (commit ? await db.ConsumableItems.ToListAsync(ct) : await db.ConsumableItems.AsNoTracking().ToListAsync(ct))
+        var existing = (await store.ItemsAsync(null, null, ct))
             .ToDictionary(i => Key(i.Specification, i.Diameter), i => new Existing(i, stocked.Contains(i.Id), inOven.Contains(i.Id)));
 
         var seen = new Dictionary<string, int>();
@@ -110,10 +103,12 @@ public class ConsumableImportService(WeldReportContext db, ConsumableItemService
             return ServiceResult<ImportResultDto>.Ok(new ImportResultDto(false, plan.Count, created, updated, unchanged, rejected, rows, fileErrors));
         }
 
+        var saves = new List<ConsumableItem>();
         foreach (var p in plan.Where(p => p.Action is ActionCreate or ActionUpdate))
         {
             var n = p.Input!;
-            var item = p.Target?.Item ?? db.ConsumableItems.Add(new ConsumableItem()).Entity;
+            var item = p.Target?.Item ?? new ConsumableItem();
+            saves.Add(item);
             item.Category = n.Category;
             item.Specification = n.Specification;
             item.Diameter = n.Diameter;
@@ -128,7 +123,8 @@ public class ConsumableImportService(WeldReportContext db, ConsumableItemService
         await items.EnsureLookupsAsync(
             applied.SelectMany(n => new[] { (ConsumableItemService.LookupSize, n.Diameter), (ConsumableItemService.LookupType, n.Specification) }),
             ct);
-        await db.SaveChangesAsync(ct);
+        foreach (var item in saves.Where(i => i.Id != 0)) await store.SaveItemAsync(item, ct);
+        foreach (var item in saves.Where(i => i.Id == 0)) await store.SaveItemAsync(item, ct);
         await tx!.CommitAsync(ct);
 
         return ServiceResult<ImportResultDto>.Ok(new ImportResultDto(true, plan.Count, created, updated, unchanged, rejected, rows, []));

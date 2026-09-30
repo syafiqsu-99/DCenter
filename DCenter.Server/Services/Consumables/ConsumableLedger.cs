@@ -1,9 +1,6 @@
-using System.Linq.Expressions;
 using DCenter.Server.Data;
 using DCenter.Server.Entities;
 using DCenter.Server.Models;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Storage;
 using Cat = DCenter.Server.Entities.StockCatalog;
 
 namespace DCenter.Server.Services;
@@ -32,99 +29,99 @@ public sealed record StageTotals(decimal NormalKg, decimal BakingKg, decimal Act
 
 public sealed record LotStageRow(int LotId, int ItemId, StageTotals Totals);
 
-public sealed record BinRow(int LotId, int ItemId, int? CompartmentId, decimal Kg);
+public sealed record BinRow(int LotId, int ItemId, int? CompartmentId, decimal Kg, DateTime? LastInAt = null);
 
-public class ConsumableLedger(WeldReportContext db, TimeProvider time)
+public sealed record LotLedgerRow(
+    int LotId, int ItemId, decimal NormalKg, decimal BakingKg, decimal ActivatedKg, decimal ReceivedKg, decimal TakenKg,
+    DateOnly? LastIssuedOn, DateOnly? FirstReceivedOn, string? FirstSource, string? FirstReceivedBy)
 {
-    public IQueryable<ConsumableMovement> Live()
-        => db.ConsumableMovements.AsNoTracking().Where(m => !m.IsVoided && m.TxnType != Cat.TxnVoid);
+    public StageTotals Totals => new(NormalKg, BakingKg, ActivatedKg);
+}
 
-    public async Task<List<LotStageRow>> LotStagesAsync(Expression<Func<ConsumableMovement, bool>>? filter, CancellationToken ct)
-    {
-        var q = Live();
-        if (filter is not null) q = q.Where(filter);
+public sealed record MonthlyFlow(
+    int ItemId, string Category, string Diameter, string Specification, int Year, int Month, string TxnType, decimal Kg);
 
-        var rows = await q
-            .GroupBy(m => new { m.LotId, m.Lot.ItemId })
-            .Select(g => new
-            {
-                g.Key.LotId,
-                g.Key.ItemId,
-                Normal = g.Sum(m => (m.ToStage == Cat.Normal ? m.QuantityKg : 0m) - (m.FromStage == Cat.Normal ? m.QuantityKg : 0m)),
-                Baking = g.Sum(m => (m.ToStage == Cat.Baking ? m.QuantityKg : 0m) - (m.FromStage == Cat.Baking ? m.QuantityKg : 0m)),
-                Activated = g.Sum(m => (m.ToStage == Cat.Activated ? m.QuantityKg : 0m) - (m.FromStage == Cat.Activated ? m.QuantityKg : 0m)),
-            })
-            .ToListAsync(ct);
+public sealed record WelderFlow(int ItemId, decimal Picked, decimal Returned, int? LastIssueId);
 
-        return rows.Select(r => new LotStageRow(r.LotId, r.ItemId, new StageTotals(r.Normal, r.Baking, r.Activated))).ToList();
-    }
+public sealed record BakingFlags(bool RebakeReturned, bool Placed, decimal? IssuedToActivatedKg);
+
+// Which ledger lines a stock total is built from: one set of consumables, one category, lines that touch any
+// compartment, or lines that touch one compartment. Empty means every live line.
+public sealed record LedgerFilter(
+    IReadOnlyCollection<int>? ItemIds = null, string? Category = null, bool AnyCompartment = false, int? CompartmentId = null)
+{
+    public static readonly LedgerFilter All = new();
+
+    public static LedgerFilter ForItem(int itemId) => new([itemId]);
+
+    public static LedgerFilter ForItems(IReadOnlyCollection<int> itemIds) => new(itemIds);
+
+    public static LedgerFilter ForCategory(string? category) => new(Category: category);
+}
+
+public class ConsumableLedger(StoredProcedures sp, ConsumableStore store, TimeProvider time)
+{
+    // Stock per lot and stage, plus received / taken totals, last issue date and first receipt.
+    public Task<List<LotLedgerRow>> LotsAsync(LedgerFilter filter, CancellationToken ct)
+        => sp.QueryAsync<LotLedgerRow>("SP_Ledger_Lots", ct,
+            Sql.IdList("@ItemIds", filter.ItemIds), Sql.NVarChar("@Category", filter.Category, 30));
+
+    public async Task<List<LotStageRow>> LotStagesAsync(LedgerFilter filter, CancellationToken ct)
+        => (await LotsAsync(filter, ct)).Select(r => new LotStageRow(r.LotId, r.ItemId, r.Totals)).ToList();
 
     public Task<List<LotStageRow>> LotStagesForItemAsync(int itemId, CancellationToken ct)
-        => LotStagesAsync(m => m.Lot.ItemId == itemId, ct);
+        => LotStagesAsync(LedgerFilter.ForItem(itemId), ct);
 
     public async Task<List<(int LotId, decimal Available)>> NormalLotsAsync(int itemId, CancellationToken ct)
         => (await LotStagesForItemAsync(itemId, ct)).Select(l => (LotId: l.LotId, Available: l.Totals.NormalKg)).ToList();
 
-    public async Task<List<BinRow>> ActivatedBinsAsync(Expression<Func<ConsumableMovement, bool>>? filter, CancellationToken ct)
-    {
-        var q = Live();
-        if (filter is not null) q = q.Where(filter);
+    public Task<List<BinRow>> ActivatedBinsAsync(LedgerFilter filter, CancellationToken ct)
+        => sp.QueryAsync<BinRow>("SP_Ledger_ActivatedBins", ct,
+            Sql.IdList("@ItemIds", filter.ItemIds), Sql.NVarChar("@Category", filter.Category, 30),
+            Sql.Bit("@AnyCompartment", filter.AnyCompartment), Sql.Int("@CompartmentId", filter.CompartmentId));
 
-        var ins = await q.Where(m => m.ToStage == Cat.Activated)
-            .GroupBy(m => new { m.LotId, m.Lot.ItemId, Bin = m.ToCompartmentId })
-            .Select(g => new { g.Key.LotId, g.Key.ItemId, g.Key.Bin, Kg = g.Sum(m => m.QuantityKg) })
-            .ToListAsync(ct);
-        var outs = await q.Where(m => m.FromStage == Cat.Activated)
-            .GroupBy(m => new { m.LotId, m.Lot.ItemId, Bin = m.FromCompartmentId })
-            .Select(g => new { g.Key.LotId, g.Key.ItemId, g.Key.Bin, Kg = g.Sum(m => m.QuantityKg) })
-            .ToListAsync(ct);
+    // Kg per consumable, month and transaction type from a date (and before another, when given).
+    public Task<List<MonthlyFlow>> MonthlyAsync(DateOnly from, DateOnly? before, string? category, CancellationToken ct)
+        => sp.QueryAsync<MonthlyFlow>("SP_Ledger_Monthly", ct,
+            Sql.Date("@From", from), Sql.Date("@Before", before), Sql.NVarChar("@Category", category, 30));
 
-        return ins.Select(i => (i.LotId, i.ItemId, i.Bin, i.Kg))
-            .Concat(outs.Select(o => (o.LotId, o.ItemId, o.Bin, Kg: -o.Kg)))
-            .GroupBy(x => (x.LotId, x.ItemId, x.Bin))
-            .Select(g => new BinRow(g.Key.LotId, g.Key.ItemId, g.Key.Bin, g.Sum(x => x.Kg)))
-            .Where(b => b.Kg != 0)
-            .ToList();
-    }
+    // What a welder picked and returned per consumable within a date window.
+    public Task<List<WelderFlow>> WelderAsync(
+        int welderId, DateOnly since, DateOnly? until, int? itemId, string? category, CancellationToken ct)
+        => sp.QueryAsync<WelderFlow>("SP_Ledger_Welder", ct,
+            Sql.Int("@WelderId", welderId), Sql.Date("@Since", since), Sql.Date("@Until", until),
+            Sql.Int("@ItemId", itemId), Sql.NVarChar("@Category", category, 30));
 
     public async Task<Dictionary<int, decimal>> BakingBalancesAsync(List<int> recordIds, CancellationToken ct)
-    {
-        var rows = await Live().Where(m => m.BakingRecordId != null)
-            .Where(m => recordIds.Contains(m.BakingRecordId!.Value))
-            .GroupBy(m => m.BakingRecordId)
-            .Select(g => new
-            {
-                Id = g.Key,
-                Kg = g.Sum(m => (m.ToStage == Cat.Baking ? m.QuantityKg : 0m) - (m.FromStage == Cat.Baking ? m.QuantityKg : 0m)),
-            })
-            .ToListAsync(ct);
-        return rows.Where(r => r.Id is not null).ToDictionary(r => r.Id!.Value, r => r.Kg);
-    }
+        => (await BakingFactsAsync(recordIds, ct)).ToDictionary(r => r.Id, r => r.BalanceKg);
+
+    public async Task<BakingFlags> BakingFlagsAsync(int bakingRecordId, CancellationToken ct)
+        => (await BakingFactsAsync([bakingRecordId], ct)).FirstOrDefault() is { } f
+            ? new BakingFlags(f.Rebake > 0, f.Placed > 0, f.IssuedToActivatedKg)
+            : new BakingFlags(false, false, null);
 
     public async Task RefreshBakingStatusAsync(IEnumerable<int> recordIds, CancellationToken ct)
     {
         var ids = recordIds.Distinct().ToList();
         if (ids.Count == 0) return;
 
-        var records = await db.BakingRecords.Where(r => ids.Contains(r.Id)).ToListAsync(ct);
-        var facts = await Live()
-            .Where(m => m.BakingRecordId != null && ids.Contains(m.BakingRecordId!.Value))
-            .GroupBy(m => m.BakingRecordId)
-            .Select(g => new
-            {
-                Id = g.Key,
-                Sent = g.Sum(m => m.TxnType == Cat.TxnSendToBake ? 1 : 0),
-                Rebake = g.Sum(m => m.TxnType == Cat.TxnReturn && m.ToStage == Cat.Baking ? 1 : 0),
-                Balance = g.Sum(m => (m.ToStage == Cat.Baking ? m.QuantityKg : 0m) - (m.FromStage == Cat.Baking ? m.QuantityKg : 0m)),
-            })
-            .ToListAsync(ct);
+        var records = await store.BakingRecordsAsync(ids, ct);
+        var facts = await BakingFactsAsync(ids, ct);
 
+        var changed = new List<BakingRecord>();
         foreach (var record in records)
         {
             var f = facts.FirstOrDefault(x => x.Id == record.Id);
-            record.Status = DeriveStatus(record, (f?.Sent ?? 0) > 0, (f?.Rebake ?? 0) > 0, f?.Balance ?? 0m);
+            var status = DeriveStatus(record, (f?.Sent ?? 0) > 0, (f?.Rebake ?? 0) > 0, f?.BalanceKg ?? 0m);
+            if (status == record.Status) continue;
+            record.Status = status;
+            changed.Add(record);
         }
+        await store.SaveBakingAsync(changed, ct);
     }
+
+    private Task<List<BakingFact>> BakingFactsAsync(List<int> ids, CancellationToken ct)
+        => sp.QueryAsync<BakingFact>("SP_Ledger_Baking", ct, Sql.IdList("@Ids", ids));
 
     public static string DeriveStatus(BakingRecord r, bool sent, bool rebakeReturned, decimal balance)
     {
@@ -142,16 +139,13 @@ public class ConsumableLedger(WeldReportContext db, TimeProvider time)
 
     public async Task<Dictionary<int, StageTotals>> ItemTotalsAsync(List<int> itemIds, CancellationToken ct)
     {
-        var rows = await LotStagesAsync(m => itemIds.Contains(m.Lot.ItemId), ct);
+        var rows = await LotStagesAsync(LedgerFilter.ForItems(itemIds), ct);
         return rows.GroupBy(r => r.ItemId).ToDictionary(g => g.Key, g => StageTotals.Sum(g.Select(x => x.Totals)));
     }
 
     public async Task<StageBalance> StageBalanceAsync(int itemId, CancellationToken ct)
     {
-        var item = await db.ConsumableItems.AsNoTracking()
-            .Where(i => i.Id == itemId)
-            .Select(i => new { i.Diameter, i.Specification })
-            .FirstAsync(ct);
+        var item = (await store.ItemAsync(itemId, ct))!;
         var totals = StageTotals.Sum((await LotStagesForItemAsync(itemId, ct)).Select(r => r.Totals));
         return new StageBalance(itemId, Cat.DiaSpec(item.Diameter, item.Specification),
             totals.NormalKg, totals.BakingKg, totals.ActivatedKg, totals.TotalKg);
@@ -161,41 +155,24 @@ public class ConsumableLedger(WeldReportContext db, TimeProvider time)
     {
         var list = ids.Distinct().ToList();
         if (list.Count == 0) return new Dictionary<int, string>();
-        return await db.OvenCompartments.AsNoTracking()
-            .Where(c => list.Contains(c.Id))
-            .Select(c => new { c.Id, Label = c.Oven.Code + "-" + c.Label })
-            .ToDictionaryAsync(c => c.Id, c => c.Label, ct);
+        return (await store.CompartmentsAsync(list, ct)).ToDictionary(c => c.Id, c => c.Label);
     }
 
-    public Task<string> NextTxnNoAsync(CancellationToken ct) => NextNumberAsync(ConsumableStockModel.TxnSequence, "CT", "000000", ct);
+    public Task<string> NextTxnNoAsync(CancellationToken ct) => NextNumberAsync("CT", "000000", ct);
 
-    public Task<string> NextBakingNoAsync(CancellationToken ct) => NextNumberAsync(ConsumableStockModel.BakingSequence, "BK", "0000", ct);
+    public Task<string> NextBakingNoAsync(CancellationToken ct) => NextNumberAsync("BK", "0000", ct);
 
-    public Task<string> NextHoldingNoAsync(CancellationToken ct) => NextNumberAsync(ConsumableStockModel.HoldingSequence, "HD", "0000", ct);
+    public Task<string> NextHoldingNoAsync(CancellationToken ct) => NextNumberAsync("HD", "0000", ct);
 
-    public Task<string> NextStockCountNoAsync(CancellationToken ct) => NextNumberAsync(ConsumableStockModel.StockCountSequence, "SC", "0000", ct);
+    public Task<string> NextStockCountNoAsync(CancellationToken ct) => NextNumberAsync("SC", "0000", ct);
 
-    private async Task<string> NextNumberAsync(string sequence, string prefix, string pattern, CancellationToken ct)
+    private async Task<string> NextNumberAsync(string prefix, string pattern, CancellationToken ct)
     {
-        var connection = db.Database.GetDbConnection();
-        await using var command = connection.CreateCommand();
-        command.CommandText = $"SELECT NEXT VALUE FOR [dbo].[{sequence}]";
-        command.Transaction = db.Database.CurrentTransaction?.GetDbTransaction();
-        var next = Convert.ToInt64(await command.ExecuteScalarAsync(ct));
+        var next = await sp.ScalarAsync<long>("SP_Sequence_Next", ct);
         return $"{prefix}-{time.LocalNow():yy}-{next.ToString(pattern)}";
     }
 
-    public static IQueryable<TransactionDto> Project(IQueryable<ConsumableMovement> q)
-        => q.Select(m => new TransactionDto(
-            m.Id, m.TxnNo, m.TxnType, m.TxnDate, m.CreatedAt, m.CreatedBy,
-            m.Lot.ItemId, m.Lot.Item.Category, m.Lot.Item.Specification, m.Lot.Item.Diameter,
-            m.Lot.Item.Diameter + " " + m.Lot.Item.Specification,
-            m.LotId, m.Lot.Brand, m.Lot.LotNumber, m.QuantityKg, m.FromStage, m.ToStage,
-            m.Source, m.Requestor, m.WelderId, m.Welder != null ? m.Welder.WelderName : null,
-            m.Reason, m.CountedQtyKg, m.ReferenceNo, m.Remarks, m.IsVoided, m.VoidsMovementId,
-            m.FromCompartmentId, m.FromCompartment != null ? m.FromCompartment.Oven.Code + "-" + m.FromCompartment.Label : null,
-            m.ToCompartmentId, m.ToCompartment != null ? m.ToCompartment.Oven.Code + "-" + m.ToCompartment.Label : null,
-            m.BakingRecordId, m.BakingRecord != null ? m.BakingRecord.BakingNo : null));
+    private sealed record BakingFact(int Id, int Sent, int Rebake, int Placed, decimal BalanceKg, decimal IssuedToActivatedKg);
 
     public static List<(int LotId, decimal Kg)>? AllocateFifo(IEnumerable<(int LotId, decimal Available)> lots, decimal quantity)
     {

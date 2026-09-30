@@ -60,7 +60,7 @@ internal static class WeldCardLayout
             L(1, 17, 1, 5, "Piece S/N"), T(2, 17, 1, 5, "-"),
             L(1, 22, 1, 4, "Date"), T(2, 22, 1, 4, FormatDate(r.DateWelded)),
 
-            L(3, 1, 1, 4, "MRP/CSP No."), V(4, 1, 2, 4, ""),
+            L(3, 1, 1, 4, "MRP/CSP No."), V(4, 1, 2, 4, "-"),
             L(3, 5, 3, 2, "Material Welded", center: true),
             new(3, 18, 3, 8, Instruction, GridStyle.Note),
         };
@@ -84,14 +84,14 @@ internal static class WeldCardLayout
 
     // One joint is 8 rows: block header (2), FMP/Process, two heat-number pairs, joint description.
     // The last heat-number pair is taller so a long welder name fits on three lines.
-    public static GridSection Joint(Joint j, string weldDate)
+    public static GridSection Joint(Joint j, string weldDate, ResolvedSignOff signOff)
     {
         var m = j.Materials.OrderBy(x => x.ColumnNumber).ToList();
         string M(int col, Func<JointMaterial, string?> pick)
             => m.FirstOrDefault(x => x.ColumnNumber == col) is { } hit && !string.IsNullOrWhiteSpace(pick(hit))
                 ? pick(hit)! : "-";
 
-        var welder = string.IsNullOrWhiteSpace(j.WelderName) ? "" : $"{j.WelderName} (ID {j.WelderNo})";
+        var (welder, welderDate) = signOff.WelderFor(j) ?? (ReportSignOffRules.WelderDisplay(j.WelderName, j.WelderNo), weldDate);
 
         var cells = new List<GridCell>
         {
@@ -102,22 +102,22 @@ internal static class WeldCardLayout
             L(1, 12, 2, 1, "Rev", center: true),
             L(1, 13, 2, 8, "Weld Material Data", center: true),
             L(1, 21, 1, 3, "Engineer/ Supervisor"), L(1, 24, 1, 2, "Date"),
-            V(2, 21, 1, 3, ""), V(2, 24, 1, 2, ""),
+            V(2, 21, 1, 3, signOff.EngineerName), V(2, 24, 1, 2, signOff.EngineerDate),
 
-            V(3, 1, 1, 4, "NA", center: true),
+            V(3, 1, 1, 4, j.JointNumber.ToString(System.Globalization.CultureInfo.InvariantCulture), center: true),
             V(3, 5, 1, 4, j.WpsNo, center: true),
             V(3, 9, 1, 1, j.Rev, center: true),
             V(3, 10, 1, 2, "Nil", center: true),
             V(3, 12, 1, 1, "Nil", center: true),
             L(3, 21, 1, 3, "QA Inspector"), L(3, 24, 1, 2, "Date"),
-            V(4, 21, 1, 3, ""), V(4, 24, 1, 2, ""),
+            V(4, 21, 1, 3, signOff.QaName), V(4, 24, 1, 2, signOff.QaDate),
             L(5, 21, 1, 3, "Welder"), L(5, 24, 1, 2, "Date"),
-            T(6, 21, 2, 3, welder), V(6, 24, 2, 2, weldDate),
+            T(6, 21, 2, 3, welder), V(6, 24, 2, 2, welderDate),
 
             L(4, 1, 2, 2, "Heat No. of Part"), T(4, 3, 2, 4, j.HeatNumberLeft),
-            L(4, 7, 2, 3, "Piece S/N", center: true), V(4, 10, 2, 3, "NA", center: true),
+            L(4, 7, 2, 3, "Piece S/N", center: true), V(4, 10, 2, 3, "-", center: true),
             L(6, 1, 2, 2, "Heat No. of Part"), T(6, 3, 2, 4, j.HeatNumberRight),
-            L(6, 7, 2, 3, "Piece S/N", center: true), V(6, 10, 2, 3, "NA", center: true),
+            L(6, 7, 2, 3, "Piece S/N", center: true), V(6, 10, 2, 3, "-", center: true),
 
             L(8, 1, 1, 4, "Joint Description"),
             T(8, 5, 1, 21, $"Joining of {PartLabel(j.PartDescLeft, j.PartNoLeft)} with {PartLabel(j.PartDescRight, j.PartNoRight)}"),

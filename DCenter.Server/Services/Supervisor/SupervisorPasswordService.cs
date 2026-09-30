@@ -1,16 +1,14 @@
 using System.Security.Cryptography;
 using System.Text;
-using DCenter.Server.Data;
 using DCenter.Server.Entities;
 using DCenter.Server.Models;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 
 namespace DCenter.Server.Services;
 
 public record SupervisorPasswordStatus(string Source, DateTime? UpdatedAt, string? UpdatedBy);
 
-public class SupervisorPasswordService(WeldReportContext db, IOptions<ConsumableOptions> options, TimeProvider time)
+public class SupervisorPasswordService(StoredProcedures sp, IOptions<ConsumableOptions> options, TimeProvider time)
 {
     public const string SourceDatabase = "Database";
     public const string SourceEnvironment = "Environment";
@@ -26,10 +24,7 @@ public class SupervisorPasswordService(WeldReportContext db, IOptions<Consumable
 
     public async Task<SupervisorPasswordStatus> StatusAsync(CancellationToken ct)
     {
-        var row = await db.SupervisorCredentials.AsNoTracking()
-            .Where(c => c.Id == SupervisorCredential.SingletonId)
-            .Select(c => new { c.UpdatedAt, c.UpdatedBy })
-            .FirstOrDefaultAsync(ct);
+        var row = await CredentialAsync(ct);
         if (row is not null) return new SupervisorPasswordStatus(SourceDatabase, row.UpdatedAt, row.UpdatedBy);
         return new SupervisorPasswordStatus(string.IsNullOrEmpty(environmentPassword) ? SourceNone : SourceEnvironment, null, null);
     }
@@ -38,10 +33,7 @@ public class SupervisorPasswordService(WeldReportContext db, IOptions<Consumable
     {
         if (string.IsNullOrEmpty(password)) return false;
 
-        var hash = await db.SupervisorCredentials.AsNoTracking()
-            .Where(c => c.Id == SupervisorCredential.SingletonId)
-            .Select(c => c.PasswordHash)
-            .FirstOrDefaultAsync(ct);
+        var hash = (await CredentialAsync(ct))?.PasswordHash;
         if (hash is not null) return VerifyHash(password, hash);
 
         if (string.IsNullOrEmpty(environmentPassword)) return false;
@@ -64,19 +56,17 @@ public class SupervisorPasswordService(WeldReportContext db, IOptions<Consumable
         if (next == currentPassword)
             return ServiceResult<SupervisorPasswordStatus>.Fail("The new password must be different from the current one.");
 
-        var row = await db.SupervisorCredentials.FirstOrDefaultAsync(c => c.Id == SupervisorCredential.SingletonId, ct);
-        if (row is null)
-        {
-            row = new SupervisorCredential();
-            db.SupervisorCredentials.Add(row);
-        }
-        row.PasswordHash = Hash(next);
-        row.UpdatedBy = user;
-        row.UpdatedAt = time.LocalNow();
-        await db.SaveChangesAsync(ct);
+        var row = new SupervisorCredential { PasswordHash = Hash(next), UpdatedBy = user, UpdatedAt = time.LocalNow() };
+        await StoredProcedures.Write(sp.ExecuteAsync("SP_Supervisor_SaveCredential", ct,
+            Sql.Int("@Id", row.Id), Sql.NVarChar("@PasswordHash", row.PasswordHash, 400),
+            Sql.NVarChar("@UpdatedBy", row.UpdatedBy, 200), Sql.DateTime2("@UpdatedAt", row.UpdatedAt)));
 
         return ServiceResult<SupervisorPasswordStatus>.Ok(new SupervisorPasswordStatus(SourceDatabase, row.UpdatedAt, row.UpdatedBy));
     }
+
+    private async Task<SupervisorCredential?> CredentialAsync(CancellationToken ct)
+        => (await sp.EntitiesAsync<SupervisorCredential>("SP_Supervisor_Credential", ct,
+            Sql.Int("@Id", SupervisorCredential.SingletonId))).FirstOrDefault();
 
     private static string Hash(string password)
     {

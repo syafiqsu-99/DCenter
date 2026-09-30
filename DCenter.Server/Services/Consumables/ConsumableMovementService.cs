@@ -1,7 +1,6 @@
 using DCenter.Server.Data;
 using DCenter.Server.Entities;
 using DCenter.Server.Models;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using Cat = DCenter.Server.Entities.StockCatalog;
 using G = DCenter.Server.Services.ConsumableGuards;
@@ -10,8 +9,8 @@ using T = DCenter.Server.Services.ConsumableText;
 namespace DCenter.Server.Services;
 
 public partial class ConsumableMovementService(
-    WeldReportContext db, ConsumableLedger ledger, ConsumableItemService items, ConsumableGuards guards,
-    IOptions<ConsumableOptions> options)
+    WeldReportContext db, ConsumableStore store, ConsumableLedger ledger, ConsumableItemService items,
+    ConsumableGuards guards, IOptions<ConsumableOptions> options)
 {
     private readonly ConsumableOptions settings = options.Value;
 
@@ -52,7 +51,7 @@ public partial class ConsumableMovementService(
         ConsumableItem? item;
         if (r.ItemId is int itemId)
         {
-            item = await db.ConsumableItems.FirstOrDefaultAsync(i => i.Id == itemId, ct);
+            item = await store.ItemAsync(itemId, ct);
             if (item is null) return ItemNotFound();
             if (!item.IsActive) return Fail("This consumable is inactive. Reactivate it in Settings before receiving stock.");
         }
@@ -70,26 +69,28 @@ public partial class ConsumableMovementService(
             (ConsumableItemService.LookupType, item.Specification),
         ], ct);
 
-        var lot = item.Id == 0
-            ? null
-            : await db.ConsumableItemLots.FirstOrDefaultAsync(l => l.ItemId == item.Id && l.Brand == brand && l.LotNumber == lotNo, ct);
-        lot ??= db.ConsumableItemLots.Add(new ConsumableItemLot { Item = item, Brand = brand, LotNumber = lotNo }).Entity;
+        var lotId = await store.FindLotAsync(item.Id, brand, lotNo, ct);
+        if (lotId is null)
+        {
+            var lot = new ConsumableItemLot { ItemId = item.Id, Brand = brand, LotNumber = lotNo };
+            await store.InsertLotAsync(lot, ct);
+            lotId = lot.Id;
+        }
 
         var txnNo = await ledger.NextTxnNoAsync(ct);
-        db.ConsumableMovements.Add(new ConsumableMovement
+        await store.AddMovementsAsync([new ConsumableMovement
         {
             TxnNo = txnNo,
             TxnType = Cat.TxnReceive,
             TxnDate = date,
-            Lot = lot,
+            LotId = lotId.Value,
             QuantityKg = qty,
             ToStage = Cat.Normal,
             Source = source,
             Requestor = receiver,
             Remarks = T.FreeText(r.Remarks, 500),
             CreatedBy = user,
-        });
-        await db.SaveChangesAsync(ct);
+        }], ct);
         await tx.CommitAsync(ct);
 
         return Ok(await ResultAsync(txnNo, item.Id, [], null, ct));
@@ -125,22 +126,18 @@ public partial class ConsumableMovementService(
         if (lines is null) return Fail(takeError!, StatusCodes.Status409Conflict);
 
         var txnNo = await ledger.NextTxnNoAsync(ct);
-        foreach (var line in lines)
+        await store.AddMovementsAsync(lines.Select(line => new ConsumableMovement
         {
-            db.ConsumableMovements.Add(new ConsumableMovement
-            {
-                TxnNo = txnNo,
-                TxnType = Cat.TxnTransfer,
-                TxnDate = date,
-                LotId = line.LotId,
-                QuantityKg = line.Kg,
-                FromStage = from,
-                ToStage = to,
-                Remarks = T.FreeText(r.Remarks, 500),
-                CreatedBy = user,
-            });
-        }
-        await db.SaveChangesAsync(ct);
+            TxnNo = txnNo,
+            TxnType = Cat.TxnTransfer,
+            TxnDate = date,
+            LotId = line.LotId,
+            QuantityKg = line.Kg,
+            FromStage = from,
+            ToStage = to,
+            Remarks = T.FreeText(r.Remarks, 500),
+            CreatedBy = user,
+        }), ct);
         await tx.CommitAsync(ct);
 
         return Ok(await ResultAsync(txnNo, item.Id, [], null, ct));
@@ -149,10 +146,7 @@ public partial class ConsumableMovementService(
     private async Task<MovementResult> ResultAsync(
         string txnNo, int itemId, List<ResidualLot> residuals, string? warning, CancellationToken ct)
     {
-        var lines = await ConsumableLedger.Project(db.ConsumableMovements.AsNoTracking()
-                .Where(m => m.TxnNo == txnNo)
-                .OrderBy(m => m.Id))
-            .ToListAsync(ct);
+        var (lines, _) = await store.TransactionsAsync(new MovementQuery(TxnNo: txnNo), ct);
         return new MovementResult(txnNo, lines, await ledger.StageBalanceAsync(itemId, ct), residuals, warning);
     }
 

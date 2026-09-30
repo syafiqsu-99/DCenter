@@ -13,17 +13,12 @@ internal static class SqlLiteral
 
 public static class ConsumableStockModel
 {
-    public const string TxnSequence = "DCenter_ConsumableTxnSeq";
-    public const string BakingSequence = "DCenter_BakingNoSeq";
-    public const string HoldingSequence = "DCenter_HoldingNoSeq";
-    public const string StockCountSequence = "DCenter_StockCountSeq";
+    // One counter for every document number (CT-, BK-, HD-, SC-); unique and safe under concurrent saves.
+    public const string DocumentSequence = "DocumentNoSeq";
 
     public static void Apply(ModelBuilder b)
     {
-        b.HasSequence<long>(TxnSequence).StartsAt(1).IncrementsBy(1);
-        b.HasSequence<long>(BakingSequence).StartsAt(1).IncrementsBy(1);
-        b.HasSequence<long>(HoldingSequence).StartsAt(1).IncrementsBy(1);
-        b.HasSequence<long>(StockCountSequence).StartsAt(1).IncrementsBy(1);
+        b.HasSequence<long>(DocumentSequence).StartsAt(1).IncrementsBy(1);
 
         b.ApplyConfiguration(new ConsumableItemConfiguration());
         b.ApplyConfiguration(new ConsumableItemLotConfiguration());
@@ -38,7 +33,7 @@ public static class ConsumableStockModel
 
         b.Entity<Welder>(e =>
         {
-            e.ToTable(t => t.HasCheckConstraint("CK_DCenter_Welders_UsageScope",
+            e.ToTable(t => t.HasCheckConstraint("CK_Welders_UsageScope",
                 $"[UsageScope] IN ({SqlLiteral.List(WelderScope.All)})"));
             e.Property(x => x.UsageScope).HasMaxLength(20).IsRequired().HasDefaultValue(WelderScope.Report);
         });
@@ -49,15 +44,15 @@ public class ConsumableItemConfiguration : IEntityTypeConfiguration<ConsumableIt
 {
     public void Configure(EntityTypeBuilder<ConsumableItem> e)
     {
-        e.ToTable("DCenter_ConsumableItems", t =>
+        e.ToTable("ConsumableItems", t =>
         {
-            t.HasCheckConstraint("CK_DCenter_ConsumableItems_Category",
+            t.HasCheckConstraint("CK_ConsumableItems_Category",
                 $"[Category] IN ({SqlLiteral.List(Cat.Categories)})");
-            t.HasCheckConstraint("CK_DCenter_ConsumableItems_Limits",
+            t.HasCheckConstraint("CK_ConsumableItems_Limits",
                 "[MinStockKg] >= 0 AND [ActivatedMinKg] >= 0 AND ([FinishThresholdKg] IS NULL OR [FinishThresholdKg] >= 0)");
-            t.HasCheckConstraint("CK_DCenter_ConsumableItems_OvenType",
+            t.HasCheckConstraint("CK_ConsumableItems_OvenType",
                 $"[HoldingOvenType] IS NULL OR [HoldingOvenType] IN ({SqlLiteral.List(Cat.OvenTypes)})");
-            t.HasCheckConstraint("CK_DCenter_ConsumableItems_Diameter", "LEN([Diameter]) > 0");
+            t.HasCheckConstraint("CK_ConsumableItems_Diameter", "LEN([Diameter]) > 0");
         });
         e.Property(x => x.Category).HasMaxLength(30).IsRequired();
         e.Property(x => x.Specification).HasMaxLength(100).IsRequired();
@@ -74,7 +69,7 @@ public class ConsumableItemLotConfiguration : IEntityTypeConfiguration<Consumabl
 {
     public void Configure(EntityTypeBuilder<ConsumableItemLot> e)
     {
-        e.ToTable("DCenter_ConsumableItemLots");
+        e.ToTable("ConsumableItemLots");
         e.Property(x => x.Brand).HasMaxLength(100).IsRequired();
         e.Property(x => x.LotNumber).HasMaxLength(60).IsRequired();
         e.HasOne(x => x.Item).WithMany(i => i.Lots)
@@ -94,22 +89,22 @@ public class ConsumableMovementConfiguration : IEntityTypeConfiguration<Consumab
         const string move = Cat.TxnMove;
         const string activated = Cat.Activated;
 
-        e.ToTable("DCenter_ConsumableMovements", t =>
+        e.ToTable("ConsumableMovements", t =>
         {
-            t.HasCheckConstraint("CK_DCenter_ConsumableMovements_Type",
+            t.HasCheckConstraint("CK_ConsumableMovements_Type",
                 $"[TxnType] IN ({SqlLiteral.List(Cat.TxnTypes)})");
-            t.HasCheckConstraint("CK_DCenter_ConsumableMovements_Stage",
+            t.HasCheckConstraint("CK_ConsumableMovements_Stage",
                 $"([FromStage] IS NULL OR [FromStage] IN ({stages})) AND ([ToStage] IS NULL OR [ToStage] IN ({stages})) " +
                 "AND ([FromStage] IS NOT NULL OR [ToStage] IS NOT NULL)");
-            t.HasCheckConstraint("CK_DCenter_ConsumableMovements_Source",
+            t.HasCheckConstraint("CK_ConsumableMovements_Source",
                 $"([Source] IS NULL OR [Source] IN ({SqlLiteral.List(Cat.Sources)})) " +
                 $"AND ([TxnType] <> N'{receive}' OR [Source] IS NOT NULL)");
-            t.HasCheckConstraint("CK_DCenter_ConsumableMovements_Qty", "[QuantityKg] > 0");
-            t.HasCheckConstraint("CK_DCenter_ConsumableMovements_Void",
+            t.HasCheckConstraint("CK_ConsumableMovements_Qty", "[QuantityKg] > 0");
+            t.HasCheckConstraint("CK_ConsumableMovements_Void",
                 $"([TxnType] = N'{voidType}' AND [VoidsMovementId] IS NOT NULL) OR ([TxnType] <> N'{voidType}' AND [VoidsMovementId] IS NULL)");
-            t.HasCheckConstraint("CK_DCenter_ConsumableMovements_Bin",
+            t.HasCheckConstraint("CK_ConsumableMovements_Bin",
                 $"([FromCompartmentId] IS NULL OR [FromStage] = N'{activated}') AND ([ToCompartmentId] IS NULL OR [ToStage] = N'{activated}')");
-            t.HasCheckConstraint("CK_DCenter_ConsumableMovements_HoldMove",
+            t.HasCheckConstraint("CK_ConsumableMovements_HoldMove",
                 $"([TxnType] <> N'{hold}' OR [ToCompartmentId] IS NOT NULL) " +
                 $"AND ([TxnType] <> N'{move}' OR ([FromStage] = N'{activated}' AND [ToStage] = N'{activated}' AND [ToCompartmentId] IS NOT NULL))");
         });
@@ -161,7 +156,7 @@ public class OvenConfiguration : IEntityTypeConfiguration<Oven>
 {
     public void Configure(EntityTypeBuilder<Oven> e)
     {
-        e.ToTable("DCenter_Ovens", t => t.HasCheckConstraint("CK_DCenter_Ovens_Type",
+        e.ToTable("Ovens", t => t.HasCheckConstraint("CK_Ovens_Type",
             $"[OvenType] IN ({SqlLiteral.List(Cat.OvenTypes)})"));
         e.Property(x => x.Name).HasMaxLength(50).IsRequired();
         e.Property(x => x.Code).HasMaxLength(10).IsRequired();
@@ -178,7 +173,7 @@ public class OvenCompartmentConfiguration : IEntityTypeConfiguration<OvenCompart
 {
     public void Configure(EntityTypeBuilder<OvenCompartment> e)
     {
-        e.ToTable("DCenter_OvenCompartments", t => t.HasCheckConstraint("CK_DCenter_OvenCompartments_Number",
+        e.ToTable("OvenCompartments", t => t.HasCheckConstraint("CK_OvenCompartments_Number",
             $"[Number] BETWEEN 1 AND {FixedOvens.CompartmentsPerOven}"));
         e.Property(x => x.Label).HasMaxLength(20).IsRequired();
         e.HasOne(x => x.Oven).WithMany(o => o.Compartments)
@@ -201,12 +196,12 @@ public class BakingRecordConfiguration : IEntityTypeConfiguration<BakingRecord>
 {
     public void Configure(EntityTypeBuilder<BakingRecord> e)
     {
-        e.ToTable("DCenter_BakingRecords", t =>
+        e.ToTable("BakingRecords", t =>
         {
-            t.HasCheckConstraint("CK_DCenter_BakingRecords_Status",
+            t.HasCheckConstraint("CK_BakingRecords_Status",
                 $"[Status] IN ({SqlLiteral.List(Cat.BakingStatuses)})");
-            t.HasCheckConstraint("CK_DCenter_BakingRecords_Qty", "[QuantityKg] > 0");
-            t.HasCheckConstraint("CK_DCenter_BakingRecords_Times",
+            t.HasCheckConstraint("CK_BakingRecords_Qty", "[QuantityKg] > 0");
+            t.HasCheckConstraint("CK_BakingRecords_Times",
                 "([BakeStop] IS NULL OR ([BakeStart] IS NOT NULL AND [BakeStop] > [BakeStart])) " +
                 "AND ([RebakeStart] IS NULL OR ([BakeStop] IS NOT NULL AND [RebakeStart] > [BakeStop])) " +
                 "AND ([RebakeStop] IS NULL OR ([RebakeStart] IS NOT NULL AND [RebakeStop] > [RebakeStart]))");
@@ -229,12 +224,12 @@ public class HoldingRecordConfiguration : IEntityTypeConfiguration<HoldingRecord
 {
     public void Configure(EntityTypeBuilder<HoldingRecord> e)
     {
-        e.ToTable("DCenter_HoldingRecords", t =>
+        e.ToTable("HoldingRecords", t =>
         {
-            t.HasCheckConstraint("CK_DCenter_HoldingRecords_Target",
+            t.HasCheckConstraint("CK_HoldingRecords_Target",
                 "([CompartmentId] IS NOT NULL AND [IsFinishedAfterBaking] = 0) " +
                 "OR ([CompartmentId] IS NULL AND [IsFinishedAfterBaking] = 1 AND [WelderId] IS NOT NULL)");
-            t.HasCheckConstraint("CK_DCenter_HoldingRecords_Qty", "[QuantityKg] > 0");
+            t.HasCheckConstraint("CK_HoldingRecords_Qty", "[QuantityKg] > 0");
         });
         e.Property(x => x.HoldingNo).HasMaxLength(20).IsRequired();
         e.Property(x => x.WelderName).HasMaxLength(200);
@@ -258,10 +253,10 @@ public class StockCountConfiguration : IEntityTypeConfiguration<StockCount>
 {
     public void Configure(EntityTypeBuilder<StockCount> e)
     {
-        e.ToTable("DCenter_StockCounts", t =>
+        e.ToTable("StockCounts", t =>
         {
-            t.HasCheckConstraint("CK_DCenter_StockCounts_Scope", $"[Scope] IN ({SqlLiteral.List(Cat.ActiveStages)})");
-            t.HasCheckConstraint("CK_DCenter_StockCounts_Kg", "[GainKg] >= 0 AND [LossKg] >= 0");
+            t.HasCheckConstraint("CK_StockCounts_Scope", $"[Scope] IN ({SqlLiteral.List(Cat.ActiveStages)})");
+            t.HasCheckConstraint("CK_StockCounts_Kg", "[GainKg] >= 0 AND [LossKg] >= 0");
         });
         e.Property(x => x.ReferenceNo).HasMaxLength(20).IsRequired();
         e.Property(x => x.Scope).HasMaxLength(20).IsRequired();
@@ -280,7 +275,7 @@ public class SupervisorCredentialConfiguration : IEntityTypeConfiguration<Superv
 {
     public void Configure(EntityTypeBuilder<SupervisorCredential> e)
     {
-        e.ToTable("DCenter_SupervisorCredentials", t => t.HasCheckConstraint("CK_DCenter_SupervisorCredentials_Single",
+        e.ToTable("SupervisorCredentials", t => t.HasCheckConstraint("CK_SupervisorCredentials_Single",
             $"[Id] = {SupervisorCredential.SingletonId}"));
         e.Property(x => x.Id).ValueGeneratedNever();
         e.Property(x => x.PasswordHash).HasMaxLength(200).IsRequired();
@@ -292,7 +287,7 @@ public class SupervisorRevokedTokenConfiguration : IEntityTypeConfiguration<Supe
 {
     public void Configure(EntityTypeBuilder<SupervisorRevokedToken> e)
     {
-        e.ToTable("DCenter_SupervisorRevokedTokens");
+        e.ToTable("SupervisorRevokedTokens");
         e.HasKey(x => x.Fingerprint);
         e.Property(x => x.Fingerprint).HasMaxLength(64).IsUnicode(false);
         e.HasIndex(x => x.ExpiresAt);

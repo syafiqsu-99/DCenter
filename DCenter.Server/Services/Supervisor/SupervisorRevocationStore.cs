@@ -1,28 +1,12 @@
-using DCenter.Server.Data;
-using DCenter.Server.Entities;
-using Microsoft.EntityFrameworkCore;
-
 namespace DCenter.Server.Services;
 
-public class SupervisorRevocationStore(WeldReportContext db, TimeProvider time)
+public class SupervisorRevocationStore(StoredProcedures sp, TimeProvider time)
 {
-    public async Task SaveAsync(RevokedToken entry, CancellationToken ct)
-    {
-        var now = time.GetUtcNow();
-        await db.SupervisorRevokedTokens.Where(t => t.ExpiresAt <= now).ExecuteDeleteAsync(ct);
-        if (!await db.SupervisorRevokedTokens.AnyAsync(t => t.Fingerprint == entry.Fingerprint, ct))
-        {
-            db.SupervisorRevokedTokens.Add(new SupervisorRevokedToken { Fingerprint = entry.Fingerprint, ExpiresAt = entry.ExpiresAt });
-            await db.SaveChangesAsync(ct);
-        }
-    }
+    public Task SaveAsync(RevokedToken entry, CancellationToken ct)
+        => StoredProcedures.Write(sp.ExecuteAsync("SP_Supervisor_RevokeToken", ct,
+            Sql.VarChar("@Fingerprint", entry.Fingerprint, 64), Sql.DateTimeOffset("@ExpiresAt", entry.ExpiresAt),
+            Sql.DateTimeOffset("@Now", time.GetUtcNow())));
 
-    public async Task<List<RevokedToken>> LoadActiveAsync(CancellationToken ct)
-    {
-        var now = time.GetUtcNow();
-        return await db.SupervisorRevokedTokens.AsNoTracking()
-            .Where(t => t.ExpiresAt > now)
-            .Select(t => new RevokedToken(t.Fingerprint, t.ExpiresAt))
-            .ToListAsync(ct);
-    }
+    public Task<List<RevokedToken>> LoadActiveAsync(CancellationToken ct)
+        => sp.QueryAsync<RevokedToken>("SP_Supervisor_ActiveRevocations", ct, Sql.DateTimeOffset("@Now", time.GetUtcNow()));
 }

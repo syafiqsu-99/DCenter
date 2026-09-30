@@ -14,30 +14,28 @@
         -- DROP VIEW IF EXISTS dbo.vw_DCenter_BomTree;
         -- DROP FUNCTION IF EXISTS dbo.fn_DCenter_WorkOrderBom;
 
-    Re-run this script whenever it changes. The API walks a work order's BOM one level at a time
-    through dbo.vw_DCenter_Bom (the children of a set of parent items per call).
+    Re-run this script whenever it changes, then run DCenter_StoredProcedures.sql. These are the only
+    DCenter views: they expose OracleBetsyDB data. The API walks a work order's BOM one level at a
+    time through dcenter.V_Bom (the children of a set of parent items per call).
+
+    The views live in schema [dcenter] with every other DCenter object. If the schema does not exist
+    yet, this script creates it, owned by the login that runs it.
 */
 SET ANSI_NULLS ON
 GO
 SET QUOTED_IDENTIFIER ON
 GO
 
-CREATE OR ALTER VIEW dbo.vw_DCenter_WorkOrder
+IF SCHEMA_ID(N'dcenter') IS NULL EXEC (N'CREATE SCHEMA [dcenter]');
+GO
+
+CREATE OR ALTER VIEW dcenter.V_WorkOrder
 AS
 SELECT w.WO_NUMBER, w.ASSEMBLY_ITEM, w.ITEM_DESC, w.START_QUANTITY
 FROM OracleBetsyDB.dbo.Work_Order_Detail w;
 GO
 
-DROP FUNCTION IF EXISTS dbo.fn_DCenter_WorkOrderParts;
-GO
-DROP FUNCTION IF EXISTS dbo.fn_DCenter_BomTree;
-GO
-DROP VIEW IF EXISTS dbo.vw_DCenter_ItemMrn;
-GO
-DROP VIEW IF EXISTS dbo.vw_DCenter_BomTree;
-GO
-
-CREATE OR ALTER VIEW dbo.vw_DCenter_Bom
+CREATE OR ALTER VIEW dcenter.V_Bom
 AS
 SELECT b.ITEM, b.COMPONENT, MAX(b.COMPONENT_DESC) AS COMPONENT_DESC
 FROM OracleBetsyDB.dbo.Bill_Of_Material_Others b

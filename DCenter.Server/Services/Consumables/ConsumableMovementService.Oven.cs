@@ -1,7 +1,5 @@
-using DCenter.Server.Data;
 using DCenter.Server.Entities;
 using DCenter.Server.Models;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using Cat = DCenter.Server.Entities.StockCatalog;
 using G = DCenter.Server.Services.ConsumableGuards;
@@ -52,30 +50,23 @@ public partial class ConsumableMovementService
         }
 
         var txnNo = await ledger.NextTxnNoAsync(ct);
-        foreach (var line in lines)
+        await store.AddMovementsAsync(lines.Select(line => new ConsumableMovement
         {
-            db.ConsumableMovements.Add(new ConsumableMovement
-            {
-                TxnNo = txnNo,
-                TxnType = Cat.TxnMove,
-                TxnDate = date,
-                LotId = line.LotId,
-                QuantityKg = line.Kg,
-                FromStage = Cat.Activated,
-                ToStage = Cat.Activated,
-                FromCompartmentId = r.FromCompartmentId,
-                ToCompartmentId = r.ToCompartmentId,
-                Remarks = T.FreeText(r.Remarks, 500),
-                CreatedBy = user,
-            });
-        }
-        await db.SaveChangesAsync(ct);
+            TxnNo = txnNo,
+            TxnType = Cat.TxnMove,
+            TxnDate = date,
+            LotId = line.LotId,
+            QuantityKg = line.Kg,
+            FromStage = Cat.Activated,
+            ToStage = Cat.Activated,
+            FromCompartmentId = r.FromCompartmentId,
+            ToCompartmentId = r.ToCompartmentId,
+            Remarks = T.FreeText(r.Remarks, 500),
+            CreatedBy = user,
+        }), ct);
 
         if (r.FromCompartmentId is int fromId)
-        {
             await RelocateHoldingsAsync(item.Id, lines.Select(l => l.LotId), fromId, r.ToCompartmentId, ct);
-            await db.SaveChangesAsync(ct);
-        }
         await tx.CommitAsync(ct);
 
         return Ok(await ResultAsync(txnNo, item.Id, [], null, ct));
@@ -89,9 +80,6 @@ public partial class ConsumableMovementService
         var emptied = lotIds.Distinct().Where(id => remaining.GetValueOrDefault(id) <= 0).ToList();
         if (emptied.Count == 0) return;
 
-        var holdings = await db.HoldingRecords
-            .Where(h => !h.IsVoided && !h.IsFinishedAfterBaking && h.CompartmentId == fromId && emptied.Contains(h.BakingRecord.LotId))
-            .ToListAsync(ct);
-        foreach (var holding in holdings) holding.CompartmentId = toId;
+        await store.RelocateHoldingsAsync(fromId, toId, emptied, ct);
     }
 }

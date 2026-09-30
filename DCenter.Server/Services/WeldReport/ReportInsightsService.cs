@@ -1,12 +1,11 @@
-using DCenter.Server.Data;
+using System.Text.Json;
 using DCenter.Server.Entities;
 using DCenter.Server.Models;
-using Microsoft.EntityFrameworkCore;
 
 namespace DCenter.Server.Services;
 
 // Read-only views across all reports: the dashboard and the welder/WPS/heat trace.
-public class ReportInsightsService(WeldReportContext db, TimeProvider time)
+public class ReportInsightsService(StoredProcedures sp, TimeProvider time)
 {
     public const int StaleDraftDays = 7;
     public const int TraceLimit = 500;
@@ -21,16 +20,10 @@ public class ReportInsightsService(WeldReportContext db, TimeProvider time)
         var windowStartAt = windowStart.ToDateTime(TimeOnly.MinValue);
         var staleBefore = time.LocalNow().AddDays(-StaleDraftDays);
 
-        var reports = await db.Reports
-            .AsNoTracking()
-            .Where(r => r.ReportRequired &&
-                        (r.CompletedAt == null || r.CompletedAt >= windowStartAt || r.DateWelded >= windowStart))
-            .Select(r => new
-            {
-                r.WorkOrderNumber, r.PartNo, r.Description, r.CompletedAt, r.UpdatedAt, r.DateWelded,
-                JointCount = r.Joints.Count,
-            })
-            .ToListAsync(ct);
+        var json = await sp.ScalarAsync<string>("SP_Report_Dashboard", ct,
+            Sql.Date("@WindowStart", windowStart), Sql.DateTime2("@WindowStartAt", windowStartAt), Sql.Int("@Take", 10));
+        var data = JsonSerializer.Deserialize<DashboardData>(json, Sql.JsonOptions)!;
+        var reports = data.Reports ?? [];
 
         var drafts = reports.Where(r => r.CompletedAt is null).ToList();
         var openDrafts = drafts.Count;
@@ -48,14 +41,7 @@ public class ReportInsightsService(WeldReportContext db, TimeProvider time)
 
         var jointsThisMonth = reports.Where(r => r.DateWelded >= monthStart).Sum(r => r.JointCount);
 
-        var windowJoints = db.Joints.AsNoTracking()
-            .Where(j => j.Report.ReportRequired && j.Report.DateWelded >= windowStart);
-
-        var welderPairs = await windowJoints
-            .Where(j => j.WelderNo != null && j.WelderNo != "")
-            .GroupBy(j => new { j.WelderNo, j.WelderName })
-            .Select(g => new { g.Key.WelderNo, g.Key.WelderName, Count = g.Count() })
-            .ToListAsync(ct);
+        var welderPairs = data.Welders ?? [];
 
         var topWelders = welderPairs
             .GroupBy(x => x.WelderNo!)
@@ -69,13 +55,7 @@ public class ReportInsightsService(WeldReportContext db, TimeProvider time)
             .Take(10)
             .ToList();
 
-        var topWps = await windowJoints
-            .Where(j => j.WpsNo != null && j.WpsNo != "")
-            .GroupBy(j => j.WpsNo!)
-            .Select(g => new { WpsNo = g.Key, Count = g.Count() })
-            .OrderByDescending(x => x.Count)
-            .Take(10)
-            .ToListAsync(ct);
+        var topWps = data.Wps ?? [];
 
         var needsAction = drafts
             .Where(r => r.UpdatedAt < staleBefore || r.DateWelded is null)
@@ -100,36 +80,32 @@ public class ReportInsightsService(WeldReportContext db, TimeProvider time)
 
     public async Task<TraceResponse> TraceAsync(string field, string q, CancellationToken ct)
     {
-        var joints = db.Joints.AsNoTracking();
-        joints = field switch
-        {
-            "welder" => joints.Where(j => (j.WelderNo != null && j.WelderNo.Contains(q)) ||
-                                          (j.WelderName != null && j.WelderName.Contains(q))),
-            "wps" => joints.Where(j => j.WpsNo != null && j.WpsNo.Contains(q)),
-            "heat" => joints.Where(j => (j.HeatNumberLeft != null && j.HeatNumberLeft.Contains(q)) ||
-                                        (j.HeatNumberRight != null && j.HeatNumberRight.Contains(q))),
-            "heatLot" => joints.Where(j => j.Materials.Any(m => m.HeatLot != null && m.HeatLot.Contains(q))),
-            _ => throw new ArgumentOutOfRangeException(nameof(field), field, "Unknown trace field."),
-        };
+        if (!TraceFields.Contains(field)) throw new ArgumentOutOfRangeException(nameof(field), field, "Unknown trace field.");
 
-        var rows = await joints
-            .OrderByDescending(j => j.Report.DateWelded)
-            .ThenBy(j => j.Report.WorkOrderNumber)
-            .ThenBy(j => j.JointNumber)
-            .Take(TraceLimit + 1)
-            .Select(j => new
-            {
-                j.Report.WorkOrderNumber, j.Report.PartNo, j.Report.CompletedAt, j.Report.DateWelded,
-                j.JointNumber, j.WpsNo, j.WelderName, j.WelderNo, j.HeatNumberLeft, j.HeatNumberRight,
-                HeatLots = j.Materials.OrderBy(m => m.ColumnNumber).Select(m => m.HeatLot).ToList(),
-            })
-            .ToListAsync(ct);
+        var rows = await sp.QueryAsync<TraceRow>("SP_Report_Trace", ct,
+            Sql.NVarChar("@Field", field, 20), Sql.NVarChar("@Q", q, 4000), Sql.Int("@Take", TraceLimit + 1));
 
         var items = rows.Take(TraceLimit).Select(r => new TraceRowDto(
             r.WorkOrderNumber, r.PartNo, r.CompletedAt == null ? ReportStatus.Draft : ReportStatus.Completed, r.DateWelded,
             r.JointNumber, r.WpsNo, r.WelderName, r.WelderNo, r.HeatNumberLeft, r.HeatNumberRight,
-            string.Join(", ", r.HeatLots.Where(h => !string.IsNullOrWhiteSpace(h)).Distinct()))).ToList();
+            string.Join(", ", (r.HeatLots ?? "").Split('\u001f').Where(h => !string.IsNullOrWhiteSpace(h)).Distinct()))).ToList();
 
         return new TraceResponse(items, rows.Count > TraceLimit);
     }
+
+    private sealed record DashboardReport(
+        string WorkOrderNumber, string? PartNo, string? Description, DateTime? CompletedAt, DateTime UpdatedAt,
+        DateOnly? DateWelded, int JointCount);
+
+    // The three result sets of SP_Report_Dashboard; an empty set comes back as null.
+    private sealed record DashboardData(List<DashboardReport>? Reports, List<WelderCount>? Welders, List<WpsCount>? Wps);
+
+    private sealed record WelderCount(string? WelderNo, string? WelderName, int Count);
+
+    private sealed record WpsCount(string WpsNo, int Count);
+
+    // HeatLots holds the joint's electrode heat/lots in column order, separated by U+001F.
+    private sealed record TraceRow(
+        string WorkOrderNumber, string? PartNo, DateTime? CompletedAt, DateOnly? DateWelded, int JointNumber,
+        string? WpsNo, string? WelderName, string? WelderNo, string? HeatNumberLeft, string? HeatNumberRight, string? HeatLots);
 }

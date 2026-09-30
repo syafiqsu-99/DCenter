@@ -1,7 +1,6 @@
 using DCenter.Server.Data;
 using DCenter.Server.Entities;
 using DCenter.Server.Models;
-using Microsoft.EntityFrameworkCore;
 using Cat = DCenter.Server.Entities.StockCatalog;
 using G = DCenter.Server.Services.ConsumableGuards;
 using T = DCenter.Server.Services.ConsumableText;
@@ -9,7 +8,8 @@ using T = DCenter.Server.Services.ConsumableText;
 namespace DCenter.Server.Services;
 
 public class BakingService(
-    WeldReportContext db, ConsumableLedger ledger, ConsumableItemService items, ConsumableGuards guards, TimeProvider time)
+    WeldReportContext db, ConsumableStore store, ConsumableLedger ledger, ConsumableItemService items, ConsumableGuards guards,
+    TimeProvider time)
 {
     private static readonly TimeSpan ClockTolerance = TimeSpan.FromMinutes(5);
 
@@ -41,9 +41,10 @@ public class BakingService(
 
         var txnNo = await ledger.NextTxnNoAsync(ct);
         var records = new List<BakingRecord>();
+        var movements = new List<ConsumableMovement>();
         foreach (var line in lines)
         {
-            var record = new BakingRecord
+            records.Add(new BakingRecord
             {
                 BakingNo = await ledger.NextBakingNoAsync(ct),
                 LotId = line.LotId,
@@ -53,10 +54,8 @@ public class BakingService(
                 Status = Cat.StatusQueued,
                 Remarks = T.FreeText(r.Remarks, 500),
                 CreatedBy = user,
-            };
-            records.Add(record);
-            db.BakingRecords.Add(record);
-            db.ConsumableMovements.Add(new ConsumableMovement
+            });
+            movements.Add(new ConsumableMovement
             {
                 TxnNo = txnNo,
                 TxnType = Cat.TxnSendToBake,
@@ -65,12 +64,13 @@ public class BakingService(
                 QuantityKg = line.Kg,
                 FromStage = Cat.Normal,
                 ToStage = Cat.Baking,
-                BakingRecord = record,
                 Remarks = T.FreeText(r.Remarks, 500),
                 CreatedBy = user,
             });
         }
-        await db.SaveChangesAsync(ct);
+        await store.SaveBakingAsync(records, ct);
+        for (var i = 0; i < records.Count; i++) movements[i].BakingRecordId = records[i].Id;
+        await store.AddMovementsAsync(movements, ct);
         await tx.CommitAsync(ct);
 
         return ServiceResult<BakingResult>.Ok(new BakingResult(txnNo, await RecordsAsync(records.Select(x => x.Id).ToList(), ct)));
@@ -94,19 +94,18 @@ public class BakingService(
         if (timeError is not null) return Fail<BakingRecordDto>(timeError);
 
         await using var tx = await db.Database.BeginTransactionAsync(ct);
-        var lockItemId = await db.BakingRecords.Where(b => b.Id == id).Select(b => (int?)b.Lot.ItemId).FirstOrDefaultAsync(ct);
+        var lockItemId = (await store.BakingDetailsAsync([id], ct)).Select(b => (int?)b.ItemId).FirstOrDefault();
         if (lockItemId is int itemToLock) await StockLocks.AcquireAsync(db, StockLocks.Item(itemToLock), ct);
-        var record = await db.BakingRecords.FirstOrDefaultAsync(b => b.Id == id, ct);
+        var record = (await store.BakingRecordsAsync([id], ct)).FirstOrDefault();
         if (record is null) return Fail<BakingRecordDto>("Baking record not found.", StatusCodes.Status404NotFound);
         if (record.Status == Cat.StatusCancelled) return Fail<BakingRecordDto>("This baking record was cancelled.");
 
-        var rebakeReturned = await ledger.Live().AnyAsync(m =>
-            m.BakingRecordId == id && m.TxnType == Cat.TxnReturn && m.ToStage == Cat.Baking, ct);
+        var flags = await ledger.BakingFlagsAsync(id, ct);
+        var rebakeReturned = flags.RebakeReturned;
         if (!rebakeReturned && (u.RebakeStart is not null || u.RebakeStop is not null) && record.RebakeStart is null)
             return Fail<BakingRecordDto>("Re-bake times can only be entered after electrodes are returned for re-baking.");
 
-        var placed = await ledger.Live().AnyAsync(m => m.BakingRecordId == id && m.FromStage == Cat.Baking, ct);
-        if (placed && (u.BakeStart is null || u.BakeStop is null))
+        if (flags.Placed && (u.BakeStart is null || u.BakeStop is null))
             return Fail<BakingRecordDto>("Start and stop times are required once electrodes from this batch have been placed or issued.");
 
         record.PersonInCharge = pic;
@@ -117,9 +116,8 @@ public class BakingService(
         record.RebakeStop = u.RebakeStop;
         record.Remarks = T.FreeText(u.Remarks, 500);
         await items.EnsureLookupsAsync([(Cat.PersonInChargeLookup, pic)], ct);
-        await db.SaveChangesAsync(ct);
+        await store.SaveBakingAsync([record], ct);
         await ledger.RefreshBakingStatusAsync([id], ct);
-        await db.SaveChangesAsync(ct);
         await tx.CommitAsync(ct);
 
         return ServiceResult<BakingRecordDto>.Ok((await RecordsAsync([id], ct))[0]);
@@ -137,16 +135,13 @@ public class BakingService(
         if (r.FinishedAfterBaking && r.WelderId is null) return Fail<PlaceResult>("Welder Name is required for Finished After Baking.");
         if (!r.FinishedAfterBaking && r.CompartmentId is null) return Fail<PlaceResult>("Choose a compartment, or select Finished After Baking.");
 
-        var head = await db.BakingRecords.AsNoTracking()
-            .Where(b => b.Id == r.BakingRecordId)
-            .Select(b => new { b.Id, b.BakingNo, b.LotId, b.Lot.ItemId })
-            .FirstOrDefaultAsync(ct);
+        var head = (await store.BakingDetailsAsync([r.BakingRecordId], ct)).FirstOrDefault();
         if (head is null) return Fail<PlaceResult>("Baking record not found.", StatusCodes.Status404NotFound);
 
         await using var tx = await db.Database.BeginTransactionAsync(ct);
         await StockLocks.AcquireAsync(db, StockLocks.Item(head.ItemId), ct);
 
-        var record = await db.BakingRecords.FirstAsync(b => b.Id == head.Id, ct);
+        var record = (await store.BakingRecordsAsync([head.Id], ct)).First();
         if (record.Status is not (Cat.StatusBaked or Cat.StatusRebaked))
             return Fail<PlaceResult>($"{record.BakingNo} is {StatusText(record.Status)}. Record the stop time before placing it.",
                 StatusCodes.Status409Conflict);
@@ -174,7 +169,7 @@ public class BakingService(
         }
 
         var txnNo = await ledger.NextTxnNoAsync(ct);
-        db.ConsumableMovements.Add(new ConsumableMovement
+        var movement = new ConsumableMovement
         {
             TxnNo = txnNo,
             TxnType = r.FinishedAfterBaking ? Cat.TxnIssue : Cat.TxnHold,
@@ -189,7 +184,7 @@ public class BakingService(
             Requestor = welder?.WelderName,
             Remarks = T.FreeText(r.Remarks, 500),
             CreatedBy = user,
-        });
+        };
 
         var holding = new HoldingRecord
         {
@@ -205,24 +200,19 @@ public class BakingService(
             Remarks = T.FreeText(r.Remarks, 500),
             CreatedBy = user,
         };
-        db.HoldingRecords.Add(holding);
-        await db.SaveChangesAsync(ct);
+        await store.AddMovementsAsync([movement], ct);
+        await store.AddHoldingAsync(holding, ct);
         await ledger.RefreshBakingStatusAsync([record.Id], ct);
-        await db.SaveChangesAsync(ct);
         await tx.CommitAsync(ct);
 
-        var holdingDto = (await HoldingsAsync(db.HoldingRecords.AsNoTracking().Where(h => h.Id == holding.Id), ct))[0];
+        var holdingDto = (await store.SearchHoldingsAsync(holding.Id, null, null, [], 0, 1, ct)).Rows[0];
         return ServiceResult<PlaceResult>.Ok(new PlaceResult(holdingDto, (await RecordsAsync([record.Id], ct))[0], warning));
     }
 
     public async Task<List<BakingRecordDto>> GetBoardAsync(CancellationToken ct)
     {
-        var open = Cat.OpenBakingStatuses.ToList();
-        var ids = await db.BakingRecords.AsNoTracking()
-            .Where(b => open.Contains(b.Status))
-            .Select(b => b.Id)
-            .ToListAsync(ct);
-        return await RecordsAsync(ids, ct);
+        var (rows, _) = await store.SearchBakingAsync(null, null, null, Cat.OpenBakingStatuses, [], 0, int.MaxValue, ct);
+        return await ToDtosAsync(rows, ct);
     }
 
     public async Task<ServiceResult<BakingPage>> GetRecordsAsync(BakingQuery p, CancellationToken ct)
@@ -234,46 +224,16 @@ public class BakingService(
             if (status is null) return Fail<BakingPage>("Unknown baking status.");
         }
 
-        var q = db.BakingRecords.AsNoTracking();
-        if (p.From is DateOnly from) q = q.Where(b => b.BakingDate >= from);
-        if (p.To is DateOnly to) q = q.Where(b => b.BakingDate <= to);
-        if (status is not null) q = q.Where(b => b.Status == status);
-        if (p.OpenOnly)
-        {
-            var open = Cat.OpenBakingStatuses.ToList();
-            q = q.Where(b => open.Contains(b.Status));
-        }
-        foreach (var term in T.Terms(p.Q))
-        {
-            q = q.Where(b => b.BakingNo.Contains(term) || b.PersonInCharge.Contains(term) || b.Lot.LotNumber.Contains(term)
-                             || b.Lot.Brand.Contains(term) || b.Lot.Item.Specification.Contains(term)
-                             || b.Lot.Item.Diameter.Contains(term));
-        }
-
-        var total = await q.CountAsync(ct);
-        var ids = await q.OrderByDescending(b => b.Id)
-            .Skip(Math.Max(p.Skip, 0))
-            .Take(Math.Clamp(p.Take, 1, T.MaxPageSize))
-            .Select(b => b.Id)
-            .ToListAsync(ct);
-        var rows = await RecordsAsync(ids, ct);
+        var (found, total) = await store.SearchBakingAsync(p.From, p.To, status, p.OpenOnly ? Cat.OpenBakingStatuses : null,
+            T.Terms(p.Q), Math.Max(p.Skip, 0), Math.Clamp(p.Take, 1, T.MaxPageSize), ct);
+        var rows = await ToDtosAsync(found, ct);
         return ServiceResult<BakingPage>.Ok(new BakingPage(rows.OrderByDescending(r => r.Id).ToList(), total));
     }
 
     public async Task<HoldingPage> GetHoldingsAsync(HoldingQuery p, CancellationToken ct)
     {
-        var q = db.HoldingRecords.AsNoTracking();
-        if (p.From is DateOnly from) q = q.Where(h => h.HoldingDate >= from);
-        if (p.To is DateOnly to) q = q.Where(h => h.HoldingDate <= to);
-        foreach (var term in T.Terms(p.Q))
-        {
-            q = q.Where(h => h.HoldingNo.Contains(term) || h.BakingRecord.BakingNo.Contains(term)
-                             || h.BakingRecord.Lot.LotNumber.Contains(term) || h.BakingRecord.Lot.Item.Specification.Contains(term)
-                             || (h.WelderName != null && h.WelderName.Contains(term)));
-        }
-
-        var total = await q.CountAsync(ct);
-        var rows = await HoldingsAsync(q.OrderByDescending(h => h.Id).Skip(Math.Max(p.Skip, 0)).Take(Math.Clamp(p.Take, 1, T.MaxPageSize)), ct);
+        var (rows, total) = await store.SearchHoldingsAsync(null, p.From, p.To, T.Terms(p.Q), Math.Max(p.Skip, 0),
+            Math.Clamp(p.Take, 1, T.MaxPageSize), ct);
         return new HoldingPage(rows, total);
     }
 
@@ -290,9 +250,9 @@ public class BakingService(
         if (guards.CheckBackdate(DateOnly.FromDateTime(at)) is string backdate) return Fail<BakingResult>(backdate);
 
         await using var tx = await db.Database.BeginTransactionAsync(ct);
-        var lockItemIds = await db.BakingRecords.Where(b => ids.Contains(b.Id)).Select(b => b.Lot.ItemId).Distinct().ToListAsync(ct);
+        var lockItemIds = (await store.BakingDetailsAsync(ids, ct)).Select(b => b.ItemId).Distinct().ToList();
         foreach (var itemToLock in lockItemIds.Order()) await StockLocks.AcquireAsync(db, StockLocks.Item(itemToLock), ct);
-        var records = await db.BakingRecords.Where(b => ids.Contains(b.Id)).ToListAsync(ct);
+        var records = await store.BakingRecordsAsync(ids, ct);
         if (records.Count != ids.Count) return Fail<BakingResult>("One or more baking records were not found.", StatusCodes.Status404NotFound);
 
         foreach (var record in records)
@@ -324,9 +284,8 @@ public class BakingService(
             }
         }
 
-        await db.SaveChangesAsync(ct);
+        await store.SaveBakingAsync(records, ct);
         await ledger.RefreshBakingStatusAsync(ids, ct);
-        await db.SaveChangesAsync(ct);
         await tx.CommitAsync(ct);
 
         return ServiceResult<BakingResult>.Ok(new BakingResult(null, await RecordsAsync(ids, ct)));
@@ -349,18 +308,12 @@ public class BakingService(
     };
 
     private async Task<List<BakingRecordDto>> RecordsAsync(List<int> ids, CancellationToken ct)
+        => ids.Count == 0 ? [] : await ToDtosAsync(await store.BakingDetailsAsync(ids, ct), ct);
+
+    private async Task<List<BakingRecordDto>> ToDtosAsync(List<BakingDetailRow> rows, CancellationToken ct)
     {
-        if (ids.Count == 0) return [];
-        var rows = await db.BakingRecords.AsNoTracking()
-            .Where(b => ids.Contains(b.Id))
-            .Select(b => new
-            {
-                b.Id, b.BakingNo, b.Lot.ItemId, b.Lot.Item.Category, b.Lot.Item.Diameter, b.Lot.Item.Specification,
-                b.Lot.Item.HoldingOvenType, b.LotId, b.Lot.Brand, b.Lot.LotNumber, b.QuantityKg, b.PersonInCharge, b.BakingDate,
-                b.BakeStart, b.BakeStop, b.RebakeStart, b.RebakeStop, b.Status, b.Remarks, b.CreatedBy, b.CreatedAt,
-            })
-            .ToListAsync(ct);
-        var balances = await ledger.BakingBalancesAsync(ids, ct);
+        if (rows.Count == 0) return [];
+        var balances = await ledger.BakingBalancesAsync(rows.Select(b => b.Id).ToList(), ct);
         return rows
             .OrderBy(b => b.Id)
             .Select(b => new BakingRecordDto(b.Id, b.BakingNo, b.ItemId, b.Category, Cat.DiaSpec(b.Diameter, b.Specification),
@@ -369,16 +322,6 @@ public class BakingService(
                 b.CreatedBy, b.CreatedAt))
             .ToList();
     }
-
-    private static Task<List<HoldingRecordDto>> HoldingsAsync(IQueryable<HoldingRecord> q, CancellationToken ct)
-        => q.Select(h => new HoldingRecordDto(
-                h.Id, h.HoldingNo, h.HoldingDate, h.BakingRecordId, h.BakingRecord.BakingNo, h.BakingRecord.Lot.ItemId,
-                h.BakingRecord.Lot.Item.Diameter + " " + h.BakingRecord.Lot.Item.Specification,
-                h.BakingRecord.LotId, h.BakingRecord.Lot.Brand, h.BakingRecord.Lot.LotNumber, h.WelderId, h.WelderName,
-                h.CompartmentId, h.Compartment != null ? h.Compartment.Oven.Code + "-" + h.Compartment.Label : null,
-                h.Compartment != null ? h.Compartment.Oven.OvenType : null, h.Compartment != null ? h.Compartment.Number : (int?)null,
-                h.IsFinishedAfterBaking, h.QuantityKg, h.TxnNo, h.IsVoided, h.Remarks, h.CreatedBy, h.CreatedAt))
-            .ToListAsync(ct);
 
     private static ServiceResult<TResult> Fail<TResult>(string error, int status = StatusCodes.Status400BadRequest)
         => ServiceResult<TResult>.Fail(error, status);

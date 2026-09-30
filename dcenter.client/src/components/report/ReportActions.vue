@@ -42,7 +42,7 @@
               <v-list-item prepend-icon="mdi-file-pdf-box" title="View PDF"
                            @click="viewPdf" />
               <v-list-item prepend-icon="mdi-microsoft-excel" title="Download Excel"
-                           :disabled="excelLoading" @click="downloadExcel" />
+                           :disabled="excelLoading" @click="openExcelSignOff" />
               <v-list-item prepend-icon="mdi-history" title="Status history"
                            @click="openHistory" />
               <v-divider class="my-1" />
@@ -99,6 +99,8 @@
     </v-card>
   </v-dialog>
 
+  <ReportSignOffDialog v-model="excelSignOff" :work-order-number="report.workOrderNumber" confirm-label="Download Excel"
+                       confirm-icon="mdi-microsoft-excel" :busy="excelLoading" @confirm="downloadExcel" />
   <ReportPdfDialog v-model="pdfDialog" :work-order-number="report.workOrderNumber"
                    :part-no="report.partNo" :description="report.description" />
 
@@ -115,6 +117,7 @@
   import { reportFileName } from '@/utils/fileName'
   import ConfirmDeleteDialog from '@/components/common/ConfirmDeleteDialog.vue'
   import ReportPdfDialog from '@/components/report/ReportPdfDialog.vue'
+  import ReportSignOffDialog from '@/components/report/ReportSignOffDialog.vue'
   import { REPORT_ACTION, REPORT_STATUS } from '@/utils/constants'
 
   const store = useReportStore()
@@ -129,6 +132,7 @@
   const confirmDelete = ref(false)
   const historyDialog = ref(false)
   const excelLoading = ref(false)
+  const excelSignOff = ref(false)
   function actionColor(action) {
     if (action === REPORT_ACTION.completed) return 'success'
     if (action === REPORT_ACTION.reopened) return 'warning'
@@ -206,13 +210,18 @@
     else notify(store.error || 'Could not delete the draft.', 'error')
   }
 
-  async function downloadExcel() {
+  function openExcelSignOff() {
     if (unsavedBlocksOutput()) return
+    excelSignOff.value = true
+  }
+
+  async function downloadExcel(signOff) {
     excelLoading.value = true
     try {
       const r = report.value
-      const blob = await store.fetchReportFile(r.workOrderNumber, 'excel')
+      const blob = await store.fetchReportFile(r.workOrderNumber, 'excel', signOff)
       saveBlob(blob, `${reportFileName(r.workOrderNumber, r.partNo, r.description)}.xlsx`)
+      excelSignOff.value = false
     } catch {
       notify('Could not download the Excel file.', 'error')
     } finally {

@@ -30,9 +30,9 @@ DCenter/
 ├─ DCenter.Server.Tests/          xUnit tests for ledger, guards, CSV, auth, idempotency and report rules
 ├─ DCenter.Server/                ASP.NET Core Web API (.NET 10, EF Core, SQL Server)
 │  ├─ Program.cs                  DI, data protection, SPA hosting
-│  ├─ Data/                       WeldReportContext (app DB), ErpViewContext (read-only work order views), EF configuration
+│  ├─ Data/                       WeldReportContext (EF model and migrations for the app tables)
 │  ├─ Migrations/                 EF Core migrations: the only way schema changes
-│  ├─ Sql/DCenter/                Work order views over OracleBetsyDB, run once by hand
+│  ├─ Sql/DCenter/                Hand-run scripts: one-time schema upgrade, work order views over OracleBetsyDB, stored procedures
 │  ├─ Assets/                     Logos embedded in the PDF / Excel report
 │  ├─ Controllers/  Services/  Entities/  Models/
 │  │    each split into:  Consumables/  WeldReport/  Settings/  Supervisor/  (+ Services/Shared)
@@ -56,9 +56,10 @@ C# namespaces stay flat (`DCenter.Server.Services`, `.Entities`, `.Models`, `.Co
 - **Controllers stay thin.** Each controller binds input, calls one service method and maps its `ServiceResult<T>`: Consumables through `ConsumableControllerBase.ToAction`, Settings through `SettingsControllerBase`. Business rules live in `Services/`. WPS, MRN and BPVC IX share `ReferenceTableService<T>`; each table is described once in `Services/Settings/ReferenceTables.cs` (CSV columns, key, max lengths).
 - **Time is injected.** Services take `TimeProvider` and use `Clock.LocalNow()` / `Clock.Today()` (local wall-clock time, same as `DateTime.Now`), so date rules are unit-testable.
 - **Stock writes are serialized with `sp_getapplock`** (`Services/Consumables/StockLocks.cs`) inside the write transaction. Always acquire in this order to avoid deadlocks: `StockLocks.Master` → `StockLocks.Item(id)` (ascending id) → `StockLocks.Compartment(id)` (ascending id).
-- **Supervisor sessions** are Data Protection tokens (keys DPAPI-protected on Windows). Refreshing keeps the original login time, so a session ends `SupervisorMaxSessionHours` after login. Logouts are stored in `DCenter_SupervisorRevokedTokens` and survive an app-pool recycle.
+- **Supervisor sessions** are Data Protection tokens (keys DPAPI-protected on Windows). Refreshing keeps the original login time, so a session ends `SupervisorMaxSessionHours` after login. Logouts are stored in `dcenter.SupervisorRevokedTokens` and survive an app-pool recycle.
 - **Kiosk endpoints are open by design.** Welders use the app without logging in, so reads (reports, welders, exports) and welder actions (counter issue/return/finish, baking, holding, saving a draft report) need no supervisor token. `X-Entered-By` is informational, not authentication.
 - **Client:** server calls live in stores and composables (`useCrudApi`, `usePagedList`), never in templates. Stores: `reportStore` (editor, search, BOM tree, saved list), `reportInsightsStore` (dashboard, trace), `supervisorStore` (login session), `consumableStore` (stock screens). Shared helpers are in `src/utils` (`errors.js`, `files.js`, `timing.js`, `date.js`, `constants.js`, `fileName.js`). Code style: no semicolons, single quotes, enforced by lint.
+- **SQL objects.** The database is shared with other teams, so every DCenter object lives in its own schema `dcenter` and nothing is created in `dbo`. Inside the schema, names carry no `DCenter` prefix: 20 tables (`dcenter.Welders`, `dcenter.Reports`, …), one sequence `dcenter.DocumentNoSeq`, EF's `dcenter.__EFMigrationsHistory`, two views over OracleBetsyDB (`dcenter.V_WorkOrder`, `dcenter.V_Bom`) and 57 stored procedures `dcenter.SP_<Module>_<Action>` that read and write the tables directly. `DocumentNoSeq` is one counter shared by every document number (`CT-yy-000000`, `BK-yy-0000`, `HD-yy-0000`, `SC-yy-0000`): numbers are unique and safe under concurrent saves, but one prefix's numbers are not consecutive. There are no table types: several rows or ids go into a procedure as one JSON string (`NVARCHAR(MAX)`, read with `OPENJSON`). Tables and the sequence come from EF migrations (`WeldReportContext.Schema`; a single `InitialCreate` migration); views and procedures live in `DCenter.Server/Sql/DCenter/` and are run by hand (see "Database scripts"). To change a procedure, edit it in `DCenter_StoredProcedures.sql` and re-run the file. C# calls procedures through `StoredProcedures` (`Services/Shared`), always with typed `SqlParameter`s (`Sql.Json` / `Sql.IdList` for JSON), and wraps every writing call in `StoredProcedures.Write` so SQL errors surface as `DbUpdateException` (a procedure `THROW 50001` for a row that is gone becomes `DbUpdateConcurrencyException`). A missing procedure is logged as "Stored procedure … does not exist. Run … DCenter_StoredProcedures.sql". Stock ledger totals are in `ConsumableLedger`, every other consumables read and write in `ConsumableStore`. EF Core is still used for migrations, transactions and `sp_getapplock`.
 - **Static files** are served from `dcenter.client/dist` when it sits next to the server, otherwise from `wwwroot` (published output), after the error handler and security headers.
 
 ## Configuration
@@ -72,6 +73,7 @@ Secrets and connection strings belong in environment variables, not in `appsetti
 | `Consumables__WelderBackdateDays` | Optional: how many days back welders may date entries (default 7; supervisors are not limited) |
 | `DataProtection__KeysPath` | Optional: folder for session-signing keys (default `DCenter.Server/App_Data/keys`; the IIS app pool needs write access) |
 | `DCenter__AutoMigrate` | Optional: apply pending EF Core migrations at startup (default `true`; set `false` when a DBA applies scripts) |
+| `WeldReport__DefaultEngineer` | Optional: Engineer / Supervisor name prefilled on the Weld Order Card PDF and Excel (default `Aizat Karim`) |
 | `Consumables__SupervisorSessionHours` | Optional: lifetime of one supervisor token before it must be refreshed (default 12, 1–24) |
 | `Consumables__SupervisorMaxSessionHours` | Optional: a supervisor must log in again this many hours after the original login, however often the session was refreshed (default 24) |
 
@@ -94,14 +96,18 @@ dotnet user-secrets set "Consumables:SupervisorPassword" "<dev password>" --proj
 
 Client checks: `npm run lint-check` reports problems without changing files; `npm run lint` applies auto-fixes.
 
-### Work order views
+### Database scripts
 
-Work orders and BOM levels come from OracleBetsyDB through views in the DCenter database, so nothing is created in OracleBetsyDB. Run `DCenter.Server/Sql/DCenter/DCenter_SourceViews.sql` once on the DCenter database (it is safe to re-run). It needs:
+EF Core migrations own the tables and the sequence: on a new database the site applies the single `InitialCreate` migration on first start, which creates schema `dcenter` (owned by the site's login), the tables, `DocumentNoSeq` and the seeded ovens. Views and stored procedures are plain scripts in `DCenter.Server/Sql/DCenter/`, run by hand on the DCenter database after the first start:
 
-- the DCenter database on the same SQL Server as OracleBetsyDB, or a linked server (replace `OracleBetsyDB.dbo.` with `[server].OracleBetsyDB.dbo.` for a dev localdb);
-- SELECT on `Work_Order_Detail` and `Bill_Of_Material_Others` in OracleBetsyDB for the DefaultConnection login.
+1. `DCenter_SourceViews.sql`: `V_WorkOrder` and `V_Bom`, the views over OracleBetsyDB. Nothing is created in OracleBetsyDB. It needs:
+   - the DCenter database on the same SQL Server as OracleBetsyDB, or a linked server (replace `OracleBetsyDB.dbo.` with `[server].OracleBetsyDB.dbo.` for a dev localdb);
+   - SELECT on `Work_Order_Detail` and `Bill_Of_Material_Others` in OracleBetsyDB for the DefaultConnection login.
+2. `DCenter_StoredProcedures.sql`: the `SP_*` procedures.
 
-Until then the work order search shows a message saying which step is missing.
+Both are safe to re-run; re-run them whenever a release changes them. They need SQL Server 2017 or later with database compatibility level 130 or higher (`OPENJSON`; the procedures script stops with a message otherwise). With sqlcmd, pass `-I`: `sqlcmd -S <server> -d DCenter -I -b -i DCenter_StoredProcedures.sql`.
+
+The DefaultConnection login does not need `db_owner`: `db_ddladmin` + `db_datareader` + `db_datawriter` is enough, because the login that creates schema `dcenter` owns it and so may run migrations and execute the procedures. If the schema was created by another principal, the DBA grants `EXECUTE ON SCHEMA::dcenter` to the login once. Until the views exist the work order search shows a message saying which step is missing; until the procedures exist the server log names the missing procedure.
 
 Frontend only: `cd dcenter.client && npm ci && npm run dev`. API calls use relative `/api/...` paths through the Vite proxy.
 

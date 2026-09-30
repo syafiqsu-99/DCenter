@@ -23,9 +23,9 @@ if (string.IsNullOrWhiteSpace(connectionString))
     throw new InvalidOperationException(
         "The database connection string is not set. Set the machine environment variable ConnectionStrings__DefaultConnection and restart the site.");
 
-builder.Services.AddDbContext<WeldReportContext>(opt => opt.UseSqlServer(connectionString));
+builder.Services.AddDbContext<WeldReportContext>(opt => opt.UseSqlServer(connectionString,
+    sql => sql.MigrationsHistoryTable("__EFMigrationsHistory", WeldReportContext.Schema)));
 
-builder.Services.AddDbContext<ErpViewContext>(opt => opt.UseSqlServer(connectionString));
 
 builder.Services.AddProblemDetails();
 builder.Services.AddHttpContextAccessor();
@@ -47,9 +47,12 @@ builder.Services.AddSingleton<IdempotencyGate>();
 builder.Services.AddScoped<WorkOrderSearchService>();
 builder.Services.AddScoped<ReportService>();
 builder.Services.AddScoped<ReportInsightsService>();
+builder.Services.AddScoped<StoredProcedures>();
+builder.Services.Configure<WeldReportOptions>(builder.Configuration.GetSection(WeldReportOptions.Section));
 builder.Services.AddScoped<PdfReportService>();
 builder.Services.AddScoped<ExcelReportService>();
 builder.Services.Configure<ConsumableOptions>(builder.Configuration.GetSection(ConsumableOptions.Section));
+builder.Services.AddScoped<ConsumableStore>();
 builder.Services.AddScoped<ConsumableLedger>();
 builder.Services.AddScoped<ConsumableItemService>();
 builder.Services.AddScoped<ConsumableMovementService>();
@@ -115,10 +118,7 @@ if (app.Configuration.GetValue("DCenter:AutoMigrate", true))
 try
 {
     using var scope = app.Services.CreateScope();
-    var changedAt = await scope.ServiceProvider.GetRequiredService<WeldReportContext>().SupervisorCredentials.AsNoTracking()
-        .Where(c => c.Id == SupervisorCredential.SingletonId)
-        .Select(c => (DateTime?)c.UpdatedAt)
-        .FirstOrDefaultAsync();
+    var changedAt = (await scope.ServiceProvider.GetRequiredService<SupervisorPasswordService>().StatusAsync(CancellationToken.None)).UpdatedAt;
     var supervisorAuth = app.Services.GetRequiredService<SupervisorAuth>();
     if (changedAt is DateTime changed)
         supervisorAuth.RevokeIssuedBefore(new DateTimeOffset(DateTime.SpecifyKind(changed, DateTimeKind.Local)));

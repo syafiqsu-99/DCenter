@@ -15,11 +15,11 @@ public class PdfReportService
     private const float Border = 0.5f;
     private const float SingleLine = 10;
 
-    public byte[] Generate(Report r)
+    internal byte[] Generate(Report r, ResolvedSignOff signOff)
     {
         var weldDate = WeldCardLayout.FormatDate(r.DateWelded);
         var joints = r.Joints.OrderBy(j => j.JointNumber)
-            .Select(j => WeldCardLayout.Joint(j, weldDate))
+            .Select(j => WeldCardLayout.Joint(j, weldDate, signOff))
             .ToList();
 
         return Document.Create(doc =>

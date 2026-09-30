@@ -1,60 +1,66 @@
-using DCenter.Server.Data;
 using DCenter.Server.Models;
+using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using static DCenter.Server.Services.ReferenceCsv;
 
 namespace DCenter.Server.Services;
 
 // One reference table (WPS, MRN, BPVC IX): its CSV columns, key and how values map onto the entity.
+// Name picks the procedures SP_{Name}_List/Save/Delete; Save reads the rows as JSON arrays.
 public interface IReferenceTable<TEntity> where TEntity : class, new()
 {
     Column[] Columns { get; }
     string FileName { get; }
     string RequiredMessage { get; }
     string EntityName { get; }
+    string Name { get; }
     int IdOf(TEntity entity);
     string?[] Values(TEntity entity);
     void Write(TEntity entity, string?[] values);
-    IQueryable<TEntity> Ordered(IQueryable<TEntity> query);
-    IQueryable<TEntity> SameRequiredKey(IQueryable<TEntity> query, string?[] values);
+    SqlParameter[] RequiredKey(string?[] values);
 }
 
 public class ReferenceTableService<TEntity>(
-    WeldReportContext db, IReferenceTable<TEntity> table, ILogger<ReferenceTableService<TEntity>> logger)
+    StoredProcedures sp, IReferenceTable<TEntity> table, ILogger<ReferenceTableService<TEntity>> logger)
     where TEntity : class, new()
 {
     public const string SaveConflict =
         "This change could not be saved because the table changed at the same time. Reload the list and try again.";
 
-    private DbSet<TEntity> Set => db.Set<TEntity>();
+    private string Procedure(string action) => $"SP_{table.Name}_{action}";
 
     public Task<List<TEntity>> ListAsync(CancellationToken ct)
-        => table.Ordered(Set.AsNoTracking()).ToListAsync(ct);
+        => sp.EntitiesAsync<TEntity>(Procedure("List"), ct);
 
     public async Task<ServiceResult<TEntity>> CreateAsync(string?[] values, CancellationToken ct)
     {
         if (await ValidateAsync(values, 0, ct) is { } error) return error.As<TEntity>();
         var entity = new TEntity();
         table.Write(entity, values);
-        Set.Add(entity);
-        return await SaveAsync(entity, ct);
+        return await TrySaveAsync(async () => (await SaveAsync([], [entity], ct)).Single());
     }
 
     public async Task<ServiceResult<bool>> UpdateAsync(int id, string?[] values, CancellationToken ct)
     {
-        var entity = await Set.FindAsync([id], ct);
+        var entity = await GetAsync(id, ct);
         if (entity is null) return ServiceResult<bool>.NotFound();
         if (await ValidateAsync(values, id, ct) is { } error) return error;
         table.Write(entity, values);
-        return await SaveAsync(true, ct);
+        return await TrySaveAsync(async () =>
+        {
+            await SaveAsync([entity], [], ct);
+            return true;
+        });
     }
 
     public async Task<ServiceResult<bool>> DeleteAsync(int id, CancellationToken ct)
     {
-        var entity = await Set.FindAsync([id], ct);
-        if (entity is null) return ServiceResult<bool>.NotFound();
-        Set.Remove(entity);
-        return await SaveAsync(true, ct);
+        if (await GetAsync(id, ct) is null) return ServiceResult<bool>.NotFound();
+        return await TrySaveAsync(async () =>
+        {
+            await StoredProcedures.Write(sp.ExecuteAsync(Procedure("Delete"), ct, Sql.Int("@Id", id)));
+            return true;
+        });
     }
 
     public async Task<byte[]> ExportAsync(CancellationToken ct)
@@ -65,25 +71,23 @@ public class ReferenceTableService<TEntity>(
         var sheet = await ReadAsync(file, table.Columns, ct);
         if (sheet.Errors.Count > 0) return ServiceResult<ImportCounts>.Fail(string.Join(" ", sheet.Errors));
 
-        var existing = await Set.ToListAsync(ct);
-        var counts = Upsert(table.Columns, sheet.Rows, existing, table.Values, table.Write, () =>
-        {
-            var entity = new TEntity();
-            Set.Add(entity);
-            return entity;
-        });
+        var existing = await ListAsync(ct);
+        var plan = UpsertPlan(table.Columns, sheet.Rows, existing, table.Values, table.Write, () => new TEntity());
 
         try
         {
-            await db.SaveChangesAsync(ct);
+            await SaveAsync(plan.Updated, plan.Added, ct);
         }
         catch (DbUpdateException ex)
         {
             logger.LogError(ex, "{Table} import failed to save", table.EntityName);
             return ServiceResult<ImportCounts>.Fail(ImportSaveConflict, StatusCodes.Status409Conflict);
         }
-        return ServiceResult<ImportCounts>.Ok(counts);
+        return ServiceResult<ImportCounts>.Ok(plan.Counts);
     }
+
+    private async Task<TEntity?> GetAsync(int id, CancellationToken ct)
+        => (await sp.EntitiesAsync<TEntity>(Procedure("List"), ct, Sql.Int("@Id", id))).FirstOrDefault();
 
     private async Task<ServiceResult<bool>?> ValidateAsync(string?[] values, int excludeId, CancellationToken ct)
     {
@@ -93,18 +97,29 @@ public class ReferenceTableService<TEntity>(
         if (LengthError(columns, values) is { } tooLong) return ServiceResult<bool>.Fail(tooLong);
 
         var key = KeyOf(columns, values);
-        var candidates = await table.SameRequiredKey(Set.AsNoTracking(), values).ToListAsync(ct);
+        var candidates = await sp.EntitiesAsync<TEntity>(Procedure("List"), ct, table.RequiredKey(values));
         return candidates.Any(e => table.IdOf(e) != excludeId && KeyOf(columns, table.Values(e)) == key)
             ? ServiceResult<bool>.Fail($"A row with this {KeyLabel(columns)} already exists. Edit that row instead.", StatusCodes.Status409Conflict)
             : null;
     }
 
-    private async Task<ServiceResult<T>> SaveAsync<T>(T value, CancellationToken ct)
+    // Updates the rows that have an Id, inserts the others in order, and returns the inserted rows.
+    private Task<List<TEntity>> SaveAsync(IEnumerable<TEntity> updated, IEnumerable<TEntity> added, CancellationToken ct)
+    {
+        var rows = updated.Select(e => (Id: (int?)table.IdOf(e), Entity: e))
+            .Concat(added.Select(e => (Id: (int?)null, Entity: e)))
+            .Select((r, seq) => Row(seq, r.Id, table.Values(r.Entity)));
+        return StoredProcedures.Write(sp.EntitiesAsync<TEntity>(Procedure("Save"), ct, Sql.Json("@Rows", rows)));
+    }
+
+    // One JSON array per row: Seq, Id, then the values in Columns order (the procedure reads them by position).
+    private static object?[] Row(int seq, int? id, string?[] values) => [seq, id, .. values];
+
+    private async Task<ServiceResult<T>> TrySaveAsync<T>(Func<Task<T>> save)
     {
         try
         {
-            await db.SaveChangesAsync(ct);
-            return ServiceResult<T>.Ok(value);
+            return ServiceResult<T>.Ok(await save());
         }
         catch (DbUpdateException ex)
         {

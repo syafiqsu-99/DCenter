@@ -17,18 +17,13 @@ namespace DCenter.Server.Migrations
         {
 #pragma warning disable 612, 618
             modelBuilder
+                .HasDefaultSchema("dcenter")
                 .HasAnnotation("ProductVersion", "10.0.12")
                 .HasAnnotation("Relational:MaxIdentifierLength", 128);
 
             SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
 
-            modelBuilder.HasSequence("DCenter_BakingNoSeq");
-
-            modelBuilder.HasSequence("DCenter_ConsumableTxnSeq");
-
-            modelBuilder.HasSequence("DCenter_HoldingNoSeq");
-
-            modelBuilder.HasSequence("DCenter_StockCountSeq");
+            modelBuilder.HasSequence("DocumentNoSeq");
 
             modelBuilder.Entity("DCenter.Server.Entities.BakingRecord", b =>
                 {
@@ -97,13 +92,13 @@ namespace DCenter.Server.Migrations
 
                     b.HasIndex("Status");
 
-                    b.ToTable("DCenter_BakingRecords", null, t =>
+                    b.ToTable("BakingRecords", "dcenter", t =>
                         {
-                            t.HasCheckConstraint("CK_DCenter_BakingRecords_Qty", "[QuantityKg] > 0");
+                            t.HasCheckConstraint("CK_BakingRecords_Qty", "[QuantityKg] > 0");
 
-                            t.HasCheckConstraint("CK_DCenter_BakingRecords_Status", "[Status] IN (N'Queued', N'Baking', N'Baked', N'RebakeQueued', N'Rebaking', N'Rebaked', N'Closed', N'Cancelled')");
+                            t.HasCheckConstraint("CK_BakingRecords_Status", "[Status] IN (N'Queued', N'Baking', N'Baked', N'RebakeQueued', N'Rebaking', N'Rebaked', N'Closed', N'Cancelled')");
 
-                            t.HasCheckConstraint("CK_DCenter_BakingRecords_Times", "([BakeStop] IS NULL OR ([BakeStart] IS NOT NULL AND [BakeStop] > [BakeStart])) AND ([RebakeStart] IS NULL OR ([BakeStop] IS NOT NULL AND [RebakeStart] > [BakeStop])) AND ([RebakeStop] IS NULL OR ([RebakeStart] IS NOT NULL AND [RebakeStop] > [RebakeStart]))");
+                            t.HasCheckConstraint("CK_BakingRecords_Times", "([BakeStop] IS NULL OR ([BakeStart] IS NOT NULL AND [BakeStop] > [BakeStart])) AND ([RebakeStart] IS NULL OR ([BakeStop] IS NOT NULL AND [RebakeStart] > [BakeStop])) AND ([RebakeStop] IS NULL OR ([RebakeStart] IS NOT NULL AND [RebakeStop] > [RebakeStart]))");
                         });
                 });
 
@@ -165,7 +160,7 @@ namespace DCenter.Server.Migrations
 
                     b.HasIndex("SpecNo", "Designation", "UnsNo", "PNo");
 
-                    b.ToTable("DCenter_BpvcIx", (string)null);
+                    b.ToTable("BpvcIx", "dcenter");
                 });
 
             modelBuilder.Entity("DCenter.Server.Entities.ConsumableItem", b =>
@@ -218,15 +213,15 @@ namespace DCenter.Server.Migrations
                     b.HasIndex("Specification", "Diameter")
                         .IsUnique();
 
-                    b.ToTable("DCenter_ConsumableItems", null, t =>
+                    b.ToTable("ConsumableItems", "dcenter", t =>
                         {
-                            t.HasCheckConstraint("CK_DCenter_ConsumableItems_Category", "[Category] IN (N'Bare & Powder Filler', N'Electrode Filler')");
+                            t.HasCheckConstraint("CK_ConsumableItems_Category", "[Category] IN (N'Bare & Powder Filler', N'Electrode Filler')");
 
-                            t.HasCheckConstraint("CK_DCenter_ConsumableItems_Diameter", "LEN([Diameter]) > 0");
+                            t.HasCheckConstraint("CK_ConsumableItems_Diameter", "LEN([Diameter]) > 0");
 
-                            t.HasCheckConstraint("CK_DCenter_ConsumableItems_Limits", "[MinStockKg] >= 0 AND [ActivatedMinKg] >= 0 AND ([FinishThresholdKg] IS NULL OR [FinishThresholdKg] >= 0)");
+                            t.HasCheckConstraint("CK_ConsumableItems_Limits", "[MinStockKg] >= 0 AND [ActivatedMinKg] >= 0 AND ([FinishThresholdKg] IS NULL OR [FinishThresholdKg] >= 0)");
 
-                            t.HasCheckConstraint("CK_DCenter_ConsumableItems_OvenType", "[HoldingOvenType] IS NULL OR [HoldingOvenType] IN (N'Alloy Steel', N'Mild Steel', N'Ni Alloy', N'Stainless Steel')");
+                            t.HasCheckConstraint("CK_ConsumableItems_OvenType", "[HoldingOvenType] IS NULL OR [HoldingOvenType] IN (N'Alloy Steel', N'Mild Steel', N'Ni Alloy', N'Stainless Steel')");
                         });
                 });
 
@@ -259,7 +254,7 @@ namespace DCenter.Server.Migrations
                     b.HasIndex("ItemId", "Brand", "LotNumber")
                         .IsUnique();
 
-                    b.ToTable("DCenter_ConsumableItemLots", (string)null);
+                    b.ToTable("ConsumableItemLots", "dcenter");
                 });
 
             modelBuilder.Entity("DCenter.Server.Entities.ConsumableMovement", b =>
@@ -384,21 +379,21 @@ namespace DCenter.Server.Migrations
                     b.HasIndex("WelderId", "TxnDate")
                         .HasFilter("[WelderId] IS NOT NULL");
 
-                    b.ToTable("DCenter_ConsumableMovements", null, t =>
+                    b.ToTable("ConsumableMovements", "dcenter", t =>
                         {
-                            t.HasCheckConstraint("CK_DCenter_ConsumableMovements_Bin", "([FromCompartmentId] IS NULL OR [FromStage] = N'Activated') AND ([ToCompartmentId] IS NULL OR [ToStage] = N'Activated')");
+                            t.HasCheckConstraint("CK_ConsumableMovements_Bin", "([FromCompartmentId] IS NULL OR [FromStage] = N'Activated') AND ([ToCompartmentId] IS NULL OR [ToStage] = N'Activated')");
 
-                            t.HasCheckConstraint("CK_DCenter_ConsumableMovements_HoldMove", "([TxnType] <> N'Hold' OR [ToCompartmentId] IS NOT NULL) AND ([TxnType] <> N'Move' OR ([FromStage] = N'Activated' AND [ToStage] = N'Activated' AND [ToCompartmentId] IS NOT NULL))");
+                            t.HasCheckConstraint("CK_ConsumableMovements_HoldMove", "([TxnType] <> N'Hold' OR [ToCompartmentId] IS NOT NULL) AND ([TxnType] <> N'Move' OR ([FromStage] = N'Activated' AND [ToStage] = N'Activated' AND [ToCompartmentId] IS NOT NULL))");
 
-                            t.HasCheckConstraint("CK_DCenter_ConsumableMovements_Qty", "[QuantityKg] > 0");
+                            t.HasCheckConstraint("CK_ConsumableMovements_Qty", "[QuantityKg] > 0");
 
-                            t.HasCheckConstraint("CK_DCenter_ConsumableMovements_Source", "([Source] IS NULL OR [Source] IN (N'Weld Shop', N'Tool Crib')) AND ([TxnType] <> N'Receive' OR [Source] IS NOT NULL)");
+                            t.HasCheckConstraint("CK_ConsumableMovements_Source", "([Source] IS NULL OR [Source] IN (N'Weld Shop', N'Tool Crib')) AND ([TxnType] <> N'Receive' OR [Source] IS NOT NULL)");
 
-                            t.HasCheckConstraint("CK_DCenter_ConsumableMovements_Stage", "([FromStage] IS NULL OR [FromStage] IN (N'Normal', N'Baking', N'Activated')) AND ([ToStage] IS NULL OR [ToStage] IN (N'Normal', N'Baking', N'Activated')) AND ([FromStage] IS NOT NULL OR [ToStage] IS NOT NULL)");
+                            t.HasCheckConstraint("CK_ConsumableMovements_Stage", "([FromStage] IS NULL OR [FromStage] IN (N'Normal', N'Baking', N'Activated')) AND ([ToStage] IS NULL OR [ToStage] IN (N'Normal', N'Baking', N'Activated')) AND ([FromStage] IS NOT NULL OR [ToStage] IS NOT NULL)");
 
-                            t.HasCheckConstraint("CK_DCenter_ConsumableMovements_Type", "[TxnType] IN (N'Receive', N'Transfer', N'SendToBake', N'Hold', N'Move', N'Issue', N'Return', N'Finish', N'Adjust', N'Dispose', N'Void')");
+                            t.HasCheckConstraint("CK_ConsumableMovements_Type", "[TxnType] IN (N'Receive', N'Transfer', N'SendToBake', N'Hold', N'Move', N'Issue', N'Return', N'Finish', N'Adjust', N'Dispose', N'Void')");
 
-                            t.HasCheckConstraint("CK_DCenter_ConsumableMovements_Void", "([TxnType] = N'Void' AND [VoidsMovementId] IS NOT NULL) OR ([TxnType] <> N'Void' AND [VoidsMovementId] IS NULL)");
+                            t.HasCheckConstraint("CK_ConsumableMovements_Void", "([TxnType] = N'Void' AND [VoidsMovementId] IS NOT NULL) OR ([TxnType] <> N'Void' AND [VoidsMovementId] IS NULL)");
                         });
                 });
 
@@ -472,11 +467,11 @@ namespace DCenter.Server.Migrations
 
                     b.HasIndex("WelderId");
 
-                    b.ToTable("DCenter_HoldingRecords", null, t =>
+                    b.ToTable("HoldingRecords", "dcenter", t =>
                         {
-                            t.HasCheckConstraint("CK_DCenter_HoldingRecords_Qty", "[QuantityKg] > 0");
+                            t.HasCheckConstraint("CK_HoldingRecords_Qty", "[QuantityKg] > 0");
 
-                            t.HasCheckConstraint("CK_DCenter_HoldingRecords_Target", "([CompartmentId] IS NOT NULL AND [IsFinishedAfterBaking] = 0) OR ([CompartmentId] IS NULL AND [IsFinishedAfterBaking] = 1 AND [WelderId] IS NOT NULL)");
+                            t.HasCheckConstraint("CK_HoldingRecords_Target", "([CompartmentId] IS NOT NULL AND [IsFinishedAfterBaking] = 0) OR ([CompartmentId] IS NULL AND [IsFinishedAfterBaking] = 1 AND [WelderId] IS NOT NULL)");
                         });
                 });
 
@@ -528,7 +523,7 @@ namespace DCenter.Server.Migrations
 
                     b.HasIndex("ReportId");
 
-                    b.ToTable("DCenter_Joints", (string)null);
+                    b.ToTable("Joints", "dcenter");
                 });
 
             modelBuilder.Entity("DCenter.Server.Entities.JointMaterial", b =>
@@ -564,7 +559,7 @@ namespace DCenter.Server.Migrations
 
                     b.HasIndex("JointId");
 
-                    b.ToTable("DCenter_JointMaterials", (string)null);
+                    b.ToTable("JointMaterials", "dcenter");
                 });
 
             modelBuilder.Entity("DCenter.Server.Entities.LookupItem", b =>
@@ -596,7 +591,7 @@ namespace DCenter.Server.Migrations
                     b.HasIndex("Category", "Value")
                         .IsUnique();
 
-                    b.ToTable("DCenter_Lookups", (string)null);
+                    b.ToTable("Lookups", "dcenter");
                 });
 
             modelBuilder.Entity("DCenter.Server.Entities.MrnSpec", b =>
@@ -629,7 +624,7 @@ namespace DCenter.Server.Migrations
 
                     b.HasIndex("Mrn", "SpecNo");
 
-                    b.ToTable("DCenter_MrnSpecs", (string)null);
+                    b.ToTable("MrnSpecs", "dcenter");
                 });
 
             modelBuilder.Entity("DCenter.Server.Entities.Oven", b =>
@@ -666,9 +661,9 @@ namespace DCenter.Server.Migrations
                     b.HasIndex("OvenType")
                         .IsUnique();
 
-                    b.ToTable("DCenter_Ovens", null, t =>
+                    b.ToTable("Ovens", "dcenter", t =>
                         {
-                            t.HasCheckConstraint("CK_DCenter_Ovens_Type", "[OvenType] IN (N'Alloy Steel', N'Mild Steel', N'Ni Alloy', N'Stainless Steel')");
+                            t.HasCheckConstraint("CK_Ovens_Type", "[OvenType] IN (N'Alloy Steel', N'Mild Steel', N'Ni Alloy', N'Stainless Steel')");
                         });
 
                     b.HasData(
@@ -726,9 +721,9 @@ namespace DCenter.Server.Migrations
                     b.HasIndex("OvenId", "Number")
                         .IsUnique();
 
-                    b.ToTable("DCenter_OvenCompartments", null, t =>
+                    b.ToTable("OvenCompartments", "dcenter", t =>
                         {
-                            t.HasCheckConstraint("CK_DCenter_OvenCompartments_Number", "[Number] BETWEEN 1 AND 9");
+                            t.HasCheckConstraint("CK_OvenCompartments_Number", "[Number] BETWEEN 1 AND 9");
                         });
 
                     b.HasData(
@@ -1009,7 +1004,7 @@ namespace DCenter.Server.Migrations
                     b.HasIndex("Process", "Type")
                         .IsUnique();
 
-                    b.ToTable("DCenter_ProcessTypeLinks", (string)null);
+                    b.ToTable("ProcessTypeLinks", "dcenter");
                 });
 
             modelBuilder.Entity("DCenter.Server.Entities.Report", b =>
@@ -1092,7 +1087,7 @@ namespace DCenter.Server.Migrations
                     b.HasIndex("WorkOrderNumber")
                         .IsUnique();
 
-                    b.ToTable("DCenter_Reports", (string)null);
+                    b.ToTable("Reports", "dcenter");
                 });
 
             modelBuilder.Entity("DCenter.Server.Entities.ReportStatusEvent", b =>
@@ -1122,7 +1117,7 @@ namespace DCenter.Server.Migrations
 
                     b.HasIndex("ReportId");
 
-                    b.ToTable("DCenter_ReportStatusEvents", (string)null);
+                    b.ToTable("ReportStatusEvents", "dcenter");
                 });
 
             modelBuilder.Entity("DCenter.Server.Entities.StockCount", b =>
@@ -1186,11 +1181,11 @@ namespace DCenter.Server.Migrations
 
                     b.HasIndex("Scope", "CountDate");
 
-                    b.ToTable("DCenter_StockCounts", null, t =>
+                    b.ToTable("StockCounts", "dcenter", t =>
                         {
-                            t.HasCheckConstraint("CK_DCenter_StockCounts_Kg", "[GainKg] >= 0 AND [LossKg] >= 0");
+                            t.HasCheckConstraint("CK_StockCounts_Kg", "[GainKg] >= 0 AND [LossKg] >= 0");
 
-                            t.HasCheckConstraint("CK_DCenter_StockCounts_Scope", "[Scope] IN (N'Normal', N'Activated')");
+                            t.HasCheckConstraint("CK_StockCounts_Scope", "[Scope] IN (N'Normal', N'Activated')");
                         });
                 });
 
@@ -1213,9 +1208,9 @@ namespace DCenter.Server.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("DCenter_SupervisorCredentials", null, t =>
+                    b.ToTable("SupervisorCredentials", "dcenter", t =>
                         {
-                            t.HasCheckConstraint("CK_DCenter_SupervisorCredentials_Single", "[Id] = 1");
+                            t.HasCheckConstraint("CK_SupervisorCredentials_Single", "[Id] = 1");
                         });
                 });
 
@@ -1233,7 +1228,7 @@ namespace DCenter.Server.Migrations
 
                     b.HasIndex("ExpiresAt");
 
-                    b.ToTable("DCenter_SupervisorRevokedTokens", (string)null);
+                    b.ToTable("SupervisorRevokedTokens", "dcenter");
                 });
 
             modelBuilder.Entity("DCenter.Server.Entities.Welder", b =>
@@ -1270,9 +1265,9 @@ namespace DCenter.Server.Migrations
 
                     b.HasIndex("WelderNo");
 
-                    b.ToTable("DCenter_Welders", null, t =>
+                    b.ToTable("Welders", "dcenter", t =>
                         {
-                            t.HasCheckConstraint("CK_DCenter_Welders_UsageScope", "[UsageScope] IN (N'Report', N'ReportAndStock')");
+                            t.HasCheckConstraint("CK_Welders_UsageScope", "[UsageScope] IN (N'Report', N'ReportAndStock')");
                         });
                 });
 
@@ -1309,7 +1304,7 @@ namespace DCenter.Server.Migrations
                     b.HasIndex("WpsNo", "PNo")
                         .IsUnique();
 
-                    b.ToTable("DCenter_WpsItems", (string)null);
+                    b.ToTable("WpsItems", "dcenter");
                 });
 
             modelBuilder.Entity("DCenter.Server.Entities.BakingRecord", b =>

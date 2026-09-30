@@ -1,4 +1,5 @@
 using DCenter.Server.Entities;
+using Microsoft.Data.SqlClient;
 using static DCenter.Server.Services.ReferenceCsv;
 
 namespace DCenter.Server.Services;
@@ -23,6 +24,7 @@ public sealed class BpvcTable : IReferenceTable<BpvcMaterial>
     public string FileName => "bpvc.csv";
     public string RequiredMessage => "Spec No. and P-No. are required.";
     public string EntityName => "BPVC";
+    public string Name => "Bpvc";
 
     public int IdOf(BpvcMaterial b) => b.Id;
 
@@ -39,14 +41,8 @@ public sealed class BpvcTable : IReferenceTable<BpvcMaterial>
         (b.NominalComposition, b.TypicalProductForm, b.NominalThicknessLimits) = (Clean(v[8]), Clean(v[9]), Clean(v[10]));
     }
 
-    public IQueryable<BpvcMaterial> Ordered(IQueryable<BpvcMaterial> q)
-        => q.OrderBy(b => b.SpecNo).ThenBy(b => b.Designation).ThenBy(b => b.UnsNo).ThenBy(b => b.PNo);
-
-    public IQueryable<BpvcMaterial> SameRequiredKey(IQueryable<BpvcMaterial> q, string?[] v)
-    {
-        var (specNo, pNo) = (Clean(v[0]), Clean(v[3]));
-        return q.Where(b => b.SpecNo == specNo && b.PNo == pNo);
-    }
+    public SqlParameter[] RequiredKey(string?[] v)
+        => [Sql.NVarChar("@SpecNo", Clean(v[0]), 100), Sql.NVarChar("@PNo", Clean(v[3]), 50)];
 }
 
 public sealed class MrnTable : IReferenceTable<MrnSpec>
@@ -62,6 +58,7 @@ public sealed class MrnTable : IReferenceTable<MrnSpec>
     public string FileName => "mrn.csv";
     public string RequiredMessage => "MRN and Spec No. are required.";
     public string EntityName => "MRN";
+    public string Name => "Mrn";
 
     public int IdOf(MrnSpec m) => m.Id;
 
@@ -70,13 +67,8 @@ public sealed class MrnTable : IReferenceTable<MrnSpec>
     public void Write(MrnSpec m, string?[] v)
         => (m.Mrn, m.SpecNo, m.Form, m.FullSpecification) = (Clean(v[0]) ?? "", Clean(v[1]) ?? "", Clean(v[2]), Clean(v[3]));
 
-    public IQueryable<MrnSpec> Ordered(IQueryable<MrnSpec> q) => q.OrderBy(m => m.Mrn).ThenBy(m => m.SpecNo);
-
-    public IQueryable<MrnSpec> SameRequiredKey(IQueryable<MrnSpec> q, string?[] v)
-    {
-        var (mrn, specNo) = (Clean(v[0]), Clean(v[1]));
-        return q.Where(m => m.Mrn == mrn && m.SpecNo == specNo);
-    }
+    public SqlParameter[] RequiredKey(string?[] v)
+        => [Sql.NVarChar("@Mrn", Clean(v[0]), 100), Sql.NVarChar("@SpecNo", Clean(v[1]), 100)];
 }
 
 public sealed class WpsTable : IReferenceTable<WpsItem>
@@ -92,6 +84,7 @@ public sealed class WpsTable : IReferenceTable<WpsItem>
     public string FileName => "wps.csv";
     public string RequiredMessage => "WPS No. and P-No. are required.";
     public string EntityName => "WPS";
+    public string Name => "Wps";
 
     public int IdOf(WpsItem w) => w.Id;
 
@@ -100,11 +93,6 @@ public sealed class WpsTable : IReferenceTable<WpsItem>
     public void Write(WpsItem w, string?[] v)
         => (w.WpsNo, w.PNo, w.BaseMetal, w.Process) = (Clean(v[0]) ?? "", Clean(v[1]) ?? "", Clean(v[2]), Clean(v[3]));
 
-    public IQueryable<WpsItem> Ordered(IQueryable<WpsItem> q) => q.OrderBy(w => w.WpsNo).ThenBy(w => w.PNo);
-
-    public IQueryable<WpsItem> SameRequiredKey(IQueryable<WpsItem> q, string?[] v)
-    {
-        var (wpsNo, pNo) = (Clean(v[0]), Clean(v[1]));
-        return q.Where(w => w.WpsNo == wpsNo && w.PNo == pNo);
-    }
+    public SqlParameter[] RequiredKey(string?[] v)
+        => [Sql.NVarChar("@WpsNo", Clean(v[0]), 200), Sql.NVarChar("@PNo", Clean(v[1]), 50)];
 }
