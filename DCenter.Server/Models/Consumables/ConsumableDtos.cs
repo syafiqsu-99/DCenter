@@ -134,3 +134,84 @@ public record DashboardDto(
     List<ItemUsageDto> ItemUsage);
 
 public record WelderScopeUpdate(List<int>? Ids, string? UsageScope);
+
+public record SendToBakeRequest(
+    DateOnly? BakingDate, int ItemId, int? LotId, decimal QuantityKg, string? PersonInCharge, string? Remarks);
+
+public record BakingTimesRequest(List<int>? Ids, DateTime? At);
+
+public record BakingUpdate(
+    string? PersonInCharge, DateOnly? BakingDate, DateTime? BakeStart, DateTime? BakeStop,
+    DateTime? RebakeStart, DateTime? RebakeStop, string? Remarks);
+
+public record PlaceRequest(
+    DateOnly? HoldingDate, int BakingRecordId, int? CompartmentId, bool FinishedAfterBaking, int? WelderId,
+    decimal QuantityKg, bool TakeAll, string? Remarks);
+
+public record BakingRecordDto(
+    int Id, string BakingNo, int ItemId, string Category, string DiaSpec, string? HoldingOvenType,
+    int LotId, string Brand, string LotNumber, decimal QuantityKg, decimal BalanceKg, string PersonInCharge,
+    DateOnly BakingDate, DateTime? BakeStart, DateTime? BakeStop, DateTime? RebakeStart, DateTime? RebakeStop,
+    string Status, string? Remarks, string? CreatedBy, DateTime CreatedAt);
+
+public record BakingResult(string? TxnNo, List<BakingRecordDto> Records);
+
+public record BakingQuery(
+    DateOnly? From, DateOnly? To, string? Status, string? Q, bool OpenOnly = false, int Skip = 0, int Take = 100);
+
+public record BakingPage(List<BakingRecordDto> Items, int Total);
+
+public record HoldingRecordDto(
+    int Id, string HoldingNo, DateOnly HoldingDate, int BakingRecordId, string BakingNo, int ItemId, string DiaSpec,
+    int LotId, string Brand, string LotNumber, int? WelderId, string? WelderName, int? CompartmentId, string? CompartmentLabel,
+    string? OvenType, int? CompartmentNumber, bool IsFinishedAfterBaking, decimal QuantityKg, string TxnNo, bool IsVoided, string? Remarks, string? CreatedBy,
+    DateTime CreatedAt);
+
+public record HoldingQuery(DateOnly? From, DateOnly? To, string? Q, int Skip = 0, int Take = 100);
+
+public record HoldingPage(List<HoldingRecordDto> Items, int Total);
+
+public record PlaceResult(HoldingRecordDto Holding, BakingRecordDto Record, string? Warning);
+
+public record BinLotDto(
+    int ItemId, string DiaSpec, string Category, int LotId, string Brand, string LotNumber, decimal Kg, DateTime? SinceAt,
+    int? CompartmentId, string? HoldingOvenType, string Specification, string Diameter);
+
+public record CompartmentDto(
+    int Id, int OvenId, int Number, string Label, string Code, decimal TotalKg, DateTime? OldestSinceAt, List<BinLotDto> Contents);
+
+public record OvenDto(int Id, string Name, string Code, string OvenType, List<CompartmentDto> Compartments);
+
+public record OvenBoardDto(List<OvenDto> Ovens, List<BinLotDto> Unassigned);
+
+public record CountLineDto(
+    string Key, int ItemId, string Category, string Specification, string Diameter, string DiaSpec, int LotId, string Brand,
+    string LotNumber, string Stage, int? CompartmentId, string Location, decimal SystemKg);
+
+public record CountSheetDto(string Scope, string? Category, DateTime GeneratedAt, List<CountLineDto> Lines);
+
+public record CountLineInput(int ItemId, int LotId, int? CompartmentId, decimal SystemKg, decimal CountedKg);
+
+public record StockCountRequest(DateOnly? CountDate, string? Scope, string? Category, string? Remarks, List<CountLineInput>? Lines);
+
+public record StockCountDto(
+    int Id, string ReferenceNo, DateOnly CountDate, string Scope, string? Category, int LinesCounted, int LinesAdjusted,
+    decimal GainKg, decimal LossKg, decimal NetKg, string? TxnNo, bool IsVoided, string? Remarks, string? CreatedBy,
+    DateTime CreatedAt);
+
+public record StockCountDetailDto(StockCountDto Count, List<TransactionDto> Adjustments);
+
+public record StockCountPage(List<StockCountDto> Items, int Total);
+
+public record ImportRowDto(int Line, string Action, string? Category, string? DiaSpec, List<string> Messages);
+
+public record ImportResultDto(
+    bool Committed, int TotalRows, int Created, int Updated, int Unchanged, int Rejected, List<ImportRowDto> Rows,
+    List<string> FileErrors);
+
+public record StockImportRowDto(
+    int Line, string Status, string? DiaSpec, string? Brand, string? LotNumber, decimal? QuantityKg, string? Location, List<string> Messages);
+
+public record StockImportResultDto(
+    bool Committed, int TotalRows, int Ready, int NewConsumables, int Rejected, int Skipped, string? TxnNo,
+    List<StockImportRowDto> Rows, List<string> FileErrors);

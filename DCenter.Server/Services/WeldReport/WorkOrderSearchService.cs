@@ -2,7 +2,7 @@ using DCenter.Server.Models;
 
 namespace DCenter.Server.Services;
 
-// Work orders and BOM levels from OracleBetsyDB, read through the V_DCenter_WorkOrder / V_DCenter_Bom views.
+// Work orders and BOM levels from OracleBetsyDB, read through the V_WorkOrder / V_Bom views.
 public class WorkOrderSearchService(StoredProcedures sp)
 {
     public const int MaxPageSize = 100;
@@ -34,10 +34,10 @@ public class WorkOrderSearchService(StoredProcedures sp)
             .Where(i => i.Length > 0)
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .Take(MaxChildLookup);
-        return sp.QueryAsync<BomLinkDto>("SP_DCenter_Bom_Children", ct, Sql.TextList("@Items", items));
+        return sp.QueryAsync<BomLinkDto>("SP_Bom_Children", ct, Sql.TextList("@Items", items));
     }
 
     private Task<List<WorkOrderSummary>> SummariesAsync(string? prefix, bool exact, int skip, int take, CancellationToken ct)
-        => sp.QueryAsync<WorkOrderSummary>("SP_DCenter_WorkOrder_Search", ct,
+        => sp.QueryAsync<WorkOrderSummary>("SP_WorkOrder_Search", ct,
             Sql.VarChar("@Prefix", prefix, 200), Sql.Bit("@Exact", exact), Sql.Int("@Skip", skip), Sql.Int("@Take", take));
 }

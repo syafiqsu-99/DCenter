@@ -63,7 +63,7 @@ public class ConsumableLedger(StoredProcedures sp, ConsumableStore store, TimePr
 {
     // Stock per lot and stage, plus received / taken totals, last issue date and first receipt.
     public Task<List<LotLedgerRow>> LotsAsync(LedgerFilter filter, CancellationToken ct)
-        => sp.QueryAsync<LotLedgerRow>("SP_DCenter_Ledger_Lots", ct,
+        => sp.QueryAsync<LotLedgerRow>("SP_Ledger_Lots", ct,
             Sql.IdList("@ItemIds", filter.ItemIds), Sql.NVarChar("@Category", filter.Category, 30));
 
     public async Task<List<LotStageRow>> LotStagesAsync(LedgerFilter filter, CancellationToken ct)
@@ -76,19 +76,19 @@ public class ConsumableLedger(StoredProcedures sp, ConsumableStore store, TimePr
         => (await LotStagesForItemAsync(itemId, ct)).Select(l => (LotId: l.LotId, Available: l.Totals.NormalKg)).ToList();
 
     public Task<List<BinRow>> ActivatedBinsAsync(LedgerFilter filter, CancellationToken ct)
-        => sp.QueryAsync<BinRow>("SP_DCenter_Ledger_ActivatedBins", ct,
+        => sp.QueryAsync<BinRow>("SP_Ledger_ActivatedBins", ct,
             Sql.IdList("@ItemIds", filter.ItemIds), Sql.NVarChar("@Category", filter.Category, 30),
             Sql.Bit("@AnyCompartment", filter.AnyCompartment), Sql.Int("@CompartmentId", filter.CompartmentId));
 
     // Kg per consumable, month and transaction type from a date (and before another, when given).
     public Task<List<MonthlyFlow>> MonthlyAsync(DateOnly from, DateOnly? before, string? category, CancellationToken ct)
-        => sp.QueryAsync<MonthlyFlow>("SP_DCenter_Ledger_Monthly", ct,
+        => sp.QueryAsync<MonthlyFlow>("SP_Ledger_Monthly", ct,
             Sql.Date("@From", from), Sql.Date("@Before", before), Sql.NVarChar("@Category", category, 30));
 
     // What a welder picked and returned per consumable within a date window.
     public Task<List<WelderFlow>> WelderAsync(
         int welderId, DateOnly since, DateOnly? until, int? itemId, string? category, CancellationToken ct)
-        => sp.QueryAsync<WelderFlow>("SP_DCenter_Ledger_Welder", ct,
+        => sp.QueryAsync<WelderFlow>("SP_Ledger_Welder", ct,
             Sql.Int("@WelderId", welderId), Sql.Date("@Since", since), Sql.Date("@Until", until),
             Sql.Int("@ItemId", itemId), Sql.NVarChar("@Category", category, 30));
 
@@ -121,7 +121,7 @@ public class ConsumableLedger(StoredProcedures sp, ConsumableStore store, TimePr
     }
 
     private Task<List<BakingFact>> BakingFactsAsync(List<int> ids, CancellationToken ct)
-        => sp.QueryAsync<BakingFact>("SP_DCenter_Ledger_Baking", ct, Sql.IdList("@Ids", ids));
+        => sp.QueryAsync<BakingFact>("SP_Ledger_Baking", ct, Sql.IdList("@Ids", ids));
 
     public static string DeriveStatus(BakingRecord r, bool sent, bool rebakeReturned, decimal balance)
     {
@@ -158,17 +158,17 @@ public class ConsumableLedger(StoredProcedures sp, ConsumableStore store, TimePr
         return (await store.CompartmentsAsync(list, ct)).ToDictionary(c => c.Id, c => c.Label);
     }
 
-    public Task<string> NextTxnNoAsync(CancellationToken ct) => NextNumberAsync(ConsumableStockModel.TxnSequence, "CT", "000000", ct);
+    public Task<string> NextTxnNoAsync(CancellationToken ct) => NextNumberAsync("CT", "000000", ct);
 
-    public Task<string> NextBakingNoAsync(CancellationToken ct) => NextNumberAsync(ConsumableStockModel.BakingSequence, "BK", "0000", ct);
+    public Task<string> NextBakingNoAsync(CancellationToken ct) => NextNumberAsync("BK", "0000", ct);
 
-    public Task<string> NextHoldingNoAsync(CancellationToken ct) => NextNumberAsync(ConsumableStockModel.HoldingSequence, "HD", "0000", ct);
+    public Task<string> NextHoldingNoAsync(CancellationToken ct) => NextNumberAsync("HD", "0000", ct);
 
-    public Task<string> NextStockCountNoAsync(CancellationToken ct) => NextNumberAsync(ConsumableStockModel.StockCountSequence, "SC", "0000", ct);
+    public Task<string> NextStockCountNoAsync(CancellationToken ct) => NextNumberAsync("SC", "0000", ct);
 
-    private async Task<string> NextNumberAsync(string sequence, string prefix, string pattern, CancellationToken ct)
+    private async Task<string> NextNumberAsync(string prefix, string pattern, CancellationToken ct)
     {
-        var next = await sp.ScalarAsync<long>("SP_DCenter_Sequence_Next", ct, Sql.NVarChar("@Sequence", sequence, 50));
+        var next = await sp.ScalarAsync<long>("SP_Sequence_Next", ct);
         return $"{prefix}-{time.LocalNow():yy}-{next.ToString(pattern)}";
     }
 

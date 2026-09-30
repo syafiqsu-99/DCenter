@@ -32,7 +32,7 @@ public sealed record StockCountRow(
     int Id, string ReferenceNo, DateOnly CountDate, string Scope, string? Category, int LinesCounted, int LinesAdjusted,
     decimal GainKg, decimal LossKg, string? TxnNo, bool IsVoided, string? Remarks, string? CreatedBy, DateTime CreatedAt);
 
-// Filters for the transaction list; Sort picks the order (see SP_DCenter_Movement_List).
+// Filters for the transaction list; Sort picks the order (see SP_Movement_List).
 public sealed record MovementQuery(
     string? TxnNo = null, bool LiveOnly = false, int? WelderId = null, DateTime? CreatedFrom = null, string? TxnType = null,
     bool ExcludeVoidEntries = false, string? ReferenceNo = null, DateOnly? From = null, DateOnly? To = null, string? Stage = null,
@@ -61,7 +61,7 @@ public class ConsumableStore(StoredProcedures sp)
 
     // Inserts the consumable when its Id is 0 (and sets the Id), otherwise updates it.
     public async Task SaveItemAsync(ConsumableItem item, CancellationToken ct)
-        => item.Id = await StoredProcedures.Write(sp.ScalarAsync<int>("SP_DCenter_Item_Save", ct,
+        => item.Id = await StoredProcedures.Write(sp.ScalarAsync<int>("SP_Item_Save", ct,
             Sql.Int("@Id", item.Id == 0 ? null : item.Id),
             Sql.NVarChar("@Category", item.Category, 30),
             Sql.NVarChar("@Specification", item.Specification, 100),
@@ -74,7 +74,7 @@ public class ConsumableStore(StoredProcedures sp)
             Sql.DateTime2("@CreatedAt", item.CreatedAt)));
 
     public Task DeleteItemAsync(int id, CancellationToken ct)
-        => StoredProcedures.Write(sp.ExecuteAsync("SP_DCenter_Item_Delete", ct, Sql.Int("@Id", id)));
+        => StoredProcedures.Write(sp.ExecuteAsync("SP_Item_Delete", ct, Sql.Int("@Id", id)));
 
     public async Task<(int Movements, int Bakings)> ItemHistoryAsync(int itemId, CancellationToken ct)
     {
@@ -94,21 +94,21 @@ public class ConsumableStore(StoredProcedures sp)
     }
 
     public Task<List<LotRow>> LotsAsync(IEnumerable<int>? ids, IEnumerable<int>? itemIds, string? category, CancellationToken ct)
-        => sp.QueryAsync<LotRow>("SP_DCenter_Lot_List", ct,
+        => sp.QueryAsync<LotRow>("SP_Lot_List", ct,
             Sql.IdList("@Ids", ids), Sql.IdList("@ItemIds", itemIds), Sql.NVarChar("@Category", category, 30));
 
     public async Task<int?> FindLotAsync(int itemId, string brand, string lotNumber, CancellationToken ct)
-        => (await sp.QueryAsync<LotRow>("SP_DCenter_Lot_List", ct,
+        => (await sp.QueryAsync<LotRow>("SP_Lot_List", ct,
             Sql.IdList("@ItemIds", [itemId]), Sql.NVarChar("@Brand", brand, 100), Sql.NVarChar("@LotNumber", lotNumber, 60)))
             .Select(l => (int?)l.Id).FirstOrDefault();
 
     public async Task InsertLotAsync(ConsumableItemLot lot, CancellationToken ct)
-        => lot.Id = await StoredProcedures.Write(sp.ScalarAsync<int>("SP_DCenter_Lot_Save", ct,
+        => lot.Id = await StoredProcedures.Write(sp.ScalarAsync<int>("SP_Lot_Save", ct,
             Sql.Int("@ItemId", lot.ItemId), Sql.NVarChar("@Brand", lot.Brand, 100), Sql.NVarChar("@LotNumber", lot.LotNumber, 60),
             Sql.DateTime2("@CreatedAt", lot.CreatedAt)));
 
     public Task<List<ConsumableMovement>> MovementsAsync(string? txnNo, bool notVoidedOnly, IEnumerable<int>? ids, CancellationToken ct)
-        => sp.EntitiesAsync<ConsumableMovement>("SP_DCenter_Movement_Get", ct,
+        => sp.EntitiesAsync<ConsumableMovement>("SP_Movement_Get", ct,
             Sql.NVarChar("@TxnNo", txnNo, 20), Sql.Bit("@NotVoidedOnly", notVoidedOnly), Sql.IdList("@Ids", ids));
 
     // Marks the given lines voided and adds the new ledger lines in the given order, in one statement batch.
@@ -121,14 +121,14 @@ public class ConsumableStore(StoredProcedures sp)
             m.Remarks, m.IsVoided, m.VoidsMovementId, m.CreatedBy, m.CreatedAt,
         }).ToList();
         if (rows.Count == 0 && voidIds is null) return Task.CompletedTask;
-        return StoredProcedures.Write(sp.ExecuteAsync("SP_DCenter_Movement_Save", ct,
+        return StoredProcedures.Write(sp.ExecuteAsync("SP_Movement_Save", ct,
             Sql.Json("@Rows", rows), Sql.IdList("@VoidIds", voidIds)));
     }
 
     public async Task<(List<TransactionDto> Rows, int Total)> TransactionsAsync(MovementQuery q, CancellationToken ct)
     {
         var total = Sql.OutputInt("@Total");
-        var rows = await sp.QueryAsync<TransactionDto>("SP_DCenter_Movement_List", ct,
+        var rows = await sp.QueryAsync<TransactionDto>("SP_Movement_List", ct,
             Sql.NVarChar("@TxnNo", q.TxnNo, 20),
             Sql.Bit("@LiveOnly", q.LiveOnly),
             Sql.Int("@WelderId", q.WelderId),
@@ -153,7 +153,7 @@ public class ConsumableStore(StoredProcedures sp)
     }
 
     public Task<List<OvenCompartmentRow>> OvenCompartmentsAsync(IEnumerable<int>? ids, CancellationToken ct)
-        => sp.QueryAsync<OvenCompartmentRow>("SP_DCenter_Oven_Compartments", ct, Sql.IdList("@Ids", ids));
+        => sp.QueryAsync<OvenCompartmentRow>("SP_Oven_Compartments", ct, Sql.IdList("@Ids", ids));
 
     public async Task<List<CompartmentRow>> CompartmentsAsync(IEnumerable<int>? ids, CancellationToken ct)
         => (await OvenCompartmentsAsync(ids, ct))
@@ -193,13 +193,13 @@ public class ConsumableStore(StoredProcedures sp)
             Seq = seq, Id = r.Id == 0 ? (int?)null : r.Id, r.BakingNo, r.LotId, r.QuantityKg, r.PersonInCharge, r.BakingDate,
             r.BakeStart, r.BakeStop, r.RebakeStart, r.RebakeStop, r.Status, r.Remarks, r.CreatedBy, r.CreatedAt,
         });
-        var ids = await StoredProcedures.Write(sp.QueryAsync<int>("SP_DCenter_Baking_Save", ct, Sql.Json("@Rows", rows)));
+        var ids = await StoredProcedures.Write(sp.QueryAsync<int>("SP_Baking_Save", ct, Sql.Json("@Rows", rows)));
         var added = records.Where(r => r.Id == 0).ToList();
         for (var i = 0; i < added.Count; i++) added[i].Id = ids[i];
     }
 
     public async Task AddHoldingAsync(HoldingRecord h, CancellationToken ct)
-        => h.Id = await StoredProcedures.Write(sp.ScalarAsync<int>("SP_DCenter_Holding_Save", ct,
+        => h.Id = await StoredProcedures.Write(sp.ScalarAsync<int>("SP_Holding_Save", ct,
             Sql.NVarChar("@HoldingNo", h.HoldingNo, 20), Sql.Date("@HoldingDate", h.HoldingDate),
             Sql.Int("@BakingRecordId", h.BakingRecordId), Sql.Int("@WelderId", h.WelderId),
             Sql.NVarChar("@WelderName", h.WelderName, 200), Sql.Int("@CompartmentId", h.CompartmentId),
@@ -211,22 +211,22 @@ public class ConsumableStore(StoredProcedures sp)
         int? id, DateOnly? from, DateOnly? to, IEnumerable<string> terms, int skip, int take, CancellationToken ct)
     {
         var total = Sql.OutputInt("@Total");
-        var rows = await sp.QueryAsync<HoldingRecordDto>("SP_DCenter_Holding_List", ct,
+        var rows = await sp.QueryAsync<HoldingRecordDto>("SP_Holding_List", ct,
             Sql.Int("@Id", id), Sql.Date("@From", from), Sql.Date("@To", to), Sql.TextList("@Terms", terms),
             Sql.Int("@Skip", skip), Sql.Int("@Take", take), total);
         return (rows, (int)total.Value);
     }
 
     public Task VoidHoldingsAsync(string txnNo, CancellationToken ct)
-        => StoredProcedures.Write(sp.ExecuteAsync("SP_DCenter_Holding_Void", ct, Sql.NVarChar("@TxnNo", txnNo, 20)));
+        => StoredProcedures.Write(sp.ExecuteAsync("SP_Holding_Void", ct, Sql.NVarChar("@TxnNo", txnNo, 20)));
 
     public Task RelocateHoldingsAsync(int fromCompartmentId, int toCompartmentId, IEnumerable<int> lotIds, CancellationToken ct)
-        => StoredProcedures.Write(sp.ExecuteAsync("SP_DCenter_Holding_Relocate", ct,
+        => StoredProcedures.Write(sp.ExecuteAsync("SP_Holding_Relocate", ct,
             Sql.Int("@FromCompartmentId", fromCompartmentId), Sql.Int("@ToCompartmentId", toCompartmentId),
             Sql.IdList("@LotIds", lotIds)));
 
     public async Task AddStockCountAsync(StockCount c, CancellationToken ct)
-        => c.Id = await StoredProcedures.Write(sp.ScalarAsync<int>("SP_DCenter_StockCount_Save", ct,
+        => c.Id = await StoredProcedures.Write(sp.ScalarAsync<int>("SP_StockCount_Save", ct,
             Sql.NVarChar("@ReferenceNo", c.ReferenceNo, 20), Sql.Date("@CountDate", c.CountDate), Sql.NVarChar("@Scope", c.Scope, 20),
             Sql.NVarChar("@Category", c.Category, 30), Sql.Int("@LinesCounted", c.LinesCounted), Sql.Int("@LinesAdjusted", c.LinesAdjusted),
             Sql.Decimal("@GainKg", c.GainKg, 10, 2), Sql.Decimal("@LossKg", c.LossKg, 10, 2), Sql.NVarChar("@TxnNo", c.TxnNo, 20),
@@ -236,30 +236,30 @@ public class ConsumableStore(StoredProcedures sp)
         int? id, string? referenceNo, DateOnly? from, DateOnly? to, string? scope, int skip, int take, CancellationToken ct)
     {
         var total = Sql.OutputInt("@Total");
-        var rows = await sp.QueryAsync<StockCountRow>("SP_DCenter_StockCount_List", ct,
+        var rows = await sp.QueryAsync<StockCountRow>("SP_StockCount_List", ct,
             Sql.Int("@Id", id), Sql.NVarChar("@ReferenceNo", referenceNo, 20), Sql.Date("@From", from), Sql.Date("@To", to),
             Sql.NVarChar("@Scope", scope, 20), Sql.Int("@Skip", skip), Sql.Int("@Take", take), total);
         return (rows, (int)total.Value);
     }
 
     public Task<List<LookupItem>> LookupsAsync(string category, CancellationToken ct)
-        => sp.EntitiesAsync<LookupItem>("SP_DCenter_Lookup_List", ct, Sql.NVarChar("@Category", category, 50));
+        => sp.EntitiesAsync<LookupItem>("SP_Lookup_List", ct, Sql.NVarChar("@Category", category, 50));
 
     public async Task AddLookupsAsync(IReadOnlyList<LookupItem> lookups, CancellationToken ct)
     {
         if (lookups.Count == 0) return;
         var rows = lookups.Select((l, seq) => new { Seq = seq, Id = (int?)null, l.Category, l.Value, l.SortOrder, l.IsActive });
-        await StoredProcedures.Write(sp.EntitiesAsync<LookupItem>("SP_DCenter_Lookup_Save", ct, Sql.Json("@Rows", rows)));
+        await StoredProcedures.Write(sp.EntitiesAsync<LookupItem>("SP_Lookup_Save", ct, Sql.Json("@Rows", rows)));
     }
 
     private Task<List<ItemRow>> ItemRowsAsync(CancellationToken ct, params SqlParameter[] parameters)
-        => sp.QueryAsync<ItemRow>("SP_DCenter_Item_List", ct, parameters);
+        => sp.QueryAsync<ItemRow>("SP_Item_List", ct, parameters);
 
     private async Task<(List<BakingDetailRow> Rows, int Total)> BakingRowsAsync(
         CancellationToken ct, params SqlParameter[] parameters)
     {
         var total = Sql.OutputInt("@Total");
-        var rows = await sp.QueryAsync<BakingDetailRow>("SP_DCenter_Baking_List", ct, [.. parameters, total]);
+        var rows = await sp.QueryAsync<BakingDetailRow>("SP_Baking_List", ct, [.. parameters, total]);
         return (rows, (int)total.Value);
     }
 

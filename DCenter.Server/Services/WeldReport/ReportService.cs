@@ -11,7 +11,7 @@ public class ReportService(StoredProcedures sp, TimeProvider time)
     // The report with its joints and electrode data, read in one statement so they come from one version.
     public async Task<Report?> GetEntityAsync(string workOrderNumber, CancellationToken ct)
     {
-        var json = await sp.ScalarAsync<string?>("SP_DCenter_Report_Get", ct,
+        var json = await sp.ScalarAsync<string?>("SP_Report_Get", ct,
             Sql.NVarChar("@WorkOrderNumber", workOrderNumber, ReportSaveRules.MaxWorkOrderLength));
         return json is null ? null : JsonSerializer.Deserialize<Report>(json, Sql.JsonOptions);
     }
@@ -23,7 +23,7 @@ public class ReportService(StoredProcedures sp, TimeProvider time)
     }
 
     public Task<List<ReportSummary>> ListAsync(CancellationToken ct)
-        => sp.QueryAsync<ReportSummary>("SP_DCenter_Report_List", ct);
+        => sp.QueryAsync<ReportSummary>("SP_Report_List", ct);
 
     public enum CompleteResult { Ok, NotFound, DateWeldedRequired, Incomplete }
 
@@ -38,7 +38,7 @@ public class ReportService(StoredProcedures sp, TimeProvider time)
             return new(CompleteResult.Incomplete, problems);
 
         var now = time.LocalNow();
-        await StoredProcedures.Write(sp.ExecuteAsync("SP_DCenter_Report_SetStatus", ct,
+        await StoredProcedures.Write(sp.ExecuteAsync("SP_Report_SetStatus", ct,
             Sql.Int("@Id", r.Id),
             RowVersion(r.RowVersion),
             Sql.DateTime2("@CompletedAt", complete ? now : null),
@@ -53,7 +53,7 @@ public class ReportService(StoredProcedures sp, TimeProvider time)
     {
         var r = await GetEntityAsync(WorkOrderNumber, ct);
         if (r is null) return null;
-        return await sp.QueryAsync<ReportStatusEventDto>("SP_DCenter_Report_History", ct, Sql.Int("@ReportId", r.Id));
+        return await sp.QueryAsync<ReportStatusEventDto>("SP_Report_History", ct, Sql.Int("@ReportId", r.Id));
     }
 
     public enum DeleteResult { Ok, NotFound, Completed }
@@ -63,7 +63,7 @@ public class ReportService(StoredProcedures sp, TimeProvider time)
         var r = await GetEntityAsync(WorkOrderNumber, ct);
         if (r is null) return DeleteResult.NotFound;
         if (r.CompletedAt is not null) return DeleteResult.Completed;
-        await StoredProcedures.Write(sp.ExecuteAsync("SP_DCenter_Report_Delete", ct, Sql.Int("@Id", r.Id)));
+        await StoredProcedures.Write(sp.ExecuteAsync("SP_Report_Delete", ct, Sql.Int("@Id", r.Id)));
         return DeleteResult.Ok;
     }
 
@@ -80,7 +80,7 @@ public class ReportService(StoredProcedures sp, TimeProvider time)
 
         try
         {
-            await StoredProcedures.Write(sp.ScalarAsync<int>("SP_DCenter_Report_Save", ct,
+            await StoredProcedures.Write(sp.ScalarAsync<int>("SP_Report_Save", ct,
             [
                 Sql.Int("@Id", r?.Id),
                 RowVersion(r is null ? null : Convert.FromBase64String(dto.RowVersion!)),

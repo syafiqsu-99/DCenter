@@ -6,7 +6,7 @@ using static DCenter.Server.Services.ReferenceCsv;
 namespace DCenter.Server.Services;
 
 // One reference table (WPS, MRN, BPVC IX): its CSV columns, key and how values map onto the entity.
-// Name picks the procedures SP_DCenter_{Name}_List/Save/Delete; Save reads the rows as JSON keyed by the CSV headers.
+// Name picks the procedures SP_{Name}_List/Save/Delete; Save reads the rows as JSON arrays.
 public interface IReferenceTable<TEntity> where TEntity : class, new()
 {
     Column[] Columns { get; }
@@ -27,7 +27,7 @@ public class ReferenceTableService<TEntity>(
     public const string SaveConflict =
         "This change could not be saved because the table changed at the same time. Reload the list and try again.";
 
-    private string Procedure(string action) => $"SP_DCenter_{table.Name}_{action}";
+    private string Procedure(string action) => $"SP_{table.Name}_{action}";
 
     public Task<List<TEntity>> ListAsync(CancellationToken ct)
         => sp.EntitiesAsync<TEntity>(Procedure("List"), ct);

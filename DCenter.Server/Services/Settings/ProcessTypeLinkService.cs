@@ -10,7 +10,7 @@ public class ProcessTypeLinkService(StoredProcedures sp)
     private const string Exists = "That Process–Type link already exists.";
 
     public Task<List<ProcessTypeLinkDto>> ListAsync(CancellationToken ct)
-        => sp.QueryAsync<ProcessTypeLinkDto>("SP_DCenter_ProcessTypeLink_List", ct);
+        => sp.QueryAsync<ProcessTypeLinkDto>("SP_ProcessTypeLink_List", ct);
 
     public async Task<ServiceResult<ProcessTypeLinkDto>> CreateAsync(ProcessTypeLinkUpsert dto, CancellationToken ct)
     {
@@ -21,12 +21,12 @@ public class ProcessTypeLinkService(StoredProcedures sp)
         if (process.Length > MaxLength || type.Length > MaxLength)
             return ServiceResult<ProcessTypeLinkDto>.Fail($"Process and Type are limited to {MaxLength} characters.");
 
-        if ((await sp.QueryAsync<ProcessTypeLinkDto>("SP_DCenter_ProcessTypeLink_List", ct, Key(process, type))).Count > 0)
+        if ((await sp.QueryAsync<ProcessTypeLinkDto>("SP_ProcessTypeLink_List", ct, Key(process, type))).Count > 0)
             return ServiceResult<ProcessTypeLinkDto>.Fail(Exists, StatusCodes.Status409Conflict);
 
         try
         {
-            var link = await StoredProcedures.Write(sp.QueryAsync<ProcessTypeLinkDto>("SP_DCenter_ProcessTypeLink_Insert", ct, Key(process, type)));
+            var link = await StoredProcedures.Write(sp.QueryAsync<ProcessTypeLinkDto>("SP_ProcessTypeLink_Insert", ct, Key(process, type)));
             return ServiceResult<ProcessTypeLinkDto>.Ok(link.Single());
         }
         catch (DbUpdateException ex) when (ReportSaveRules.IsDuplicateKey(ex))
@@ -37,7 +37,7 @@ public class ProcessTypeLinkService(StoredProcedures sp)
 
     public async Task<ServiceResult<bool>> DeleteAsync(int id, CancellationToken ct)
     {
-        var deleted = await StoredProcedures.Write(sp.ScalarAsync<int>("SP_DCenter_ProcessTypeLink_Delete", ct, Sql.Int("@Id", id)));
+        var deleted = await StoredProcedures.Write(sp.ScalarAsync<int>("SP_ProcessTypeLink_Delete", ct, Sql.Int("@Id", id)));
         return deleted == 0 ? ServiceResult<bool>.NotFound() : ServiceResult<bool>.Ok(true);
     }
 

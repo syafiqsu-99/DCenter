@@ -20,7 +20,7 @@ public class ReportInsightsService(StoredProcedures sp, TimeProvider time)
         var windowStartAt = windowStart.ToDateTime(TimeOnly.MinValue);
         var staleBefore = time.LocalNow().AddDays(-StaleDraftDays);
 
-        var json = await sp.ScalarAsync<string>("SP_DCenter_Report_Dashboard", ct,
+        var json = await sp.ScalarAsync<string>("SP_Report_Dashboard", ct,
             Sql.Date("@WindowStart", windowStart), Sql.DateTime2("@WindowStartAt", windowStartAt), Sql.Int("@Take", 10));
         var data = JsonSerializer.Deserialize<DashboardData>(json, Sql.JsonOptions)!;
         var reports = data.Reports ?? [];
@@ -82,7 +82,7 @@ public class ReportInsightsService(StoredProcedures sp, TimeProvider time)
     {
         if (!TraceFields.Contains(field)) throw new ArgumentOutOfRangeException(nameof(field), field, "Unknown trace field.");
 
-        var rows = await sp.QueryAsync<TraceRow>("SP_DCenter_Report_Trace", ct,
+        var rows = await sp.QueryAsync<TraceRow>("SP_Report_Trace", ct,
             Sql.NVarChar("@Field", field, 20), Sql.NVarChar("@Q", q, 4000), Sql.Int("@Take", TraceLimit + 1));
 
         var items = rows.Take(TraceLimit).Select(r => new TraceRowDto(
@@ -97,7 +97,7 @@ public class ReportInsightsService(StoredProcedures sp, TimeProvider time)
         string WorkOrderNumber, string? PartNo, string? Description, DateTime? CompletedAt, DateTime UpdatedAt,
         DateOnly? DateWelded, int JointCount);
 
-    // The three result sets of SP_DCenter_Report_Dashboard; an empty set comes back as null.
+    // The three result sets of SP_Report_Dashboard; an empty set comes back as null.
     private sealed record DashboardData(List<DashboardReport>? Reports, List<WelderCount>? Welders, List<WpsCount>? Wps);
 
     private sealed record WelderCount(string? WelderNo, string? WelderName, int Count);

@@ -16,7 +16,7 @@
 
     Re-run this script whenever it changes, then run DCenter_StoredProcedures.sql. These are the only
     DCenter views: they expose OracleBetsyDB data. The API walks a work order's BOM one level at a
-    time through dcenter.V_DCenter_Bom (the children of a set of parent items per call).
+    time through dcenter.V_Bom (the children of a set of parent items per call).
 
     The views live in schema [dcenter] with every other DCenter object. Earlier releases created
     dbo.vw_DCenter_WorkOrder and dbo.vw_DCenter_Bom; DCenter_SchemaUpgrade.sql removes them.
@@ -29,13 +29,13 @@ GO
 IF SCHEMA_ID(N'dcenter') IS NULL EXEC (N'CREATE SCHEMA [dcenter] AUTHORIZATION [dbo]');
 GO
 
-CREATE OR ALTER VIEW dcenter.V_DCenter_WorkOrder
+CREATE OR ALTER VIEW dcenter.V_WorkOrder
 AS
 SELECT w.WO_NUMBER, w.ASSEMBLY_ITEM, w.ITEM_DESC, w.START_QUANTITY
 FROM OracleBetsyDB.dbo.Work_Order_Detail w;
 GO
 
-CREATE OR ALTER VIEW dcenter.V_DCenter_Bom
+CREATE OR ALTER VIEW dcenter.V_Bom
 AS
 SELECT b.ITEM, b.COMPONENT, MAX(b.COMPONENT_DESC) AS COMPONENT_DESC
 FROM OracleBetsyDB.dbo.Bill_Of_Material_Others b

@@ -52,13 +52,13 @@ public class LookupService(StoredProcedures sp, ILogger<LookupService> logger)
     public async Task ReorderAsync(List<int> ids, CancellationToken ct)
     {
         var rows = ids.Distinct().Select(id => new { Id = id, SortOrder = ids.IndexOf(id) });
-        await StoredProcedures.Write(sp.ExecuteAsync("SP_DCenter_Lookup_Reorder", ct, Sql.Json("@Rows", rows)));
+        await StoredProcedures.Write(sp.ExecuteAsync("SP_Lookup_Reorder", ct, Sql.Json("@Rows", rows)));
     }
 
     public async Task<ServiceResult<bool>> DeleteAsync(int id, CancellationToken ct)
     {
         if (!await ExistsAsync(id, ct)) return ServiceResult<bool>.NotFound();
-        await StoredProcedures.Write(sp.ExecuteAsync("SP_DCenter_Lookup_Delete", ct, Sql.Int("@Id", id)));
+        await StoredProcedures.Write(sp.ExecuteAsync("SP_Lookup_Delete", ct, Sql.Int("@Id", id)));
         return ServiceResult<bool>.Ok(true);
     }
 
@@ -120,13 +120,13 @@ public class LookupService(StoredProcedures sp, ILogger<LookupService> logger)
     private static LookupDto ToDto(LookupItem l) => new(l.Id, l.Category, l.Value, l.SortOrder, l.IsActive);
 
     private Task<List<LookupItem>> ItemsAsync(string? category, CancellationToken ct)
-        => sp.EntitiesAsync<LookupItem>("SP_DCenter_Lookup_List", ct, Sql.NVarChar("@Category", category, 50));
+        => sp.EntitiesAsync<LookupItem>("SP_Lookup_List", ct, Sql.NVarChar("@Category", category, 50));
 
     private async Task<bool> ExistsAsync(int id, CancellationToken ct)
-        => (await sp.EntitiesAsync<LookupItem>("SP_DCenter_Lookup_List", ct, Sql.Int("@Id", id))).Count > 0;
+        => (await sp.EntitiesAsync<LookupItem>("SP_Lookup_List", ct, Sql.Int("@Id", id))).Count > 0;
 
     private async Task<bool> IsDuplicateAsync(string category, string value, int? excludeId, CancellationToken ct)
-        => (await sp.EntitiesAsync<LookupItem>("SP_DCenter_Lookup_List", ct,
+        => (await sp.EntitiesAsync<LookupItem>("SP_Lookup_List", ct,
             Sql.NVarChar("@Category", category, 50), Sql.NVarChar("@Value", value, MaxValueLength), Sql.Int("@ExcludeId", excludeId ?? 0))).Count > 0;
 
     private static ServiceResult<T> Duplicate<T>(string category, string value)
@@ -138,7 +138,7 @@ public class LookupService(StoredProcedures sp, ILogger<LookupService> logger)
         var rows = updated.Select(l => (Id: (int?)l.Id, Item: l))
             .Concat(added.Select(l => (Id: (int?)null, Item: l)))
             .Select((r, seq) => new { Seq = seq, r.Id, r.Item.Category, r.Item.Value, r.Item.SortOrder, r.Item.IsActive });
-        return StoredProcedures.Write(sp.EntitiesAsync<LookupItem>("SP_DCenter_Lookup_Save", ct, Sql.Json("@Rows", rows)));
+        return StoredProcedures.Write(sp.EntitiesAsync<LookupItem>("SP_Lookup_Save", ct, Sql.Json("@Rows", rows)));
     }
 
     // Null when the category/value pair already exists.

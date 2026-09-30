@@ -8,7 +8,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace DCenter.Server.Services;
 
-// Runs dcenter.SP_DCenter_* procedures on the request's WeldReportContext connection, inside its current
+// Runs dcenter.SP_* procedures on the request's WeldReportContext connection, inside its current
 // transaction when one is open (so sp_getapplock ordering and transaction scope stay in C#).
 public sealed class StoredProcedures(WeldReportContext db)
 {

@@ -62,7 +62,7 @@ public class ConsumableGuards(
         => welderId is int id && await WelderAsync(id, ct) is { } w ? new ReceiverRef(w.WelderName, w.IsActive) : null;
 
     private Task<WelderDto?> WelderAsync(int id, CancellationToken ct)
-        => sp.FirstOrDefaultAsync<WelderDto>("SP_DCenter_Welder_List", ct, Sql.Int("@Id", id));
+        => sp.FirstOrDefaultAsync<WelderDto>("SP_Welder_List", ct, Sql.Int("@Id", id));
 
     public static (int? Bin, string? Error) ResolveBin(ItemRef item, int? compartmentId)
         => item.IsElectrode || compartmentId is null

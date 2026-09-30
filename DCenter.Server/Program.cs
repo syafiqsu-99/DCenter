@@ -100,17 +100,17 @@ using (var schemaScope = app.Services.CreateScope())
     try
     {
         notUpgraded = await schemaDb.Database.SqlQueryRaw<int>(
-                "SELECT CASE WHEN OBJECT_ID(N'dcenter.__EFMigrationsHistory', N'U') IS NULL AND OBJECT_ID(N'dbo.DCenter_Welders', N'U') IS NOT NULL THEN 1 ELSE 0 END AS [Value]")
+                "SELECT CASE WHEN EXISTS (SELECT 1 FROM sys.tables WHERE [name] = N'DCenter_Welders') THEN 1 ELSE 0 END AS [Value]")
             .SingleAsync();
     }
     catch (Exception ex)
     {
-        app.Logger.LogWarning(ex, "Could not check whether the DCenter tables were moved to the dcenter schema.");
+        app.Logger.LogWarning(ex, "Could not check whether DCenter_SchemaUpgrade.sql has been run.");
     }
     if (notUpgraded == 1)
     {
-        const string message = "The DCenter tables are still in the dbo schema. Stop the site, run Sql/DCenter/DCenter_SchemaUpgrade.sql " +
-                               "on the DCenter database, then start the site again.";
+        const string message = "The DCenter tables still have their old DCenter_ names. Stop the site, have a db_owner run " +
+                               "Sql/DCenter/DCenter_SchemaUpgrade.sql on the DCenter database, then start the site again.";
         app.Logger.LogCritical(message);
         throw new InvalidOperationException(message);
     }

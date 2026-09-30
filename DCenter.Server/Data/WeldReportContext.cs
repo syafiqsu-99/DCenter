@@ -35,7 +35,7 @@ public class WeldReportContext(DbContextOptions<WeldReportContext> options) : Db
 
         b.Entity<Welder>(e =>
         {
-            e.ToTable("DCenter_Welders");
+            e.ToTable("Welders");
             e.Property(x => x.WelderName).HasMaxLength(200).IsRequired();
             e.Property(x => x.WelderNo).HasMaxLength(50).IsRequired();
             e.HasIndex(x => x.WelderNo);
@@ -46,7 +46,7 @@ public class WeldReportContext(DbContextOptions<WeldReportContext> options) : Db
 
         b.Entity<LookupItem>(e =>
         {
-            e.ToTable("DCenter_Lookups");
+            e.ToTable("Lookups");
             e.Property(x => x.Category).HasMaxLength(50).IsRequired();
             e.Property(x => x.Value).HasMaxLength(200).IsRequired();
             e.HasIndex(x => new { x.Category, x.Value }).IsUnique();
@@ -54,7 +54,7 @@ public class WeldReportContext(DbContextOptions<WeldReportContext> options) : Db
 
         b.Entity<WpsItem>(e =>
         {
-            e.ToTable("DCenter_WpsItems");
+            e.ToTable("WpsItems");
             e.Property(x => x.WpsNo).HasMaxLength(200).IsRequired();
             e.Property(x => x.BaseMetal).HasMaxLength(200);
             e.Property(x => x.Process).HasMaxLength(100);
@@ -65,7 +65,7 @@ public class WeldReportContext(DbContextOptions<WeldReportContext> options) : Db
 
         b.Entity<Report>(e =>
         {
-            e.ToTable("DCenter_Reports");
+            e.ToTable("Reports");
             e.Property(x => x.WorkOrderNumber).HasMaxLength(100).IsRequired();
             e.HasIndex(x => x.WorkOrderNumber).IsUnique();
             e.HasIndex(x => x.UpdatedAt);
@@ -82,7 +82,7 @@ public class WeldReportContext(DbContextOptions<WeldReportContext> options) : Db
 
         b.Entity<ReportStatusEvent>(e =>
         {
-            e.ToTable("DCenter_ReportStatusEvents");
+            e.ToTable("ReportStatusEvents");
             e.Property(x => x.Action).HasMaxLength(50).IsRequired();
             e.Property(x => x.Details).HasMaxLength(1000);
             e.HasIndex(x => x.ReportId);
@@ -90,18 +90,18 @@ public class WeldReportContext(DbContextOptions<WeldReportContext> options) : Db
 
         b.Entity<Joint>(e =>
         {
-            e.ToTable("DCenter_Joints");
+            e.ToTable("Joints");
             e.HasMany(x => x.Materials)
              .WithOne(x => x.Joint)
              .HasForeignKey(x => x.JointId)
              .OnDelete(DeleteBehavior.Cascade);
         });
 
-        b.Entity<JointMaterial>(e => e.ToTable("DCenter_JointMaterials"));
+        b.Entity<JointMaterial>(e => e.ToTable("JointMaterials"));
 
         b.Entity<MrnSpec>(e =>
         {
-            e.ToTable("DCenter_MrnSpecs");
+            e.ToTable("MrnSpecs");
             e.Property(x => x.Mrn).HasMaxLength(100).IsRequired();
             e.Property(x => x.Form).HasMaxLength(200);
             e.Property(x => x.FullSpecification).HasMaxLength(400);
@@ -111,7 +111,7 @@ public class WeldReportContext(DbContextOptions<WeldReportContext> options) : Db
 
         b.Entity<BpvcMaterial>(e =>
         {
-            e.ToTable("DCenter_BpvcIx");
+            e.ToTable("BpvcIx");
             e.Property(x => x.SpecNo).HasMaxLength(100).IsRequired();
             e.Property(x => x.Designation).HasMaxLength(200);
             e.Property(x => x.UnsNo).HasMaxLength(100);
@@ -128,7 +128,7 @@ public class WeldReportContext(DbContextOptions<WeldReportContext> options) : Db
 
         b.Entity<ProcessTypeLink>(e =>
         {
-            e.ToTable("DCenter_ProcessTypeLinks");
+            e.ToTable("ProcessTypeLinks");
             e.Property(x => x.Process).HasMaxLength(200).IsRequired();
             e.Property(x => x.Type).HasMaxLength(200).IsRequired();
             e.HasIndex(x => new { x.Process, x.Type }).IsUnique();

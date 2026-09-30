@@ -57,7 +57,7 @@ public class SupervisorPasswordService(StoredProcedures sp, IOptions<ConsumableO
             return ServiceResult<SupervisorPasswordStatus>.Fail("The new password must be different from the current one.");
 
         var row = new SupervisorCredential { PasswordHash = Hash(next), UpdatedBy = user, UpdatedAt = time.LocalNow() };
-        await StoredProcedures.Write(sp.ExecuteAsync("SP_DCenter_Supervisor_SaveCredential", ct,
+        await StoredProcedures.Write(sp.ExecuteAsync("SP_Supervisor_SaveCredential", ct,
             Sql.Int("@Id", row.Id), Sql.NVarChar("@PasswordHash", row.PasswordHash, 400),
             Sql.NVarChar("@UpdatedBy", row.UpdatedBy, 200), Sql.DateTime2("@UpdatedAt", row.UpdatedAt)));
 
@@ -65,7 +65,7 @@ public class SupervisorPasswordService(StoredProcedures sp, IOptions<ConsumableO
     }
 
     private async Task<SupervisorCredential?> CredentialAsync(CancellationToken ct)
-        => (await sp.EntitiesAsync<SupervisorCredential>("SP_DCenter_Supervisor_Credential", ct,
+        => (await sp.EntitiesAsync<SupervisorCredential>("SP_Supervisor_Credential", ct,
             Sql.Int("@Id", SupervisorCredential.SingletonId))).FirstOrDefault();
 
     private static string Hash(string password)

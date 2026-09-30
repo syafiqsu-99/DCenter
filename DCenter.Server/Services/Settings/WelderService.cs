@@ -10,10 +10,10 @@ public class WelderService(StoredProcedures sp, ILogger<WelderService> logger)
     public const int SearchLimit = 20;
 
     public Task<List<WelderDto>> ListAsync(CancellationToken ct)
-        => sp.QueryAsync<WelderDto>("SP_DCenter_Welder_List", ct);
+        => sp.QueryAsync<WelderDto>("SP_Welder_List", ct);
 
     public Task<List<WelderDto>> SearchAsync(string? q, bool stockOnly, CancellationToken ct)
-        => sp.QueryAsync<WelderDto>("SP_DCenter_Welder_List", ct,
+        => sp.QueryAsync<WelderDto>("SP_Welder_List", ct,
             Sql.NVarChar("@Q", (q ?? string.Empty).Trim() is { Length: > 0 } term ? term : null, 4000),
             Sql.Bit("@ActiveOnly", true),
             Sql.Bit("@StockOnly", stockOnly),
@@ -26,7 +26,7 @@ public class WelderService(StoredProcedures sp, ILogger<WelderService> logger)
         if (await DuplicateAsync(number!, 0, ct) is string duplicate) return ServiceResult<WelderDto>.Fail(duplicate, StatusCodes.Status409Conflict);
 
         WelderDto? created = null;
-        if (!await TrySaveAsync(async () => created = (await sp.QueryAsync<WelderDto>("SP_DCenter_Welder_Save", ct, [Sql.Int("@Id", null), .. Fields(name!, number!, dto.IsActive, scope!)])).Single()))
+        if (!await TrySaveAsync(async () => created = (await sp.QueryAsync<WelderDto>("SP_Welder_Save", ct, [Sql.Int("@Id", null), .. Fields(name!, number!, dto.IsActive, scope!)])).Single()))
             return ServiceResult<WelderDto>.Fail(ConflictMessage, StatusCodes.Status409Conflict);
         return ServiceResult<WelderDto>.Ok(created!);
     }
@@ -39,7 +39,7 @@ public class WelderService(StoredProcedures sp, ILogger<WelderService> logger)
         if (await GetAsync(id, ct) is null) return ServiceResult<bool>.NotFound();
         if (await DuplicateAsync(number!, id, ct) is string duplicate) return ServiceResult<bool>.Fail(duplicate, StatusCodes.Status409Conflict);
 
-        if (!await TrySaveAsync(() => sp.QueryAsync<WelderDto>("SP_DCenter_Welder_Save", ct, [Sql.Int("@Id", id), .. Fields(name!, number!, dto.IsActive, scope!)])))
+        if (!await TrySaveAsync(() => sp.QueryAsync<WelderDto>("SP_Welder_Save", ct, [Sql.Int("@Id", id), .. Fields(name!, number!, dto.IsActive, scope!)])))
             return ServiceResult<bool>.Fail(ConflictMessage, StatusCodes.Status409Conflict);
         return ServiceResult<bool>.Ok(true);
     }
@@ -51,7 +51,7 @@ public class WelderService(StoredProcedures sp, ILogger<WelderService> logger)
         var ids = (dto.Ids ?? []).Distinct().ToList();
         if (ids.Count == 0) return ServiceResult<int>.Fail("Select at least one welder.");
 
-        var updated = await StoredProcedures.Write(sp.ScalarAsync<int>("SP_DCenter_Welder_SetScope", ct,
+        var updated = await StoredProcedures.Write(sp.ScalarAsync<int>("SP_Welder_SetScope", ct,
             Sql.IdList("@Ids", ids), Sql.NVarChar("@UsageScope", scope, 20)));
         return ServiceResult<int>.Ok(updated);
     }
@@ -63,7 +63,7 @@ public class WelderService(StoredProcedures sp, ILogger<WelderService> logger)
         var inUse = $"{w.WelderName} has consumable pickups or returns on record. Set the welder inactive instead.";
 
         var deleted = false;
-        if (!await TrySaveAsync(async () => deleted = await sp.ScalarAsync<bool>("SP_DCenter_Welder_Delete", ct, Sql.Int("@Id", id))) || !deleted)
+        if (!await TrySaveAsync(async () => deleted = await sp.ScalarAsync<bool>("SP_Welder_Delete", ct, Sql.Int("@Id", id))) || !deleted)
             return ServiceResult<bool>.Fail(inUse, StatusCodes.Status409Conflict);
         return ServiceResult<bool>.Ok(true);
     }
@@ -77,13 +77,13 @@ public class WelderService(StoredProcedures sp, ILogger<WelderService> logger)
         "This change could not be saved because the welder list changed at the same time. Reload and try again.";
 
     private Task<WelderDto?> GetAsync(int id, CancellationToken ct)
-        => sp.FirstOrDefaultAsync<WelderDto>("SP_DCenter_Welder_List", ct, Sql.Int("@Id", id));
+        => sp.FirstOrDefaultAsync<WelderDto>("SP_Welder_List", ct, Sql.Int("@Id", id));
 
     private async Task<string?> DuplicateAsync(string number, int excludeId, CancellationToken ct)
     {
         var holder = number.Length == 0
             ? null
-            : (await sp.FirstOrDefaultAsync<WelderDto>("SP_DCenter_Welder_List", ct,
+            : (await sp.FirstOrDefaultAsync<WelderDto>("SP_Welder_List", ct,
                 Sql.NVarChar("@WelderNo", number, 50), Sql.Int("@ExcludeId", excludeId), Sql.Int("@Take", 1)))?.WelderName;
         return DuplicateNumberError(number, holder);
     }
